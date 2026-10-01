@@ -1,0 +1,19 @@
+{
+  "name": "agent-skills",
+  "version": "0.1.0",
+  "description": "Shared, agent-agnostic skills for delivery teams. Reusable skills only; official Salesforce skills are referenced, never copied.",
+  "author": "Shriram Janakiraman",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "scrub": "node scripts/scrub-scan.mjs",
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/build.mjs --check",
+    "upstream": "node scripts/upstream-check.mjs",
+    "link": "node scripts/link.mjs",
+    "check": "npm run validate && npm run scrub && npm run build:check",
+    "setup-hooks": "git config core.hooksPath .githooks"
+  }
+}

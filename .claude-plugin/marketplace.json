@@ -1,0 +1,14 @@
+{
+  "name": "agent-skills",
+  "owner": {
+    "name": "Shriram Janakiraman"
+  },
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "description": "Shared, agent-agnostic skills for delivery teams. Reusable skills only; official Salesforce skills are referenced, never copied.",
+      "version": "0.1.0",
+      "source": "./plugin"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Blocks a commit that would leak client data or secrets. Enable once: npm run setup-hooks
+# Scrub BEFORE the first commit: removing a leak later does not remove it from git history.
+FILES=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$FILES" ] && exit 0
+node scripts/scrub-scan.mjs $FILES || { echo "pre-commit: commit blocked by scrub-scan."; exit 1; }
+if echo "$FILES" | grep -q '^skills/'; then
+  node scripts/validate.mjs || { echo "pre-commit: commit blocked by validate."; exit 1; }
+  node scripts/build.mjs --check || { echo "pre-commit: run 'npm run build' and stage the result."; exit 1; }
+fi

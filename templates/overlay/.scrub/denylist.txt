@@ -1,0 +1,4 @@
+# One term per line, case-insensitive, whole word. Lines starting with # are ignored.
+# Client and brand names, programme names, cartridge prefixes, site IDs, hostnames, people.
+# <client>
+# <brand>

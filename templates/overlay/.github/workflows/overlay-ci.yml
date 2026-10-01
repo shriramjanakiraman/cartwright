@@ -1,0 +1,16 @@
+name: overlay-ci
+on: [pull_request, push]
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: shriramjanakiraman/agent-skills
+          path: .core
+          token: ${{ secrets.CORE_REPO_TOKEN }}   # read-only token for the private core repo
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: No secrets, even in a private overlay
+        run: node .core/scripts/scrub-scan.mjs --secrets-only $(git ls-files 'skills/*.md' 'skills/**/*.md')

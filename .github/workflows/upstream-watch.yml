@@ -1,0 +1,40 @@
+name: upstream-watch
+# Door A: when an official publisher ships a change, open a pull request we must review.
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Compare upstream.lock.json with official sources
+        id: up
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          node scripts/upstream-check.mjs --write --report upstream-report.md
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+      - name: Open or update the review pull request
+        if: steps.up.outputs.code == '10'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/build.mjs
+          BRANCH=upstream/$(date -u +%Y-%m-%d)
+          git config user.name "upstream-watch"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add upstream.lock.json INDEX.md
+          git commit -m "Upstream changes $(date -u +%Y-%m-%d)"
+          git push -f origin "$BRANCH"
+          gh pr view "$BRANCH" >/dev/null 2>&1 \
+            && gh pr edit "$BRANCH" --body-file upstream-report.md \
+            || gh pr create --head "$BRANCH" --title "Upstream changes $(date -u +%Y-%m-%d)" --body-file upstream-report.md

@@ -1,0 +1,25 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Validate skills against the standard
+        run: node scripts/validate.mjs
+      - name: Scrub scan (data leakage)
+        run: node scripts/scrub-scan.mjs
+      - name: Generated plugin and INDEX are current
+        run: node scripts/build.mjs --check
+      - name: Secret scan across history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

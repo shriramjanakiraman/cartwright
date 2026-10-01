@@ -1,0 +1,8 @@
+{
+  "name": "agent-skills",
+  "version": "0.1.0",
+  "description": "Shared, agent-agnostic skills for delivery teams. Reusable skills only; official Salesforce skills are referenced, never copied.",
+  "author": {
+    "name": "Shriram Janakiraman"
+  }
+}

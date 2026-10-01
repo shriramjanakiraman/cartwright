@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+upstream-report.md
+# Client names live in each project's private overlay repo, never here.
+.scrub/denylist.local.txt

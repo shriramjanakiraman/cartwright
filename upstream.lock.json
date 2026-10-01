@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-10-01",
+  "sources": {
+    "b2c-developer-tooling": {
+      "type": "github-release",
+      "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
+      "tagPrefix": "b2c-agent-plugins@",
+      "install": "claude plugin marketplace add SalesforceCommerceCloud/b2c-developer-tooling  |  b2c setup skills <set> --ide <agent>",
+      "skillPaths": [
+        {
+          "pattern": "^skills/([^/]+)/skills/([^/]+)/SKILL\\.md$"
+        }
+      ],
+      "skills": {
+        "b2c-cli": [
+          "b2c-am",
+          "b2c-bm-users-roles",
+          "b2c-cap",
+          "b2c-cip",
+          "b2c-code",
+          "b2c-config",
+          "b2c-content",
+          "b2c-debug",
+          "b2c-docs",
+          "b2c-ecdn",
+          "b2c-import-set-migrations",
+          "b2c-job",
+          "b2c-logs",
+          "b2c-metrics",
+          "b2c-mrt",
+          "b2c-sandbox",
+          "b2c-scapi-custom",
+          "b2c-scapi-schemas",
+          "b2c-site-import-export",
+          "b2c-sites",
+          "b2c-slas",
+          "b2c-webdav"
+        ],
+        "b2c-experimental": [
+          "b2c-scaffold"
+        ],
+        "b2c-ops": [
+          "b2c-checkout-triage",
+          "b2c-job-health",
+          "b2c-order-failure-triage",
+          "b2c-production-triage"
+        ],
+        "b2c-python-sdk": [
+          "using-b2c-tooling-sdk"
+        ],
+        "b2c": [
+          "b2c-business-manager-extensions",
+          "b2c-controllers",
+          "b2c-custom-api-development",
+          "b2c-custom-caches",
+          "b2c-custom-job-steps",
+          "b2c-custom-objects",
+          "b2c-forms",
+          "b2c-hooks",
+          "b2c-isml",
+          "b2c-localization",
+          "b2c-logging",
+          "b2c-metadata",
+          "b2c-onboarding",
+          "b2c-ordering",
+          "b2c-page-designer",
+          "b2c-querying-data",
+          "b2c-scapi-admin",
+          "b2c-scapi-shopper",
+          "b2c-slas-auth-patterns",
+          "b2c-webservices"
+        ],
+        "figma-to-sfnext-pagedesigner": [
+          "figma-to-sfnext-pagedesigner"
+        ],
+        "storefront-next-figma": [
+          "sfnext-create-figma-kit"
+        ],
+        "storefront-next": [
+          "sfnext-authentication",
+          "sfnext-components",
+          "sfnext-configuration",
+          "sfnext-create-component",
+          "sfnext-create-vertical",
+          "sfnext-custom-apis",
+          "sfnext-data-fetching",
+          "sfnext-deployment",
+          "sfnext-extensions",
+          "sfnext-hybrid-storefronts",
+          "sfnext-i18n",
+          "sfnext-page-designer",
+          "sfnext-performance",
+          "sfnext-project-setup",
+          "sfnext-routing",
+          "sfnext-scapi-management",
+          "sfnext-state-management",
+          "sfnext-testing"
+        ]
+      },
+      "version": "1.10.3"
+    },
+    "b2c-dx-mcp": {
+      "type": "github-release",
+      "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
+      "tagPrefix": "@salesforce/b2c-dx-mcp@",
+      "install": "npx -y @salesforce/b2c-dx-mcp@latest --allow-non-ga-tools",
+      "skillPaths": [
+        {
+          "set": "b2c-dx-mcp",
+          "pattern": "^packages/b2c-dx-mcp/skills/([^/]+)/SKILL\\.md$"
+        }
+      ],
+      "skills": {
+        "b2c-dx-mcp": [
+          "b2c-config",
+          "cip",
+          "debugger",
+          "scapi",
+          "server"
+        ]
+      },
+      "version": "3.2.1"
+    },
+    "commerce-apps": {
+      "type": "github-branch",
+      "repo": "SalesforceCommerceCloud/commerce-apps",
+      "ref": "main",
+      "sha": "24232f4702fa1f34fd4505969941c21c22886672",
+      "install": "b2c setup skills cap-dev --ide <agent>",
+      "skillPaths": [
+        {
+          "set": "cap-dev",
+          "pattern": "^\\.claude/skills/([^/]+)/SKILL\\.md$"
+        }
+      ],
+      "skills": {
+        "cap-dev": [
+          "generate-custom-object-impex",
+          "generate-service-impex",
+          "generate-site-preferences-impex",
+          "package-app",
+          "scaffold-app",
+          "submit-app",
+          "validate-app",
+          "validate-impex"
+        ]
+      }
+    },
+    "storefront-next-template": {
+      "type": "github-branch",
+      "repo": "SalesforceCommerceCloud/storefront-next-template",
+      "ref": "main",
+      "sha": "d0987c09bf9db11ba1b657af97f736f6c937a344",
+      "install": "Ships inside projects created from the template",
+      "skillPaths": [
+        {
+          "set": "storefront-next-template",
+          "pattern": "^(?:e2e/)?\\.claude/skills/([^/]+)/SKILL\\.md$"
+        }
+      ],
+      "skills": {
+        "storefront-next-template": [
+          "generate-storefront-e2e-test",
+          "sync-shadcn"
+        ]
+      }
+    },
+    "spec-kit": {
+      "type": "github-release",
+      "repo": "github/spec-kit",
+      "version": "v1.0.13",
+      "install": "uv tool install specify-cli  (then: specify init --here --integration <agent>)",
+      "usedBy": [
+        "speckit-install",
+        "jira-to-implementation"
+      ],
+      "provides": [
+        "speckit-constitution",
+        "speckit-specify",
+        "speckit-clarify",
+        "speckit-plan",
+        "speckit-tasks",
+        "speckit-analyze",
+        "speckit-checklist",
+        "speckit-implement",
+        "speckit-converge",
+        "speckit-taskstoissues"
+      ]
+    },
+    "graphify": {
+      "type": "pypi",
+      "package": "graphifyy",
+      "version": "0.9.73",
+      "install": "uv tool install graphifyy  (installs the graphify CLI and its agent skill)",
+      "usedBy": [
+        "repo-orientation",
+        "jira-to-implementation"
+      ],
+      "provides": [
+        "graphify"
+      ]
+    }
+  }
+}
