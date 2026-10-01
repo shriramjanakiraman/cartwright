@@ -52,9 +52,8 @@ for (const o of official) for (const f of walk(o.dir)) out.set(`plugin/skills/${
 
 const licensed = [...new Set(official.map((o) => o.source))];
 for (const source of licensed) {
-  for (const f of ['LICENSE', 'LICENSE.txt', 'NOTICE', 'NOTICE.txt']) {
-    const p = join(UPSTREAM_DIR, source, f);
-    if (existsSync(p)) out.set(`plugin/licenses/${source}-${f}`, readFileSync(p));
+  for (const f of readdirSync(join(UPSTREAM_DIR, source))) {
+    if (/^(licen[cs]e|notice)(\.(txt|md))?$/i.test(f)) out.set(`plugin/licenses/${source}-${f}`, readFileSync(join(UPSTREAM_DIR, source, f)));
   }
 }
 

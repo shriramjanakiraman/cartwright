@@ -59,8 +59,9 @@ for (const [id, src] of Object.entries(lock.sources)) {
       (entry.skills[set] ||= []).push(name);
     }
   }
-  for (const f of ['LICENSE', 'LICENSE.txt', 'NOTICE', 'NOTICE.txt']) {
-    if (existsSync(join(tree, f))) cpSync(join(tree, f), join(staging, id, f));
+  // Match licence/notice files case-insensitively and keep their real names (macOS and Linux agree).
+  for (const f of readdirSync(tree)) {
+    if (/^(licen[cs]e|notice)(\.(txt|md))?$/i.test(f)) cpSync(join(tree, f), join(staging, id, f));
   }
   for (const k of Object.keys(entry.skills)) entry.skills[k].sort();
   manifest.sources[id] = entry;
