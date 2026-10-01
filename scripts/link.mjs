@@ -8,10 +8,12 @@
 //   node scripts/link.mjs --agent codex --scope project --project-dir ../my-repo
 //   node scripts/link.mjs --agent claude-code --only common
 //   node scripts/link.mjs --agent windsurf --dry-run
+//   node scripts/link.mjs --agent cursor --from ../<overlay-repo>   # a project overlay's skills/ folder
 import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ROOT, loadSkills } from './lib.mjs';
+import { readFileSync } from 'node:fs';
+import { ROOT, loadSkills, parseFrontmatter } from './lib.mjs';
 
 const DIRS = {
   'claude-code':      { global: '~/.claude/skills', project: '.claude/skills' },
@@ -34,7 +36,19 @@ const base = DIRS[agent][scope];
 if (!base) { console.error(`${agent} has no ${scope}-scope skill directory; use --scope project`); process.exit(2); }
 const target = scope === 'global' ? base.replace(/^~/, homedir()) : resolve(arg('--project-dir', '.'), base);
 
-const wanted = loadSkills().filter((s) => s.data?.status === 'active' && (!only || s.scope === only));
+const from = arg('--from');
+const sourceRoot = from ? resolve(from, 'skills') : join(ROOT, 'skills');
+// Overlay skills: flat skills/*.md (or skills/<scope>/*.md); a missing status counts as active.
+function overlaySkills(dir) {
+  const out = [];
+  const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f);
+    if (lstatSync(p).isDirectory()) walk(p);
+    else if (f.endsWith('.md')) { const { data } = parseFrontmatter(readFileSync(p, 'utf8')); if (data?.name) out.push({ path: p, scope: null, data: { status: 'active', ...data } }); } } };
+  if (!existsSync(dir)) { console.error(`no skills/ folder in ${from}`); process.exit(2); }
+  walk(dir); return out;
+}
+const wanted = (from ? overlaySkills(sourceRoot) : loadSkills())
+  .filter((s) => s.data?.status === 'active' && (!only || s.scope === only));
 const want = new Map(wanted.map((s) => [s.data.name, s.path]));
 const act = (msg, fn) => { console.log(`${dry ? '[dry-run] ' : ''}${msg}`); if (!dry) fn(); };
 
@@ -52,7 +66,7 @@ if (existsSync(target)) for (const d of readdirSync(target)) {
   try {
     if (!lstatSync(link).isSymbolicLink()) continue;
     const dest = readlinkSync(link);
-    if (dest.startsWith(join(ROOT, 'skills')) && !want.has(d)) { act(`unlink ${d}`, () => rmSync(join(target, d), { recursive: true })); removed++; }
+    if (dest.startsWith(sourceRoot) && !want.has(d)) { act(`unlink ${d}`, () => rmSync(join(target, d), { recursive: true })); removed++; }
   } catch { /* not a skill folder */ }
 }
 console.log(`\n${agent} (${scope}) → ${target}\n  ${added} linked, ${kept} already current, ${removed} removed`);

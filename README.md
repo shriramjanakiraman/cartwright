@@ -78,6 +78,9 @@ Each engagement gets its own **private overlay repo**, started from `templates/o
 - holds its own client-name denylist at `.scrub/denylist.txt`
 - archived or deleted when the engagement ends, as the client contract requires
 
+Link an overlay into an agent alongside core with `npm run link -- --agent <agent> --from ../<overlay-repo>`.
+Each source only ever removes its own stale links, so core and overlay never disturb each other.
+
 A project skill reaches core only by **promotion**: a new pull request here, scrubbed against that
 overlay's denylist. See CONTRIBUTING.md.
 

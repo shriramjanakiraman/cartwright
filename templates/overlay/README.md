@@ -16,9 +16,9 @@ new **private** repository that only the engagement team can read.
 ## Using it
 
 ```bash
-# core first, then this overlay, for the same agent
-(cd ../agent-skills && npm run link -- --agent <agent>)
-node ../agent-skills/scripts/link.mjs --agent <agent>   # see README in core for overlay linking
+# core first, then this overlay, into the same agent (re-run both after every pull)
+node ../agent-skills/scripts/link.mjs --agent <agent>
+node ../agent-skills/scripts/link.mjs --agent <agent> --from .
 ```
 
 ## Promoting a skill to core
