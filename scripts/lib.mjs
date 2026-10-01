@@ -50,13 +50,13 @@ function unquote(s) {
 
 export const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
-// Our authored skills: one flat core/<name>.md per skill.
-export function loadSkills() {
-  if (!existsSync(CORE_DIR)) return [];
-  return readdirSync(CORE_DIR)
+// Our authored skills: one flat core/<name>.md per skill (or <overlay>/skills/<name>.md).
+export function loadSkills(dir = CORE_DIR) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
     .filter((f) => f.endsWith('.md') && f !== 'README.md')
     .map((f) => {
-      const path = join(CORE_DIR, f);
+      const path = join(dir, f);
       const text = readFileSync(path, 'utf8');
       const { data, body } = parseFrontmatter(text);
       return { file: f, path, rel: relative(ROOT, path), text, data, body };
@@ -76,6 +76,14 @@ export function loadUpstreamSkills() {
     }
   }
   return out;
+}
+
+// A project overlay repo: overlay.json + skills/*.md. Returns null if the folder isn't an overlay.
+export function loadOverlay(dir) {
+  const p = join(dir, 'overlay.json');
+  if (!existsSync(p)) return null;
+  const config = JSON.parse(readFileSync(p, 'utf8'));
+  return { dir, config, skills: loadSkills(join(dir, 'skills')) };
 }
 
 export function loadLock() {

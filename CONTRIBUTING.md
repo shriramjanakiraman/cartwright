@@ -17,7 +17,7 @@ Answer these in order. Stop at the first "yes".
 | # | Question | If yes |
 |---|---|---|
 | 1 | Does an **official** skill already do this? Check `INDEX.md` → *Official skills*. Every one of them already ships in the plugin. | **Don't add it.** Invoke the official skill from your workflow, or contribute the improvement upstream. Never copy or edit anything in `upstream/`. |
-| 2 | Is it tied to **one client**: their architecture, naming, integrations, business rules or environments? | **Project-specific.** It belongs in that engagement's private overlay repo, not here. Start one from `templates/overlay/`. |
+| 2 | Is it tied to **one client**: their architecture, naming, integrations, business rules or environments? | **Project-specific.** It belongs in that engagement's private overlay repo, not here: named `<code>-…`, with `project: <code>` and a description starting `Project <code> only:`. Start an overlay from `templates/overlay/`. |
 | 3 | Is it a pattern that would help on **two or more projects**, or at platform level, with the client details removed? | **Reusable.** Continue to step 2. |
 | 4 | Is it a **mix**: a reusable core wrapped in client specifics? | **Split it.** Put the generic core here (scrubbed) and keep the client overlay in the project repo. The overlay skill depends on the core one. |
 

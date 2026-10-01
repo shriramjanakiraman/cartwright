@@ -4,6 +4,15 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-01
+
+### Added
+- Project overlays build into their own private plugin (`scripts/build-overlay.mjs`), enabled per client
+  project through a generated `client-project-settings.json`.
+- `validate --overlay`: project skills must be prefixed with the project code, carry `project:`, start their
+  description with `Project <code> only:`, and not reuse a core or official name.
+- Overlay starter kit: `overlay.json`, a project skill template, and CI that runs the core checks.
+
 ## [0.2.0] - 2026-10-01
 
 ### Changed

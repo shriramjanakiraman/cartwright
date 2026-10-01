@@ -72,22 +72,39 @@ unpublished experimental set.
 
 ## Project overlays
 
-Client-specific skills never enter this repo. GitHub permissions are per repository, so a client's
-material in a shared repo would be readable by everyone with access to it.
+Client-specific skills never enter this repo. GitHub permissions are per repository, so a client's material
+in a shared repo would be readable by everyone with access to it. Each engagement gets its own **private
+overlay repo**, started from `templates/overlay/`, which builds into its own small plugin.
 
-Each engagement gets its own **private overlay repo**, started from `templates/overlay/`:
+```
+client project repo  ── .claude/settings.json enables ──▶  agent-skills (core)  +  <code>-skills (overlay)
+                                                            everyone                 engagement team only
+```
 
-- readable only by that engagement's team
-- skills named `<project-code>-…`, never reusing a core name
-- may depend on core skills; core never depends on an overlay
-- holds its own client-name denylist at `.scrub/denylist.txt`
-- archived or deleted when the engagement ends, as the client contract requires
+**How a skill is marked as project-specific** (the overlay validator enforces all three):
+- its name starts with the project code: `prja-deploy-to-staging`
+- its frontmatter has `project: prja`
+- its description starts with `Project prja only:`, which is what agents read when choosing a skill
 
-Link an overlay into an agent alongside core with `npm run link -- --agent <agent> --from ../<overlay-repo>`.
-Each source only ever removes its own stale links, so core and overlay never disturb each other.
+**How it reaches only the right people and the right project:**
+- Only the engagement team can read the overlay repo, so only they can install it.
+- It is enabled at **project scope**: the client project's `.claude/settings.json` turns it on (generated
+  for you as `client-project-settings.json`), and other agents link it into that project's folder. Its
+  skills exist only while someone is working in that client's project.
 
-A project skill reaches core only by **promotion**: a new pull request here, scrubbed against that
-overlay's denylist. See CONTRIBUTING.md.
+**Rules:**
+- Overlay skills may depend on core and official skills; core never depends on an overlay.
+- Overlay skills can't reuse a core or official skill's name.
+- Client names are allowed in an overlay; secrets never are (its CI runs a secrets-only scan).
+- Each overlay keeps the client's names in `.scrub/denylist.txt`, used whenever a skill is promoted to core.
+- When the engagement ends, the overlay is archived or deleted as the client contract requires.
+
+Run the core checks against an overlay from this repo:
+
+```bash
+node scripts/validate.mjs --overlay ../<code>-agent-skills
+node scripts/build-overlay.mjs ../<code>-agent-skills
+```
 
 ## Local checks
 

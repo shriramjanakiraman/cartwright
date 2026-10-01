@@ -1,0 +1,7 @@
+{
+  "project": "<project-code>",
+  "repo": "<owner>/<project-code>-agent-skills",
+  "owner": "<project-lead-name>",
+  "version": "0.1.0",
+  "coreRepo": "shriramjanakiraman/agent-skills"
+}

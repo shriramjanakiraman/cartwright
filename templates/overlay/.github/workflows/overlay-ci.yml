@@ -1,7 +1,7 @@
 name: overlay-ci
 on: [pull_request, push]
 jobs:
-  secrets:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,5 +12,9 @@ jobs:
           token: ${{ secrets.CORE_REPO_TOKEN }}   # read-only token for the private core repo
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - name: Project skills meet the standard (prefix, project field, description, no core clashes)
+        run: node .core/scripts/validate.mjs --overlay .
+      - name: Overlay plugin is current
+        run: node .core/scripts/build-overlay.mjs . --check
       - name: No secrets, even in a private overlay
-        run: node .core/scripts/scrub-scan.mjs --secrets-only $(git ls-files 'skills/*.md' 'skills/**/*.md')
+        run: node .core/scripts/scrub-scan.mjs --secrets-only $(git ls-files 'skills/*.md')
