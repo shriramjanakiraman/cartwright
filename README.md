@@ -5,8 +5,9 @@ Codex, Copilot, Cursor, Windsurf, OpenCode and any other agent that reads skill 
 
 Three rules shape everything here:
 
-1. **Official skills are referenced, never copied.** Salesforce publishes 80+ B2C Commerce skills.
-   `upstream.lock.json` pins them; we only build what they don't cover.
+1. **One install delivers everything.** The plugin ships our own skills, every official Salesforce
+   B2C Commerce skill (bundled read-only from `upstream/`) and the B2C MCP server. Official skills are
+   never hand-edited; they move only when `upstream.lock.json` does. We only write what they don't cover.
 2. **Only scrubbed, reusable skills live here.** Client-specific skills live in that client's private
    overlay repo (see [Project overlays](#project-overlays)).
 3. **Every change comes through a door.** Upstream changes through Door A, our changes through Door B.
@@ -14,11 +15,11 @@ Three rules shape everything here:
 ## Layout
 
 ```
-skills/common/*.md        general-purpose skills, one flat file per skill
-skills/sfcc/*.md          Salesforce B2C Commerce skills
+core/*.md                 every skill we write, any technology, one flat file per skill
+upstream/                 official skills mirrored at the pinned versions (generated, read-only)
 upstream.lock.json        pinned official sources (Door A)
 INDEX.md                  generated catalogue (ours + official)
-plugin/                   generated Claude Code plugin (do not edit)
+plugin/                   generated plugin: core + upstream skills, MCP server, licences (do not edit)
 templates/skill.md        required skeleton for a new skill
 templates/overlay/        starter kit for a project overlay repo
 scripts/                  validate · scrub-scan · build · upstream-check · link · check-updates
@@ -28,7 +29,9 @@ GOVERNANCE.md             owners, approvals, releases, retirement
 
 ## Using the library
 
-**Claude Code** (updates through the plugin manager):
+Whichever route you use, you receive the same set: our core skills plus every bundled official skill.
+
+**Claude Code** (one install; also registers the B2C MCP server; updates through the plugin manager):
 
 ```bash
 claude plugin marketplace add shriramjanakiraman/agent-skills
@@ -52,8 +55,10 @@ deprecated skills. It never touches files that don't point into this repo.
 checkout is behind. Skills call it from their fast prerequisite step, so developers are told to update
 instead of silently running stale skills.
 
-**Official Salesforce skills** are installed from Salesforce, not from here. See `INDEX.md` for the pinned
-versions and `upstream.lock.json` for install commands.
+**Already installed Salesforce's own plugins?** Disable them once you install this one, or every official
+skill appears twice. `INDEX.md` lists exactly what is bundled and at which version. Two things are not
+bundled: the Storefront Next template's skills (they only work inside a template project) and Salesforce's
+unpublished experimental set.
 
 ## The two doors
 
@@ -61,7 +66,7 @@ versions and `upstream.lock.json` for install commands.
 |---|---|---|
 | Trigger | Salesforce or another publisher ships a change | Someone adds or changes one of our skills |
 | How it's caught | `upstream-watch` workflow, weekly and on demand | Pull request |
-| Checks | Diff of versions and skill lists; our skills that reference changed upstream skills; new official skills that may duplicate ours | `validate`, `scrub-scan`, `build --check`, secret scan |
+| Checks | Diff of versions and skill lists; re-mirror into `upstream/`; our skills that reference changed upstream skills; new official skills that may duplicate ours | `validate`, `scrub-scan`, `sync-upstream --check`, `build --check`, secret scan |
 | Gate | Owner reviews the generated PR | Owner (or project lead) approval |
 | Reaches users via | Release → plugin update, `link`, `check-updates` | Release → plugin update, `link`, `check-updates` |
 

@@ -17,6 +17,8 @@ jobs:
         run: node scripts/validate.mjs
       - name: Scrub scan (data leakage)
         run: node scripts/scrub-scan.mjs
+      - name: Bundled official skills match the pinned versions
+        run: node scripts/sync-upstream.mjs --check
       - name: Generated plugin and INDEX are current
         run: node scripts/build.mjs --check
       - name: Secret scan across history

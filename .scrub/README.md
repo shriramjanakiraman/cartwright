@@ -5,6 +5,6 @@ The core repo holds **no client names**. Client-name denylists live in each proj
 
 To scan a skill you are promoting from a project into core, point the scanner at that project's list:
 
-    node scripts/scrub-scan.mjs --denylist ../<overlay-repo>/.scrub/denylist.txt skills/common/<skill>.md
+    node scripts/scrub-scan.mjs --denylist ../<overlay-repo>/.scrub/denylist.txt core/<skill>.md
 
 For a personal list you want applied to every local scan, create `.scrub/denylist.local.txt` (git-ignored).

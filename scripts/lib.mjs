@@ -4,13 +4,13 @@ import { join, relative, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-export const SKILLS_DIR = join(ROOT, 'skills');
-export const SCOPES = ['common', 'sfcc'];
+export const CORE_DIR = join(ROOT, 'core');        // every skill we author, any technology
+export const UPSTREAM_DIR = join(ROOT, 'upstream'); // read-only mirror of official skills (generated)
 export const STATUSES = ['draft', 'active', 'deprecated'];
 export const APPLIES_TO = ['any', 'sfra', 'storefront-next', 'pwa-kit'];
 export const REQUIRED_FIELDS = [
   'name', 'description', 'owner', 'version', 'status',
-  'scope', 'applies-to', 'agents-tested', 'last-reviewed',
+  'applies-to', 'agents-tested', 'last-reviewed',
 ];
 export const REQUIRED_SECTIONS = ['When to use', 'Constraints', 'References'];
 
@@ -50,20 +50,32 @@ function unquote(s) {
 
 export const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 
+// Our authored skills: one flat core/<name>.md per skill.
 export function loadSkills() {
-  const skills = [];
-  for (const scope of readdirSync(SKILLS_DIR)) {
-    const dir = join(SKILLS_DIR, scope);
-    if (!statSync(dir).isDirectory()) continue;
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.md')) continue;
-      const path = join(dir, f);
+  if (!existsSync(CORE_DIR)) return [];
+  return readdirSync(CORE_DIR)
+    .filter((f) => f.endsWith('.md') && f !== 'README.md')
+    .map((f) => {
+      const path = join(CORE_DIR, f);
       const text = readFileSync(path, 'utf8');
       const { data, body } = parseFrontmatter(text);
-      skills.push({ scope, file: f, path, rel: relative(ROOT, path), text, data, body });
+      return { file: f, path, rel: relative(ROOT, path), text, data, body };
+    })
+    .sort((a, b) => a.rel.localeCompare(b.rel));
+}
+
+// Mirrored official skills: upstream/<source>/<name>/ folders, listed in upstream/manifest.json.
+export function loadUpstreamSkills() {
+  const p = join(UPSTREAM_DIR, 'manifest.json');
+  if (!existsSync(p)) return [];
+  const m = JSON.parse(readFileSync(p, 'utf8'));
+  const out = [];
+  for (const [source, src] of Object.entries(m.sources)) {
+    for (const [set, names] of Object.entries(src.skills)) {
+      for (const name of names) out.push({ source, set, name, dir: join(UPSTREAM_DIR, source, name), license: src.license, ref: src.ref });
     }
   }
-  return skills.sort((a, b) => a.rel.localeCompare(b.rel));
+  return out;
 }
 
 export function loadLock() {

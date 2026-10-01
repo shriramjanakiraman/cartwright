@@ -1,99 +1,111 @@
 #!/usr/bin/env node
-// Door B distribution: turns the flat skills/*.md source into
-//   - plugin/                          a Claude Code plugin (one folder per skill)
-//   - .claude-plugin/marketplace.json  so the repo can be added as a plugin marketplace
-//   - INDEX.md                         the human catalogue (ours + official references)
-// Drafts and deprecated skills are left out of the plugin, but listed in INDEX.md.
+// Door B distribution. Builds everything a user receives from one install:
+//   plugin/skills/<name>/              our active core skills + every mirrored official skill
+//   plugin/.mcp.json                   the official B2C MCP server, at the pinned version
+//   plugin/licenses/                   each upstream publisher's licence (Apache-2.0 attribution)
+//   .claude-plugin/marketplace.json    so the repo installs as a Claude Code plugin marketplace
+//   INDEX.md                           the human catalogue
+// Drafts and deprecated core skills are left out of the plugin but listed in INDEX.md.
 //
 // Usage: node scripts/build.mjs           # write
 //        node scripts/build.mjs --check   # CI: fail if the committed output is stale
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { ROOT, loadSkills, loadLock, asList } from './lib.mjs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync, statSync, cpSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { ROOT, UPSTREAM_DIR, loadSkills, loadUpstreamSkills, loadLock, asList } from './lib.mjs';
 
 const check = process.argv.includes('--check');
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+const lock = loadLock();
 const skills = loadSkills().filter((s) => s.data);
 const shipped = skills.filter((s) => s.data.status === 'active');
-const lock = loadLock();
+const official = loadUpstreamSkills();
 
-const out = new Map(); // relative path -> content
+const clash = shipped.filter((s) => official.some((o) => o.name === s.data.name));
+if (clash.length) { console.error(`build: core skill name(s) clash with official skills: ${clash.map((s) => s.data.name).join(', ')}`); process.exit(1); }
+
+const out = new Map(); // relative path -> Buffer | string
 
 out.set('.claude-plugin/marketplace.json', JSON.stringify({
   name: 'agent-skills',
   owner: { name: pkg.author },
-  plugins: [{
-    name: 'agent-skills',
-    description: pkg.description,
-    version: pkg.version,
-    source: './plugin',
-  }],
+  plugins: [{ name: 'agent-skills', description: pkg.description, version: pkg.version, source: './plugin' }],
 }, null, 2) + '\n');
 
 out.set('plugin/.claude-plugin/plugin.json', JSON.stringify({
-  name: 'agent-skills',
-  version: pkg.version,
-  description: pkg.description,
-  author: { name: pkg.author },
+  name: 'agent-skills', version: pkg.version, description: pkg.description, author: { name: pkg.author },
 }, null, 2) + '\n');
+
+// MCP servers the plugin registers, pinned to the versions in the lock.
+const servers = {};
+for (const src of Object.values(lock.sources)) {
+  if (src.mcpServer && src.version) servers[src.mcpServer.name] = { command: 'npx', args: ['-y', `${src.mcpServer.package}@${src.version}`] };
+}
+if (Object.keys(servers).length) out.set('plugin/.mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
 
 for (const s of shipped) out.set(`plugin/skills/${s.data.name}/SKILL.md`, s.text);
 
+const walk = (dir, base = dir, acc = []) => {
+  for (const f of readdirSync(dir)) { const p = join(dir, f); statSync(p).isDirectory() ? walk(p, base, acc) : acc.push(relative(base, p)); }
+  return acc;
+};
+for (const o of official) for (const f of walk(o.dir)) out.set(`plugin/skills/${o.name}/${f}`, readFileSync(join(o.dir, f)));
+
+const licensed = [...new Set(official.map((o) => o.source))];
+for (const source of licensed) {
+  for (const f of ['LICENSE', 'LICENSE.txt', 'NOTICE', 'NOTICE.txt']) {
+    const p = join(UPSTREAM_DIR, source, f);
+    if (existsSync(p)) out.set(`plugin/licenses/${source}-${f}`, readFileSync(p));
+  }
+}
+
 // INDEX.md
-const row = (s) => `| \`${s.data.name}\` | ${s.data.status} | ${asList(s.data['applies-to']).join(', ')} | ${s.data.description.replace(/\|/g, '\\|').replace(/\s+/g, ' ')} | [${s.rel}](${s.rel}) |`;
-const table = (list) => list.length
-  ? ['| Skill | Status | Applies to | Description | File |', '|---|---|---|---|---|', ...list.map(row)].join('\n')
+const row = (s) => `| \`${s.data.name}\` | ${s.data.status} | ${asList(s.data['applies-to']).join(', ')} | ${String(s.data.description).replace(/\|/g, '\\|').replace(/\s+/g, ' ')} |`;
+const ourTable = skills.length
+  ? ['| Skill | Status | Applies to | Description |', '|---|---|---|---|', ...skills.map(row)].join('\n')
   : '_No skills yet._';
-const upstreamRows = Object.entries(lock.sources || {}).map(([id, src]) => {
-  const count = Object.values(src.skills || {}).reduce((n, l) => n + l.length, 0);
-  const sets = Object.keys(src.skills || {}).map((k) => `\`${k}\``).join(', ');
-  return `| \`${id}\` | ${src.version || src.sha?.slice(0, 7) || '—'} | ${count || '—'} | ${sets || (src.usedBy ? `used by ${asList(src.usedBy).map((u) => `\`${u}\``).join(', ')}` : '—')} |`;
-});
+const bySet = {};
+for (const o of official) (bySet[`${o.source} / ${o.set}`] ||= []).push(o.name);
+const officialTable = Object.keys(bySet).length
+  ? ['| Source / set | Skills |', '|---|---|', ...Object.entries(bySet).map(([k, v]) => `| \`${k}\` | ${v.map((n) => `\`${n}\``).join(', ')} |`)].join('\n')
+  : '_None mirrored yet. Run `npm run sync-upstream`._';
+const pins = Object.entries(lock.sources).map(([id, s]) =>
+  `| \`${id}\` | ${s.version || s.sha?.slice(0, 7) || '—'} | ${s.mirror ? 'bundled skills' : s.mcpServer ? 'bundled MCP server' : 'referenced'} | ${s.note || (s.usedBy ? `used by ${asList(s.usedBy).map((u) => `\`${u}\``).join(', ')}` : '')} |`);
 
 out.set('INDEX.md', `# Skill index
 
-> Generated by \`scripts/build.mjs\` from \`skills/\` and \`upstream.lock.json\`. Do not edit by hand.
+> Generated by \`scripts/build.mjs\`. Do not edit by hand.
 
-Version **${pkg.version}** · ${shipped.length} active skill(s) shipped in the plugin.
+Version **${pkg.version}**. One install delivers **${shipped.length + official.length} skills**: ${shipped.length} of ours and ${official.length} official${servers['b2c-dx-mcp'] ? ', plus the B2C MCP server' : ''}.
 
-## Common (\`skills/common/\`)
+## Our skills (\`core/\`)
 
-${table(skills.filter((s) => s.scope === 'common'))}
+${ourTable}
 
-## SFCC (\`skills/sfcc/\`)
+## Official skills (bundled from \`upstream/\`, read-only)
 
-${table(skills.filter((s) => s.scope === 'sfcc'))}
+Mirrored unmodified at the versions pinned below. Licences are in \`plugin/licenses/\`. Updated only through Door A.
 
-## Official upstream (referenced, never copied)
+${officialTable}
 
-Install these from their publishers. Door A keeps the pins below current; see CONTRIBUTING.md.
+## Pinned sources
 
-| Source | Pinned at | Skills | Sets / used by |
+| Source | Pinned at | Delivered as | Notes |
 |---|---|---|---|
-${upstreamRows.join('\n')}
+${pins.join('\n')}
 `);
 
+const same = (p, c) => existsSync(p) && Buffer.compare(readFileSync(p), Buffer.from(c)) === 0;
 if (check) {
-  const stale = [];
-  for (const [rel, content] of out) {
-    const p = join(ROOT, rel);
-    if (!existsSync(p) || readFileSync(p, 'utf8') !== content) stale.push(rel);
-  }
-  const shippedDir = join(ROOT, 'plugin/skills');
-  if (existsSync(shippedDir)) {
-    for (const d of readdirSync(shippedDir)) if (!out.has(`plugin/skills/${d}/SKILL.md`)) stale.push(`plugin/skills/${d} (no longer shipped)`);
-  }
+  const stale = [...out].filter(([rel, c]) => !same(join(ROOT, rel), c)).map(([rel]) => rel);
+  const pdir = join(ROOT, 'plugin');
+  if (existsSync(pdir)) for (const f of walk(pdir)) if (!out.has(`plugin/${f}`)) stale.push(`plugin/${f} (no longer shipped)`);
   if (stale.length) {
-    console.error(`build --check: generated output is stale. Run "npm run build" and commit:\n  ${stale.join('\n  ')}`);
+    console.error(`build --check: generated output is stale (${stale.length} file(s)). Run "npm run build" and commit, e.g.\n  ${stale.slice(0, 10).join('\n  ')}`);
     process.exit(1);
   }
   console.log('build --check: generated output is current');
 } else {
-  rmSync(join(ROOT, 'plugin/skills'), { recursive: true, force: true });
-  for (const [rel, content] of out) {
-    const p = join(ROOT, rel);
-    mkdirSync(join(p, '..'), { recursive: true });
-    writeFileSync(p, content);
-  }
-  console.log(`build: ${shipped.length} skill(s) → plugin/, marketplace.json, INDEX.md`);
+  rmSync(join(ROOT, 'plugin'), { recursive: true, force: true });
+  for (const [rel, c] of out) { const p = join(ROOT, rel); mkdirSync(join(p, '..'), { recursive: true }); writeFileSync(p, c); }
+  console.log(`build: ${shipped.length} core + ${official.length} official skill(s)${Object.keys(servers).length ? ` + MCP (${Object.keys(servers).join(', ')})` : ''} → plugin/, INDEX.md`);
 }

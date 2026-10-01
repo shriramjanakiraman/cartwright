@@ -4,7 +4,6 @@ description: "What this skill does, and when an agent should use it. Mention the
 owner: your-github-handle
 version: 0.1.0
 status: draft
-scope: common
 applies-to: [any]
 depends-on: []
 agents-tested: [claude-code]

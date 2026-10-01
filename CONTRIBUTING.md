@@ -16,21 +16,18 @@ Answer these in order. Stop at the first "yes".
 
 | # | Question | If yes |
 |---|---|---|
-| 1 | Does an **official** skill already do this? Check `INDEX.md` → *Official upstream*. | **Don't add it.** Reference the official skill from your workflow, or contribute the improvement upstream. |
+| 1 | Does an **official** skill already do this? Check `INDEX.md` → *Official skills*. Every one of them already ships in the plugin. | **Don't add it.** Invoke the official skill from your workflow, or contribute the improvement upstream. Never copy or edit anything in `upstream/`. |
 | 2 | Is it tied to **one client**: their architecture, naming, integrations, business rules or environments? | **Project-specific.** It belongs in that engagement's private overlay repo, not here. Start one from `templates/overlay/`. |
 | 3 | Is it a pattern that would help on **two or more projects**, or at platform level, with the client details removed? | **Reusable.** Continue to step 2. |
 | 4 | Is it a **mix**: a reusable core wrapped in client specifics? | **Split it.** Put the generic core here (scrubbed) and keep the client overlay in the project repo. The overlay skill depends on the core one. |
 
-Choose the folder:
-
-- `skills/common/` — not tied to any technology stack (delivery workflow, briefs, reviews).
-- `skills/sfcc/` — specific to Salesforce B2C Commerce (SFRA, Storefront Next, PWA Kit).
-- A new technology needs a new scope folder and an entry in `SCOPES` in `scripts/lib.mjs`.
+Every skill we write goes in `core/`, whatever its technology. Use `applies-to` to say which stacks it
+serves.
 
 ## 2. Write
 
-Copy `templates/skill.md` to `skills/<scope>/<name>.md`. One flat file per skill: no folders, no
-supporting scripts or assets.
+Copy `templates/skill.md` to `core/<name>.md`. One flat file per skill: no folders, no supporting scripts
+or assets.
 
 ### Required frontmatter
 
@@ -41,7 +38,6 @@ supporting scripts or assets.
 | `owner` | GitHub handle of the person accountable for it |
 | `version` | semver. Bump minor for new behaviour, patch for fixes, major for a changed contract. |
 | `status` | `draft` (not shipped) · `active` (shipped) · `deprecated` (removed from the plugin and unlinked) |
-| `scope` | `common` or `sfcc`; must match the folder |
 | `applies-to` | `any`, `sfra`, `storefront-next`, `pwa-kit` (list allowed) |
 | `depends-on` | Optional. Other skills it invokes: core names, official names from `upstream.lock.json`, or `tool:<name>` |
 | `agents-tested` | Agents you actually ran it on, e.g. `[claude-code, cursor]` |
@@ -108,7 +104,7 @@ in this repo, including ones written from scratch.
 **Promoting from a project overlay?** Scan against that project's client-name list as well:
 
 ```bash
-node scripts/scrub-scan.mjs --denylist ../<overlay-repo>/.scrub/denylist.txt skills/<scope>/<name>.md
+node scripts/scrub-scan.mjs --denylist ../<overlay-repo>/.scrub/denylist.txt core/<name>.md
 ```
 
 That list is created by whoever writes the project's first client-specific skill and kept up to date by
@@ -133,14 +129,17 @@ Open a pull request and complete the template. Add a `CHANGELOG.md` entry under 
 
 ## Upstream changes (Door A)
 
-The `upstream-watch` workflow opens a pull request when an official source changes. Before merging it:
+The `upstream-watch` workflow opens a pull request when an official source changes. It has already
+moved the pin, re-mirrored `upstream/` and rebuilt the plugin, so merging it ships the new official
+skills to everyone. Before merging:
 
 1. Check every one of our skills listed as referencing a changed upstream skill.
 2. For each new official skill, check none of ours duplicates it. If one does, set ours to `deprecated`.
 3. For version bumps, check the skills that install those tools still work.
 4. Add a CHANGELOG entry and bump `package.json` so users receive a release.
 
-Never edit `upstream.lock.json` by hand.
+Never edit `upstream.lock.json` or anything in `upstream/` by hand. CI fails if `upstream/` differs from
+the pinned sources.
 
 ## Retiring a skill
 

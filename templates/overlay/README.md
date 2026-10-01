@@ -23,8 +23,8 @@ node ../agent-skills/scripts/link.mjs --agent <agent> --from .
 
 ## Promoting a skill to core
 
-1. Copy the generic part into the core repo under `skills/<scope>/`, renamed without the project prefix.
+1. Copy the generic part into the core repo as `core/<name>.md`, renamed without the project prefix.
 2. Scrub it, scanning with this repo's denylist:
-   `node scripts/scrub-scan.mjs --denylist ../<this-repo>/.scrub/denylist.txt skills/<scope>/<name>.md`
+   `node scripts/scrub-scan.mjs --denylist ../<this-repo>/.scrub/denylist.txt core/<name>.md`
 3. Open the core pull request. The overlay lead confirms the scrub; the core owner approves.
 4. Make the overlay skill depend on the new core skill instead of duplicating it.

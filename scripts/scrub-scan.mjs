@@ -57,7 +57,8 @@ for (const p of denylists) {
 }
 
 const rules = secretsOnly ? SECRET_RULES : [...SECRET_RULES, ...LEAK_RULES, ...deny];
-const SKIP = [/(^|\/)scripts\/scrub-scan\.mjs$/, /(^|\/)\.scrub\//, /(^|\/)upstream\.lock\.json$/, /(^|\/)package-lock\.json$/];
+// upstream/ is Salesforce's own published content and plugin/ is generated from core/ + upstream/.
+const SKIP = [/^upstream\//, /^plugin\//, /(^|\/)scripts\/scrub-scan\.mjs$/, /(^|\/)\.scrub\//, /(^|\/)upstream\.lock\.json$/, /(^|\/)package-lock\.json$/];
 const targets = (files.length ? files : walkTextFiles()).filter((f) => !SKIP.some((r) => r.test(relative(ROOT, f))));
 
 const findings = [];

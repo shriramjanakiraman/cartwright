@@ -3,7 +3,7 @@
 // Usage: node scripts/validate.mjs
 import {
   loadSkills, upstreamSkillNames, asList, fail,
-  REQUIRED_FIELDS, REQUIRED_SECTIONS, SCOPES, STATUSES, APPLIES_TO,
+  REQUIRED_FIELDS, REQUIRED_SECTIONS, STATUSES, APPLIES_TO,
 } from './lib.mjs';
 
 const skills = loadSkills();
@@ -20,15 +20,13 @@ for (const s of skills) {
   for (const f of REQUIRED_FIELDS) {
     if (d[f] === undefined || d[f] === '' || (Array.isArray(d[f]) && !d[f].length)) errors.push(`${at}: missing required field "${f}"`);
   }
-  if (!SCOPES.includes(s.scope)) errors.push(`${at}: folder skills/${s.scope}/ is not a known scope (${SCOPES.join(', ')})`);
   if (d.name) {
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(d.name)) errors.push(`${at}: name "${d.name}" must be kebab-case`);
     if (s.file !== `${d.name}.md`) errors.push(`${at}: filename must equal the skill name (${d.name}.md)`);
     if (seen.has(d.name)) errors.push(`${at}: name "${d.name}" already used by ${seen.get(d.name)}`);
     seen.set(d.name, at);
-    if (upstream.has(d.name)) errors.push(`${at}: name "${d.name}" shadows an official upstream skill; pick another name or reference the official one`);
+    if (upstream.has(d.name)) errors.push(`${at}: name "${d.name}" is already an official skill bundled from upstream; don't duplicate it`);
   }
-  if (d.scope && d.scope !== s.scope) errors.push(`${at}: scope "${d.scope}" does not match its folder skills/${s.scope}/`);
   if (d.status && !STATUSES.includes(d.status)) errors.push(`${at}: status must be one of ${STATUSES.join(', ')}`);
   if (d.version && !/^\d+\.\d+\.\d+$/.test(d.version)) errors.push(`${at}: version "${d.version}" must be semver (e.g. 1.0.0)`);
   if (d['last-reviewed'] && !/^\d{4}-\d{2}-\d{2}$/.test(d['last-reviewed'])) errors.push(`${at}: last-reviewed must be YYYY-MM-DD`);

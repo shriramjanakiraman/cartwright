@@ -4,7 +4,8 @@
 
 ## Classification
 
-- [ ] I checked `INDEX.md` → *Official upstream*: no official skill already does this.
+- [ ] I checked `INDEX.md` → *Official skills*: no bundled official skill already does this.
+- [ ] Nothing in `upstream/` is edited by hand.
 - [ ] This is **reusable** across engagements. (Client-specific skills go in a project overlay repo.)
 - [ ] If promoted from an overlay: the generic part only, overlay now depends on it.
 

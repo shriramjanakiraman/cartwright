@@ -27,12 +27,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          node scripts/sync-upstream.mjs
           node scripts/build.mjs
           BRANCH=upstream/$(date -u +%Y-%m-%d)
           git config user.name "upstream-watch"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
-          git add upstream.lock.json INDEX.md
+          git add upstream.lock.json upstream plugin INDEX.md .claude-plugin
           git commit -m "Upstream changes $(date -u +%Y-%m-%d)"
           git push -f origin "$BRANCH"
           gh pr view "$BRANCH" >/dev/null 2>&1 \

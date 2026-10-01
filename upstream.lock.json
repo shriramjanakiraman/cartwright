@@ -98,7 +98,14 @@
           "sfnext-testing"
         ]
       },
-      "version": "1.10.3"
+      "version": "1.10.3",
+      "mirror": {
+        "license": "Apache-2.0",
+        "excludeSets": [
+          "b2c-experimental"
+        ]
+      },
+      "note": "Bundled into this plugin as a read-only mirror. b2c-experimental is excluded: not published by Salesforce."
     },
     "b2c-dx-mcp": {
       "type": "github-release",
@@ -120,7 +127,12 @@
           "server"
         ]
       },
-      "version": "3.2.1"
+      "version": "3.2.1",
+      "mcpServer": {
+        "name": "b2c-dx-mcp",
+        "package": "@salesforce/b2c-dx-mcp"
+      },
+      "note": "The plugin registers this MCP server at the pinned version. Its own skills are served by the server, so they are not mirrored as files."
     },
     "commerce-apps": {
       "type": "github-branch",
@@ -145,7 +157,11 @@
           "validate-app",
           "validate-impex"
         ]
-      }
+      },
+      "mirror": {
+        "license": "Apache-2.0"
+      },
+      "note": "cap-dev skills, bundled as a read-only mirror."
     },
     "storefront-next-template": {
       "type": "github-branch",
@@ -164,7 +180,8 @@
           "generate-storefront-e2e-test",
           "sync-shadcn"
         ]
-      }
+      },
+      "note": "Not bundled: these skills only work inside a project created from the template."
     },
     "spec-kit": {
       "type": "github-release",

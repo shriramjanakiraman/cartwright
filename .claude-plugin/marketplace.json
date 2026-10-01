@@ -6,8 +6,8 @@
   "plugins": [
     {
       "name": "agent-skills",
-      "description": "Shared, agent-agnostic skills for delivery teams. Reusable skills only; official Salesforce skills are referenced, never copied.",
-      "version": "0.1.0",
+      "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+      "version": "0.2.0",
       "source": "./plugin"
     }
   ]
