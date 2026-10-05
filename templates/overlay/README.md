@@ -14,8 +14,9 @@ of the shared core library. Only this engagement's team can read this repo, so o
 ## Branches
 
 Same model as the core library: `main` is what client projects install, `develop` is where new skills are
-tried first, and every change arrives through a pull request, project leads included. After creating the
-repo:
+tried first, and every change arrives through a pull request, project leads included. Working branches are
+`feature/<name>` or `bugfix/<name>` into `develop`, and `release/<x.y.z>` or `hotfix/<name>` into `main`;
+no other names are accepted. After creating the repo:
 
 ```bash
 git checkout -b develop && git push -u origin develop
@@ -36,7 +37,7 @@ sh ../agent-skills/scripts/protect-branches.sh <owner>/<project-code>-agent-skil
    node ../agent-skills/scripts/validate.mjs --overlay .
    node ../agent-skills/scripts/build-overlay.mjs .
    ```
-   Branch from `develop` and open the pull request into `develop`. A core owner or a project lead approves
+   Work on a `feature/<name>` branch from `develop` and open the pull request into `develop`. A core owner or a project lead approves
    it, and it reaches the team when `develop` is merged into `main`.
 
 ## How the team gets these skills

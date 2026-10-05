@@ -30,7 +30,7 @@ jobs:
         run: |
           node scripts/sync-upstream.mjs
           node scripts/build.mjs
-          BRANCH=upstream/$(date -u +%Y-%m-%d)
+          BRANCH=feature/upstream-$(date -u +%Y-%m-%d)
           git config user.name "upstream-watch"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"

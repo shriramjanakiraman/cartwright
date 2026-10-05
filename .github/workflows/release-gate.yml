@@ -1,6 +1,6 @@
 name: release-gate
-# Pull requests into main are releases. They must come from develop (or a hotfix/ branch), carry a new
-# version in package.json, and have a matching CHANGELOG section.
+# Pull requests into main are releases. They must come from release/<x.y.z> (cut from develop) or
+# hotfix/<name> (cut from main), carry a new version in package.json, and have a matching CHANGELOG section.
 on:
   pull_request:
     branches: [main]
@@ -12,14 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Source branch is develop or hotfix/*
+      - name: Source branch is release/<x.y.z> or hotfix/<name>
         env: { HEAD: "${{ github.head_ref }}" }
         run: |
-          case "$HEAD" in develop|hotfix/*) echo "OK: releasing from $HEAD" ;;
-            *) echo "::error::Pull requests into main must come from develop (or hotfix/*), not '$HEAD'. Open it against develop."; exit 1 ;; esac
+          case "$HEAD" in release/?*|hotfix/?*) echo "OK: releasing from $HEAD" ;;
+            *) echo "::error::Pull requests into main must come from release/<x.y.z> or hotfix/<name>, not '$HEAD'."; exit 1 ;; esac
       - name: Version is new and has a CHANGELOG entry
         run: |
           V=$(node -p "require('./package.json').version")
           if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then echo "::error::v$V is already released. Bump the version in package.json."; exit 1; fi
           grep -q "^## \[$V\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no '## [$V]' section."; exit 1; }
+          case "$GITHUB_HEAD_REF" in release/*)
+            [ "${GITHUB_HEAD_REF#release/}" = "$V" ] || { echo "::error::Branch ${GITHUB_HEAD_REF} doesn't match package.json version $V."; exit 1; } ;; esac
           echo "OK: releasing v$V"

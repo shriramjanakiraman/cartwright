@@ -129,10 +129,11 @@ the reviewer to ask why.
 
 ## 4. Submit
 
-Work on a branch from `develop`, never on `main` or `develop` directly (see GOVERNANCE.md):
+Work on a `feature/` branch from `develop` (or `bugfix/` for a fix), never on `main` or `develop` directly.
+Those are the only branch types besides `release/` and `hotfix/`, which the owner uses (see GOVERNANCE.md):
 
 ```bash
-git fetch origin && git checkout -b skill/<name> origin/develop
+git fetch origin && git checkout -b feature/<name> origin/develop
 # … write the skill …
 npm run build      # regenerates plugin/ and INDEX.md
 npm run check      # validate + scrub-scan + build --check

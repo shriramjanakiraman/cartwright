@@ -1,13 +1,22 @@
 #!/usr/bin/env sh
-# Local guard: main and develop only change through merged pull requests on GitHub.
-# This catches mistakes on your machine. GitHub branch rules (scripts/protect-branches.sh) are the real
-# enforcement; until they're available, the branch-guard workflow flags any direct push after the fact.
+# Local guard (see GOVERNANCE.md):
+#   - main and develop only change through merged pull requests on GitHub
+#   - every other branch is feature/<name>, bugfix/<name>, hotfix/<name> or release/<x.y.z>
+# This catches mistakes on your machine. GitHub rulesets (scripts/protect-branches.sh) are the real
+# enforcement; until they're available, the branch-guard and branch-name workflows flag violations.
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
+    refs/tags/*) continue ;;
     refs/heads/main|refs/heads/develop)
       echo "pre-push: direct pushes to ${remote_ref#refs/heads/} are not allowed."
-      echo "          Push a branch and open a pull request into develop instead:"
-      echo "          git push -u origin HEAD && gh pr create --base develop"
+      echo "          Work on a feature/ or bugfix/ branch and open a pull request into develop:"
+      echo "          git checkout -b feature/<name> origin/develop"
+      exit 1 ;;
+    refs/heads/feature/?*|refs/heads/bugfix/?*|refs/heads/hotfix/?*|refs/heads/release/?*) ;;
+    *)
+      echo "pre-push: '${remote_ref#refs/heads/}' isn't an allowed branch name."
+      echo "          Use feature/<name>, bugfix/<name>, hotfix/<name> or release/<x.y.z>."
+      echo "          Rename it: git branch -m feature/<name>"
       exit 1 ;;
   esac
 done

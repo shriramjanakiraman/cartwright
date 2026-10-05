@@ -2,7 +2,7 @@
 name: skill-intake
 description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.2.0
+version: 0.3.0
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
@@ -160,13 +160,14 @@ every agent it was actually tried on in `agents-tested`.
 2. Enable the commit checks once if they aren't already: `npm run setup-hooks`.
 3. Ask: *"Ready for me to push a branch and open the pull request?"* Only on a yes:
    ```bash
-   git fetch origin && git checkout -b skill/<name> origin/develop   # always branch from develop
+   git fetch origin && git checkout -b feature/<name> origin/develop   # new skill or improvement
    git add -A && git commit -m "Add <name> skill"
-   git push -u origin skill/<name>
+   git push -u origin feature/<name>
    gh pr create --base develop --fill --body-file <filled-in copy of .github/pull_request_template.md>
    ```
-   Always target `develop`, in the core repo and in overlay repos alike. Never push to `main` or `develop`
-   directly; the push will be refused or flagged.
+   Always a `feature/` branch (or `bugfix/` when fixing an unreleased skill) into `develop`, in the core
+   repo and in overlay repos alike. Never push to `main` or `develop` directly, and don't invent other
+   branch names; both are refused.
    Fill the template truthfully: tick only the checks you actually ran, and paste the trigger prompts
    from Step 7. If the developer can't push to the repo, offer a fork or a patch file instead.
 
@@ -180,8 +181,9 @@ every agent it was actually tried on in `agents-tested`.
 
 ### Improving an existing skill
 
-Skip Steps 2 and 3. Edit the skill in place, bump its own `version` (patch for fixes, minor for new
-behaviour), update `last-reviewed`, then run Steps 5 to 9.
+Skip Steps 2 and 3. Edit the skill in place on a `feature/<name>` branch (or `bugfix/<name>` for a fix),
+bump its own `version` (patch for fixes, minor for new behaviour), update `last-reviewed`, then run
+Steps 5 to 9.
 
 ## How to verify
 

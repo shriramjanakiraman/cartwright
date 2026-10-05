@@ -15,35 +15,52 @@ same pull request.
 ## Branches and pull requests
 
 Nobody changes `main` or `develop` directly, owners included. Every change, a new core skill, an overlay
-skill, a script fix or an upstream update, arrives through a reviewed pull request.
+skill, a script fix or a Salesforce update, arrives through a reviewed pull request.
 
-| Branch | Purpose | Changes arrive from |
-|---|---|---|
-| `main` | Stable. What users install: the plugin marketplace and `link` read from it. Every commit is a release. | Release pull requests from `develop` (or `hotfix/*` for urgent fixes) |
-| `develop` | Integration and test bed. New skills and features land here first and get tried before release. | Feature pull requests |
-| `skill/<name>`, `feat/<topic>`, `fix/<topic>`, `chore/<topic>` | One change each, branched from `develop` | Their author |
-| `upstream/<date>` | Created by the weekly upstream check | The upstream-watch workflow |
-| `hotfix/<topic>` | Urgent fix, branched from `main` | Their author; merged into `main`, then back into `develop` |
+**Two long-lived branches:**
 
-**Flow for any change:** branch from `develop` → open a pull request into `develop` → CI passes → owner
-merges → try it on `develop` → owner opens a release pull request from `develop` into `main`.
+| Branch | Purpose |
+|---|---|
+| `main` | Stable. What users install: the plugin marketplace and `link` read from it. Every commit is a release. |
+| `develop` | The test bed. New skills and features land here first and get tried before release. |
 
-**Releasing:** the release pull request bumps `package.json` to the new version and turns the CHANGELOG's
-*Unreleased* section into `## [X.Y.Z] - date`. The `release-gate` check refuses it unless it comes from
-`develop` or `hotfix/*`, the version is new, and the CHANGELOG has the matching section. Merging it
-publishes the `vX.Y.Z` tag and release notes automatically.
+**Four kinds of working branch, and nothing else:**
 
-**The same applies to overlay repos:** each has `main` and `develop`, the same pull request rule, and the
-same guards. Overlay changes are approved by the core owner or that engagement's project lead.
+| Branch | Use it for | Cut from | Pull request into |
+|---|---|---|---|
+| `feature/<name>` | New skills, new capabilities, improvements, docs. Salesforce updates arrive as `feature/upstream-<date>`. | `develop` | `develop` |
+| `bugfix/<name>` | Fixing something on `develop` that hasn't been released yet | `develop` | `develop` |
+| `release/<x.y.z>` | Cutting a release: set the version and CHANGELOG, nothing else | `develop` | `main` |
+| `hotfix/<name>` | An urgent fix to what's already released | `main` | `main` |
+
+Names are lowercase with hyphens, for example `feature/sfra-unit-tests` or `bugfix/scrub-false-positive`.
+
+**Everyday flow:** cut `feature/` or `bugfix/` from `develop` → pull request into `develop` → checks pass
+→ owner merges → try it on `develop`.
+
+**Releasing:**
+
+1. Cut `release/<x.y.z>` from `develop`.
+2. Set `package.json` to `x.y.z` and turn the CHANGELOG's *Unreleased* section into `## [x.y.z] - date`.
+3. Open a pull request into `main`. `release-gate` refuses it unless the branch is `release/` or `hotfix/`,
+   the version is new and matches the branch name, and the CHANGELOG has the section.
+4. Merging publishes the `vx.y.z` tag and release notes, and opens an automatic pull request syncing
+   `main` back into `develop`. Merge that too.
+
+A **hotfix** follows the same steps from step 2, cut from `main` with a patch version.
+
+**The same applies to overlay repos:** `main` and `develop`, the same four branch types, the same pull
+request rule and guards. Overlay changes are approved by the core owner or that engagement's project lead.
 
 ### How it's enforced
 
 | Guard | What it does | Status |
 |---|---|---|
 | GitHub rulesets (`scripts/protect-branches.sh <owner/repo>`) | Blocks direct pushes, force pushes and deletion of `main` and `develop`; requires a pull request with passing checks. No bypass, owners included. | **Needs a plan that supports it**: GitHub Pro, a Team/Enterprise organisation, or a public repo. Not available on the current free private repo. |
-| Pre-push hook (`npm run setup-hooks`) | Refuses a direct push to `main` or `develop` from your machine | Active wherever hooks are enabled. Can be bypassed with `--no-verify`, so it catches mistakes, not intent. |
+| Pre-push hook (`npm run setup-hooks`) | Refuses a direct push to `main` or `develop`, and any branch not named `feature/`, `bugfix/`, `hotfix/` or `release/` | Active wherever hooks are enabled. Can be bypassed with `--no-verify`, so it catches mistakes, not intent. |
+| `branch-name` workflow | Fails a pull request from a wrongly named branch, or one aimed at the wrong target | Active |
 | `branch-guard` workflow | Fails and opens an issue if a commit lands on `main` or `develop` without a merged pull request | Active. Detects after the fact; can't prevent. |
-| `release-gate` workflow | Checks every pull request into `main` is a proper release | Active |
+| `release-gate` workflow | Checks every pull request into `main` is a proper release from `release/` or `hotfix/` | Active |
 
 When the repo moves to a plan that supports rulesets, run `sh scripts/protect-branches.sh <owner/repo>`
 once (and once per overlay with `--overlay`). Required approvals start at 0 so a solo owner can merge;
@@ -56,8 +73,8 @@ limited to the engagement team.
 
 ## Releases
 
-- `package.json` holds the library version. The owner sets it in the release pull request; contributors
-  only add `CHANGELOG.md` entries under *Unreleased*. Each skill also carries its own `version`.
+- `package.json` holds the library version. The owner sets it on the `release/<x.y.z>` branch;
+  contributors only add `CHANGELOG.md` entries under *Unreleased*. Each skill also carries its own `version`.
 - Every release has a `CHANGELOG.md` section, checked by `release-gate`.
 - Merging the release pull request into `main` tags `vX.Y.Z` and publishes the notes automatically.
 - Users receive releases through the plugin manager, `npm run link`, and the `check-updates` nudge.

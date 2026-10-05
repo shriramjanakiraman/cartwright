@@ -1,4 +1,4 @@
-<!-- Feature and skill PRs target `develop`. Only release PRs (from develop or hotfix/*) target `main`. -->
+<!-- feature/ and bugfix/ branches target `develop`. Only release/<x.y.z> and hotfix/ branches target `main`. -->
 
 ## What this changes
 

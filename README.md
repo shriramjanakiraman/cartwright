@@ -119,8 +119,9 @@ node scripts/build-overlay.mjs ../<code>-agent-skills
 ## Branches
 
 `main` is stable and is what everyone installs. `develop` is where new skills and features are tested first.
-Every change, owners included, goes through a pull request into `develop`; releases are pull requests from
-`develop` into `main`. Details in GOVERNANCE.md.
+Every change, owners included, goes through a pull request. Work happens on `feature/` or `bugfix/` branches
+into `develop`; releases go from `release/<x.y.z>` into `main`, and urgent fixes from `hotfix/`. No other
+branch names are accepted. Details in GOVERNANCE.md.
 
 ## Local checks
 
