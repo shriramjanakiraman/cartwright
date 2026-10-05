@@ -4,6 +4,8 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-05
+
 ### Added
 - Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
   included, arrives through a pull request from one of four branch types: `feature/`, `bugfix/` (into
@@ -21,6 +23,9 @@ All notable changes to what users receive. Newest first.
 - `skill-intake` 0.3.0 works on `feature/` (or `bugfix/`) branches into `develop`.
 - The weekly upstream check names its branch `feature/upstream-<date>`.
 - Overlay template gains the same branches, hooks and guards.
+
+### Fixed
+- CI secret scan can read pull request commits (it failed on the first pull request run).
 
 ## [0.4.0] - 2026-10-05
 
