@@ -2,7 +2,7 @@
 name: skill-intake
 description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.1.0
+version: 0.2.0
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
@@ -160,20 +160,23 @@ every agent it was actually tried on in `agents-tested`.
 2. Enable the commit checks once if they aren't already: `npm run setup-hooks`.
 3. Ask: *"Ready for me to push a branch and open the pull request?"* Only on a yes:
    ```bash
-   git checkout -b skill/<name>
+   git fetch origin && git checkout -b skill/<name> origin/develop   # always branch from develop
    git add -A && git commit -m "Add <name> skill"
    git push -u origin skill/<name>
-   gh pr create --fill --body-file <filled-in copy of .github/pull_request_template.md>
+   gh pr create --base develop --fill --body-file <filled-in copy of .github/pull_request_template.md>
    ```
+   Always target `develop`, in the core repo and in overlay repos alike. Never push to `main` or `develop`
+   directly; the push will be refused or flagged.
    Fill the template truthfully: tick only the checks you actually ran, and paste the trigger prompts
    from Step 7. If the developer can't push to the repo, offer a fork or a patch file instead.
 
 ### Step 9 — Say what happens next
 
 - CI runs the same checks on the pull request.
-- The owner (or the project lead, for client skills) reviews and merges.
-- After the next release, Claude Code users get it through the plugin update; other agents get it on
-  their next `npm run link -- --agent <agent>`.
+- The owner (or the project lead, for client skills) reviews and merges it into `develop`, where it's
+  tried out.
+- It reaches everyone with the next release, when `develop` is merged into `main`: Claude Code users
+  through the plugin update, other agents on their next `npm run link -- --agent <agent>`.
 
 ### Improving an existing skill
 

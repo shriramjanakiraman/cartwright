@@ -116,10 +116,16 @@ node scripts/validate.mjs --overlay ../<code>-agent-skills
 node scripts/build-overlay.mjs ../<code>-agent-skills
 ```
 
+## Branches
+
+`main` is stable and is what everyone installs. `develop` is where new skills and features are tested first.
+Every change, owners included, goes through a pull request into `develop`; releases are pull requests from
+`develop` into `main`. Details in GOVERNANCE.md.
+
 ## Local checks
 
 ```bash
-npm run setup-hooks     # once: enables the pre-commit scrub and validation
+npm run setup-hooks     # once: enables the pre-commit scrub and the pre-push branch guard
 npm run check           # validate + scrub-scan + build --check
 npm run build           # regenerate plugin/ and INDEX.md after editing skills
 npm run upstream        # Door A report (set GH_TOKEN to avoid rate limits)

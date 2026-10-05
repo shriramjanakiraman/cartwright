@@ -1,3 +1,5 @@
+<!-- Feature and skill PRs target `develop`. Only release PRs (from develop or hotfix/*) target `main`. -->
+
 ## What this changes
 
 <!-- One or two sentences. -->

@@ -4,6 +4,20 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
+  included, arrives through a pull request; releases are pull requests from `develop` into `main`.
+- `release-gate`: pull requests into `main` must come from `develop` or `hotfix/*`, bump the version and
+  have a CHANGELOG section. Merging publishes the tag and release notes automatically.
+- `branch-guard`: flags and opens an issue for any commit that reaches `main` or `develop` without a
+  merged pull request. Pre-push hook refuses direct pushes locally.
+- `scripts/protect-branches.sh`: applies the GitHub rulesets to core or an overlay once the plan allows.
+
+### Changed
+- The weekly upstream check now opens its pull request against `develop`.
+- `skill-intake` 0.2.0 branches from and targets `develop`.
+- Overlay template gains the same branches, hooks and guards.
+
 ## [0.4.0] - 2026-10-05
 
 ### Added

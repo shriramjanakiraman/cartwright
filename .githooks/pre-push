@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Local guard: main and develop only change through merged pull requests on GitHub.
+# This catches mistakes on your machine. GitHub branch rules (scripts/protect-branches.sh) are the real
+# enforcement; until they're available, the branch-guard workflow flags any direct push after the fact.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/develop)
+      echo "pre-push: direct pushes to ${remote_ref#refs/heads/} are not allowed."
+      echo "          Push a branch and open a pull request into develop instead:"
+      echo "          git push -u origin HEAD && gh pr create --base develop"
+      exit 1 ;;
+  esac
+done
+exit 0

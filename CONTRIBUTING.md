@@ -129,12 +129,18 @@ the reviewer to ask why.
 
 ## 4. Submit
 
+Work on a branch from `develop`, never on `main` or `develop` directly (see GOVERNANCE.md):
+
 ```bash
+git fetch origin && git checkout -b skill/<name> origin/develop
+# … write the skill …
 npm run build      # regenerates plugin/ and INDEX.md
 npm run check      # validate + scrub-scan + build --check
+git push -u origin HEAD
+gh pr create --base develop
 ```
 
-Open a pull request and complete the template. Add a `CHANGELOG.md` entry under *Unreleased*. Don't change
+The pull request targets `develop`; complete the template. Add a `CHANGELOG.md` entry under *Unreleased*. Don't change
 the version in `package.json`; the owner sets it at release.
 
 ## Upstream changes (Door A)

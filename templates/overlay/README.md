@@ -11,6 +11,18 @@ of the shared core library. Only this engagement's team can read this repo, so o
 4. Create `.scrub/denylist.txt` with this client's names and identifiers (see below).
 5. Add a repo secret `CORE_REPO_TOKEN`: a read-only token for the core repo, so CI can run its checks.
 
+## Branches
+
+Same model as the core library: `main` is what client projects install, `develop` is where new skills are
+tried first, and every change arrives through a pull request, project leads included. After creating the
+repo:
+
+```bash
+git checkout -b develop && git push -u origin develop
+git config core.hooksPath .githooks          # local guard against direct pushes
+sh ../agent-skills/scripts/protect-branches.sh <owner>/<project-code>-agent-skills --overlay   # if the plan allows
+```
+
 ## Add a skill
 
 1. Copy `skill-template.md` to `skills/<project-code>-<name>.md`.
@@ -24,7 +36,8 @@ of the shared core library. Only this engagement's team can read this repo, so o
    node ../agent-skills/scripts/validate.mjs --overlay .
    node ../agent-skills/scripts/build-overlay.mjs .
    ```
-   A core owner or a project lead approves it.
+   Branch from `develop` and open the pull request into `develop`. A core owner or a project lead approves
+   it, and it reaches the team when `develop` is merged into `main`.
 
 ## How the team gets these skills
 
