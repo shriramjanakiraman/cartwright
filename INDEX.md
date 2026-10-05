@@ -32,6 +32,6 @@ Mirrored unmodified at the versions pinned below. Licences are in `plugin/licens
 | `b2c-developer-tooling` | 1.10.3 | bundled skills | Bundled into this plugin as a read-only mirror. b2c-experimental is excluded: not published by Salesforce. |
 | `b2c-dx-mcp` | 3.2.1 | bundled MCP server | The plugin registers this MCP server at the pinned version. Its own skills are served by the server, so they are not mirrored as files. |
 | `commerce-apps` | 24232f4 | bundled skills | cap-dev skills, bundled as a read-only mirror. |
-| `storefront-next-template` | d0987c0 | referenced | Not bundled: these skills only work inside a project created from the template. |
-| `spec-kit` | v1.0.13 | referenced | used by `speckit-install`, `jira-to-implementation` |
-| `graphify` | 0.9.73 | referenced | used by `repo-orientation`, `jira-to-implementation` |
+| `storefront-next-template` | fd68048 | referenced | Not bundled: these skills only work inside a project created from the template. |
+| `spec-kit` | v1.1.0 | referenced | used by `speckit-install`, `jira-to-implementation` |
+| `graphify` | 0.9.76 | referenced | used by `repo-orientation`, `jira-to-implementation` |
