@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { ref: develop }   # upstream changes are tested on develop like everything else
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Compare upstream.lock.json with official sources
@@ -29,7 +30,7 @@ jobs:
         run: |
           node scripts/sync-upstream.mjs
           node scripts/build.mjs
-          BRANCH=upstream/$(date -u +%Y-%m-%d)
+          BRANCH=feature/upstream-$(date -u +%Y-%m-%d)
           git config user.name "upstream-watch"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
@@ -38,4 +39,4 @@ jobs:
           git push -f origin "$BRANCH"
           gh pr view "$BRANCH" >/dev/null 2>&1 \
             && gh pr edit "$BRANCH" --body-file upstream-report.md \
-            || gh pr create --head "$BRANCH" --title "Upstream changes $(date -u +%Y-%m-%d)" --body-file upstream-report.md
+            || gh pr create --base develop --head "$BRANCH" --title "Upstream changes $(date -u +%Y-%m-%d)" --body-file upstream-report.md

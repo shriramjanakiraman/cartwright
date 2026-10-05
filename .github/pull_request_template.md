@@ -1,3 +1,5 @@
+<!-- feature/ and bugfix/ branches target `develop`. Only release/<x.y.z> and hotfix/ branches target `main`. -->
+
 ## What this changes
 
 <!-- One or two sentences. -->

@@ -4,6 +4,24 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
+  included, arrives through a pull request from one of four branch types: `feature/`, `bugfix/` (into
+  `develop`), `release/<x.y.z>` and `hotfix/` (into `main`).
+- `release-gate`: pull requests into `main` must come from `release/` or `hotfix/`, bump the version
+  (matching a `release/` branch name) and have a CHANGELOG section. Merging publishes the tag and release
+  notes, then opens a pull request syncing `main` back into `develop`.
+- `branch-name`: fails pull requests from wrongly named branches or aimed at the wrong target.
+- `branch-guard`: flags and opens an issue for any commit that reaches `main` or `develop` without a
+  merged pull request. Pre-push hook refuses direct pushes and unknown branch names locally.
+- `scripts/protect-branches.sh`: applies the GitHub rulesets to core or an overlay once the plan allows.
+
+### Changed
+- The weekly upstream check now opens its pull request against `develop`.
+- `skill-intake` 0.3.0 works on `feature/` (or `bugfix/`) branches into `develop`.
+- The weekly upstream check names its branch `feature/upstream-<date>`.
+- Overlay template gains the same branches, hooks and guards.
+
 ## [0.4.0] - 2026-10-05
 
 ### Added
