@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
 permissions:
   contents: read
+  pull-requests: read   # gitleaks reads the PR's commits on pull_request runs
 jobs:
   check:
     runs-on: ubuntu-latest
