@@ -19,7 +19,8 @@ limited to the engagement team.
 
 ## Releases
 
-- `package.json` holds the version. Bump it in any pull request that changes what users receive.
+- `package.json` holds the library version. The owner sets it when cutting a release; contributors only add
+  `CHANGELOG.md` entries under *Unreleased*. Each skill also carries its own `version`.
 - Every release has a `CHANGELOG.md` entry.
 - Tag releases `vX.Y.Z`. The release workflow publishes the matching CHANGELOG section as release notes.
 - Users receive releases through the plugin manager, `npm run link`, and the `check-updates` nudge.

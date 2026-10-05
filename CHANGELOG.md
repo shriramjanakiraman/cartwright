@@ -4,6 +4,20 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-05
+
+### Added
+- `skill-intake`: the first core skill. Walks a developer from an idea, a just-finished workflow or an
+  existing project skill to an open pull request: duplicate check, core-or-overlay decision, draft,
+  scrub, validation, and submission after an explicit yes.
+- `npm run find` (`scripts/find-skill.mjs`): search our skills, all bundled official skills and an
+  optional overlay by name and description.
+- `npm run new-skill` (`scripts/new-skill.mjs`): create a correctly labelled draft, core or overlay,
+  with owner, version, date and project labels filled in.
+
+### Changed
+- Contributors no longer bump `package.json`; the owner sets the library version at release.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added

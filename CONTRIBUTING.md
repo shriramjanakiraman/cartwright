@@ -1,5 +1,8 @@
 # Contributing a skill
 
+**The easy way:** ask your agent "I want to add a skill". The `skill-intake` skill walks through every step
+below for you and only asks what it can't work out itself.
+
 Every skill enters through one door: a pull request that passes the checks below and gets an owner's
 approval. Work through the four steps in order.
 
@@ -26,8 +29,14 @@ serves.
 
 ## 2. Write
 
-Copy `templates/skill.md` to `core/<name>.md`. One flat file per skill: no folders, no supporting scripts
-or assets.
+Check nothing already covers it, then create the draft with every label filled in:
+
+```bash
+npm run find -- "<what the skill would do>"
+npm run new-skill -- --name <name> --description "<what it does and when to use it>" --applies-to <any|sfra|storefront-next|pwa-kit>
+```
+
+One flat file per skill in `core/`: no folders, no supporting scripts or assets.
 
 ### Required frontmatter
 
@@ -125,7 +134,8 @@ npm run build      # regenerates plugin/ and INDEX.md
 npm run check      # validate + scrub-scan + build --check
 ```
 
-Open a pull request and complete the template. Add a `CHANGELOG.md` entry under *Unreleased*.
+Open a pull request and complete the template. Add a `CHANGELOG.md` entry under *Unreleased*. Don't change
+the version in `package.json`; the owner sets it at release.
 
 ## Upstream changes (Door A)
 

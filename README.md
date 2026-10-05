@@ -12,6 +12,16 @@ Three rules shape everything here:
    overlay repo (see [Project overlays](#project-overlays)).
 3. **Every change comes through a door.** Upstream changes through Door A, our changes through Door B.
 
+## Adding a skill: just ask your agent
+
+Tell your agent **"I want to add a skill"** (or "make this a skill", or "promote this project skill"). The
+`skill-intake` skill takes it from there: it checks nothing already does the job, works out whether it
+belongs here or in a client overlay, drafts it, scrubs it, validates it, and opens the pull request once
+you say yes. You answer a few questions and review one draft.
+
+Prefer doing it by hand? `npm run find -- "<idea>"`, then `npm run new-skill -- --name <name> --description "..."`,
+then follow CONTRIBUTING.md.
+
 ## Layout
 
 ```
