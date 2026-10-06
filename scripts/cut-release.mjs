@@ -6,19 +6,21 @@
 // fresh empty Unreleased above it), rebuilds, runs every check and commits "Release x.y.z".
 // It never pushes or opens the pull request; that step is for the person or agent to take after review.
 //
-// Usage: node scripts/cut-release.mjs <x.y.z>        (or: npm run release -- 0.6.0)
+// Usage: node scripts/cut-release.mjs [x.y.z]        (or: npm run release -- 0.6.0)
+// Without a version it picks one from the CHANGELOG (scripts/next-version.mjs): patch for fixes only,
+// minor for anything added or changed. It never picks a major; give that version explicitly.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from './lib.mjs';
+import { cmp, nextVersion } from './next-version.mjs';
 
-const V = process.argv[2];
+let V = process.argv[2];
 const fail = (m) => { console.error(`release: ${m}`); process.exit(1); };
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const run = (cmd, a) => execFileSync(cmd, a, { cwd: ROOT, stdio: 'inherit' });
 
-if (!/^\d+\.\d+\.\d+$/.test(V || '')) fail('give the version to release, e.g. npm run release -- 0.6.0');
-const cmp = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+if (V && !/^\d+\.\d+\.\d+$/.test(V)) fail(`'${V}' isn't a version like 0.6.0`);
 
 if (git('status', '--porcelain')) fail('you have uncommitted changes; commit or stash them first');
 try { git('fetch', '-q', '--tags', 'origin'); } catch { fail('could not fetch origin; check your GitHub access'); }
@@ -26,6 +28,13 @@ try { git('fetch', '-q', '--tags', 'origin'); } catch { fail('could not fetch or
 const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
 const hotfix = branch.startsWith('hotfix/');
 const base = hotfix ? 'HEAD' : 'origin/develop';
+if (!V) {
+  const n = nextVersion(base);
+  if (n.bump === 'none') fail(`nothing to release: ${n.reason}`);
+  if (n.bump === 'owner') fail(`choose the version yourself (npm run release -- <x.y.z>): ${n.reason}`);
+  V = n.version;
+  console.log(`Releasing ${V}: ${n.bump} from ${n.base}, ${n.reason}`);
+}
 const rel = `release/${V}`;
 
 // Validate everything against the base before creating anything, so a refusal leaves no stray branch.

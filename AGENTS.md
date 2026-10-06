@@ -80,17 +80,21 @@ gh pr create --base develop           # --base main only for release/ and hotfix
 
 ## Releasing
 
-Only when the owner asks ("cut the release", "ship it", "release 0.6.0").
+Releases normally happen on their own: `weekly-release` runs every Wednesday at 00:00 IST and, when
+*Unreleased* has entries, cuts the release branch and opens the pull request into `main` (steps 1–3
+below). If it can't decide, it opens a "Weekly release needs you" issue. Cut one by hand only when the
+owner asks ("cut the release", "ship it", "release 0.6.0").
 
-1. **Pick the version** if they didn't give one. Read *Unreleased* in `CHANGELOG.md` and the current
-   version in `package.json`:
-   - **patch** (0.5.0 → 0.5.1) if it only fixes things: only *Fixed* entries
-   - **minor** (0.5.0 → 0.6.0) if it adds anything: any *Added* or *Changed* entry
+1. **Pick the version** if they didn't give one. `npm run release` with no version picks it from
+   *Unreleased* in `CHANGELOG.md` (`scripts/next-version.mjs`), the same way the weekly run does:
+   - **patch** (0.5.0 → 0.5.1) if it only fixes things: only *Fixed* or *Security* entries
+   - **minor** (0.5.0 → 0.6.0) if it adds anything: any *Added*, *Changed* or *Deprecated* entry
    - **major** (0.x → 1.0.0, or 1.x → 2.0.0) if anything breaks how people already use the library, such as
-     a renamed or removed skill, or a changed command. Check with the owner before choosing major.
+     a renamed or removed skill, or a changed command. Never automatic: *Removed* or `BREAKING` entries
+     make the script stop. The owner chooses major versions.
 
    Tell the owner the version and the one-line reason, then continue.
-2. **Cut it:** `npm run release -- <x.y.z>`. It creates `release/<x.y.z>` from the latest `develop`, sets
+2. **Cut it:** `npm run release` (or `npm run release -- <x.y.z>`). It creates `release/<x.y.z>` from the latest `develop`, sets
    the version, turns *Unreleased* into `## [x.y.z] - <today>`, rebuilds, runs every check and commits.
    It refuses a version that isn't newer, and an empty *Unreleased*.
 3. **Raise it:** `git push -u origin release/<x.y.z>` and `gh pr create --base main --title "Release <x.y.z>"`,
