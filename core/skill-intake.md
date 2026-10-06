@@ -2,12 +2,12 @@
 name: skill-intake
 description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.4.0
+version: 0.4.1
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
 agents-tested: [claude-code]
-last-reviewed: 2026-10-05
+last-reviewed: 2026-10-06
 ---
 
 # skill-intake
@@ -155,8 +155,8 @@ every agent it was actually tried on in `agents-tested`.
 
 ### Step 8 — Submit it, after a yes
 
-1. Add one line under **Unreleased** in the repo's `CHANGELOG.md`. Don't change `package.json`; the
-   owner sets the version at release.
+1. Add one line under **Unreleased** in the repo's `CHANGELOG.md` (the core repo's, or the overlay's for a
+   client skill). Don't change the version in `package.json` or `overlay.json`; the release sets it.
 2. Enable the commit checks once if they aren't already: `npm run setup-hooks`.
 3. Ask: *"Ready for me to push a branch and open the pull request?"* Only on a yes:
    ```bash
@@ -165,6 +165,9 @@ every agent it was actually tried on in `agents-tested`.
    git push -u origin feature/<name>
    gh pr create --base develop --fill --body-file <filled-in copy of .github/pull_request_template.md>
    ```
+   For a client skill, run the git and `gh` commands inside the overlay repo instead, starting the branch
+   with `git fetch origin && git checkout -b feature/<name> origin/develop`, and commit the regenerated
+   plugin files with the skill. That repo's `AGENTS.md` has its rules.
    Always a `feature/` branch (or `bugfix/` when fixing an unreleased skill) into `develop`, in the core
    repo and in overlay repos alike. Never push to `main` or `develop` directly, and don't invent other
    branch names; both are refused.
@@ -176,8 +179,10 @@ every agent it was actually tried on in `agents-tested`.
 - CI runs the same checks on the pull request.
 - The owner (or the project lead, for client skills) reviews and merges it into `develop`, where it's
   tried out.
-- It reaches everyone with the next release, when `develop` is merged into `main`: Claude Code users
-  through the plugin update, other agents on their next `npm run link -- --agent <agent>`.
+- It reaches everyone with the next release. Releases are cut from `develop` automatically every
+  Wednesday (00:00 IST) when there's something new, and merged into `main` by the owner or project lead.
+  Claude Code users get it through the plugin update, other agents on their next pull and
+  `npm run link -- --agent <agent>` (with `--from <path-to-overlay>` for client skills).
 
 ### Improving an existing skill
 

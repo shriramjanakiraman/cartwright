@@ -1,0 +1,33 @@
+name: release
+# Merging a release pull request into main publishes the release: tag vX.Y.Z from overlay.json and release
+# notes from the matching CHANGELOG section. The new version is in the plugin's plugin.json, which is how
+# Claude Code notices the update; other agents get it on their next pull of main and link.
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Tag and publish if this version isn't released yet
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(node -p "require('./overlay.json').version")
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then echo "v$V already released; nothing to do."; exit 0; fi
+          awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > notes.md
+          gh release create "v$V" --target "$GITHUB_SHA" --title "v$V" --notes-file notes.md
+      - name: Sync main back into develop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin develop
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/develop; then echo "develop already contains main."; exit 0; fi
+          gh pr list --base develop --head main --state open --json number --jq 'length' | grep -q '^0$' || { echo "Sync PR already open."; exit 0; }
+          gh pr create --base develop --head main --title "Sync main into develop after $(node -p "'v'+require('./overlay.json').version")" \
+            --body "Automatic: brings the release or hotfix version bump and CHANGELOG back into develop so the branches don't drift. Pull requests opened by a workflow get no checks of their own, so red or missing checks here are expected."

@@ -1,0 +1,2 @@
+# The core repo, checked out here by CI and the release workflows to run its scripts.
+.core/

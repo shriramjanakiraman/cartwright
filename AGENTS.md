@@ -90,7 +90,7 @@ owner asks ("cut the release", "ship it", "release 0.6.0").
    - **patch** (0.5.0 → 0.5.1) if it only fixes things: only *Fixed* or *Security* entries
    - **minor** (0.5.0 → 0.6.0) if it adds anything: any *Added*, *Changed* or *Deprecated* entry
    - **major** (0.x → 1.0.0, or 1.x → 2.0.0) if anything breaks how people already use the library, such as
-     a renamed or removed skill, or a changed command. Never automatic: *Removed* or `BREAKING` entries
+     a renamed or removed skill, or a changed command. Never automatic: *Removed* or `- BREAKING:` entries
      make the script stop. The owner chooses major versions.
 
    Tell the owner the version and the one-line reason, then continue.
@@ -113,3 +113,7 @@ owner asks ("cut the release", "ship it", "release 0.6.0").
 
 Use the `skill-intake` skill (`core/skill-intake.md`). It covers duplicate checks, core versus client
 overlay, drafting, scrubbing and validation, and ends at the same pull request flow above.
+
+Client overlay repos have their own `AGENTS.md` (from `templates/overlay/`) with the same branch, pull
+request and release rules. The release script works for them with `--overlay <path>`. If you change how
+releases or branches work here, update `templates/overlay/` to match.
