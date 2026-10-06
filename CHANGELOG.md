@@ -4,8 +4,6 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-10-06
-
 ### Added
 - Project skills reach the team automatically in Claude Code, Codex, GitHub Copilot CLI and VS Code.
   `build-overlay` generates a `client-project/` kit (`.claude/settings.json`, `.github/copilot/settings.json`,
@@ -14,6 +12,8 @@ All notable changes to what users receive. Newest first.
   overlay deciding who can download it. It replaces `client-project-settings.json` (Claude Code only).
 - The plugin also ships the Agent Plugins 1.0 manifest (`plugin/plugin.json` and `plugin/mcp.json`) that
   GitHub Copilot CLI and VS Code read.
+
+## [1.1.0] - 2026-10-06
 
 ### Added
 - Codex plugin: the repo is now also a Codex plugin marketplace (`.agents/plugins/marketplace.json` and
