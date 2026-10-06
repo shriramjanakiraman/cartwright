@@ -1,0 +1,27 @@
+name: duplicate-recheck
+# When someone replies to a duplicate-check comment or submits a review, re-run the pull request's latest
+# duplicate-check run, so it re-reads which comments are resolved. Re-running (instead of checking here)
+# keeps a single "duplicates" result on the pull request, which is what a ruleset will require.
+on:
+  pull_request_review_comment:
+    types: [created, edited]
+  pull_request_review:
+    types: [submitted]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run duplicate-check for this pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          RUN=$(gh run list -R "$REPO" --workflow duplicate-check.yml --event pull_request --commit "$HEAD_SHA" --limit 1 --json databaseId,status --jq '.[0] | "\(.databaseId) \(.status)"')
+          [ -n "$RUN" ] || { echo "No duplicate-check run for $HEAD_SHA yet; nothing to re-run."; exit 0; }
+          ID=${RUN% *}; STATUS=${RUN#* }
+          if [ "$STATUS" != completed ]; then echo "duplicate-check run $ID is still $STATUS; it will read the current state."; exit 0; fi
+          gh run rerun "$ID" -R "$REPO" && echo "Re-running duplicate-check run $ID."
