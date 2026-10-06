@@ -4,6 +4,43 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-06
+
+### Added
+- `AGENTS.md` (and `CLAUDE.md` pointing to it): AI agents classify each change as feature, bugfix, hotfix
+  or release themselves, say which and why, branch accordingly, and stop at an open pull request.
+- `npm run branch -- <type> <name>`: starts a correctly named branch from the right base, after listing
+  the open pull requests. `AGENTS.md` tells agents to add to a related open pull request in the same repo when it's safe
+  (same topic and kind, a human-owned branch) instead of opening another; with none open, they just branch.
+- `npm run release -- <x.y.z>`: cuts `release/<x.y.z>` from `develop` (or prepares a `hotfix/` branch in
+  place), sets the version, dates the CHANGELOG section, rebuilds, checks and commits. `AGENTS.md`
+  gains the full release and hotfix procedure, including how to pick the version and resolve the
+  CHANGELOG conflict in the post-release sync.
+- Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
+  included, arrives through a pull request from one of four branch types: `feature/`, `bugfix/` (into
+  `develop`), `release/<x.y.z>` and `hotfix/` (into `main`).
+- `release-gate`: pull requests into `main` must come from `release/` or `hotfix/`, bump the version
+  (matching a `release/` branch name) and have a CHANGELOG section. Merging publishes the tag and release
+  notes, then opens a pull request syncing `main` back into `develop`.
+- `branch-name`: fails pull requests from wrongly named branches or aimed at the wrong target.
+- `branch-guard`: flags and opens an issue for any commit that reaches `main` or `develop` without a
+  merged pull request. Pre-push hook refuses direct pushes and unknown branch names locally.
+- `scripts/protect-branches.sh`: applies the GitHub rulesets to core or an overlay once the plan allows.
+
+### Changed
+- The upstream check runs daily instead of weekly, from `develop`: GitHub only runs schedules from `main`,
+  so a small `upstream-schedule` workflow there starts `upstream-watch` on `develop` each day, and changes
+  to the check take effect as soon as they merge into `develop`. It raises its pull request into `develop`
+  instead of `main`, and keeps one standing pull request (`feature/upstream-updates`) that each run
+  refreshes, instead of one per run.
+- The upstream check runs validate, scrub, sync and build checks itself before proposing an update,
+  because pull requests opened by a workflow don't trigger CI automatically.
+- `skill-intake` 0.4.0 starts its work with `npm run branch` on a `feature/` (or `bugfix/`) branch into `develop`.
+- Overlay template gains the same branches, hooks and guards.
+
+### Fixed
+- CI secret scan can read pull request commits (it failed on the first pull request run).
+
 ## [0.4.0] - 2026-10-05
 
 ### Added

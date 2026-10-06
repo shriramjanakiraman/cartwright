@@ -1,6 +1,6 @@
 {
   "name": "agent-skills",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
   "author": "Shriram Janakiraman",
   "private": true,
@@ -21,6 +21,8 @@
     "sync-upstream:check": "node scripts/sync-upstream.mjs --check",
     "build-overlay": "node scripts/build-overlay.mjs",
     "find": "node scripts/find-skill.mjs",
-    "new-skill": "node scripts/new-skill.mjs"
+    "new-skill": "node scripts/new-skill.mjs",
+    "branch": "sh scripts/start-branch.sh",
+    "release": "node scripts/cut-release.mjs"
   }
 }

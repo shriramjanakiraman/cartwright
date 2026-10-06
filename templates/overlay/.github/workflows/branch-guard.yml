@@ -1,0 +1,28 @@
+name: branch-guard
+# Server-side alarm: every commit that lands on main or develop must come from a merged pull request.
+# It can't stop a push (only GitHub branch rules can), but it fails loudly and opens an issue.
+on:
+  push:
+    branches: [main, develop]
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the pushed commit came from a merged pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          MERGED=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq "[.[] | select(.merged_at != null and .base.ref == \"$BRANCH\")] | length")
+          if [ "$MERGED" -gt 0 ]; then echo "OK: $SHA arrived through a merged pull request into $BRANCH."; exit 0; fi
+          echo "::error::$SHA was pushed directly to $BRANCH by $ACTOR, not through a pull request."
+          gh issue create -R "$REPO" --title "Direct push to $BRANCH detected (${SHA:0:7})" \
+            --body "Commit $SHA was pushed straight to \`$BRANCH\` by @$ACTOR without a pull request. Every change must arrive through a reviewed pull request (see GOVERNANCE.md). Review the commit and, if needed, revert it through a pull request."
+          exit 1

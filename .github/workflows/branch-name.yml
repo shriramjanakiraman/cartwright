@@ -1,0 +1,26 @@
+name: branch-name
+# Every pull request comes from feature/, bugfix/, hotfix/ or release/ (see GOVERNANCE.md), and goes to
+# the right place: feature and bugfix into develop; release and hotfix into main. The only other allowed
+# pull request is the automatic main → develop sync after a release.
+on:
+  pull_request:
+    branches: [main, develop]
+permissions:
+  contents: read
+jobs:
+  branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch type and target
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          case "$HEAD:$BASE" in
+            feature/?*:develop|bugfix/?*:develop) echo "OK: $HEAD → $BASE" ;;
+            release/?*:main|hotfix/?*:main)       echo "OK: $HEAD → $BASE" ;;
+            main:develop)                          echo "OK: post-release sync main → develop" ;;
+            feature/*:main|bugfix/*:main) echo "::error::$HEAD must target develop, not main. Only release/ and hotfix/ branches go into main."; exit 1 ;;
+            release/*:develop|hotfix/*:develop) echo "::error::$HEAD must target main. It is synced back into develop automatically after release."; exit 1 ;;
+            *) echo "::error::'$HEAD' isn't an allowed branch name. Use feature/<name>, bugfix/<name>, hotfix/<name> or release/<x.y.z>."; exit 1 ;;
+          esac

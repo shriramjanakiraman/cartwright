@@ -1,7 +1,10 @@
 name: overlay-ci
-on: [pull_request, push]
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
 jobs:
-  check:
+  check:   # required status check name used by scripts/protect-branches.sh
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
