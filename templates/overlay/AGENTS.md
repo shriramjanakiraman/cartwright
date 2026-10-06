@@ -60,6 +60,10 @@ Follow the core library's `skill-intake` skill (`../agent-skills/core/skill-inta
 7. Commit the skill and the generated output (`plugin/`, `INDEX.md`, `.claude-plugin/`,
    `client-project-settings.json`), push and open the pull request into `develop`:
    `gh pr create --base develop`. Fill it in truthfully. Stop there and say it's ready for review.
+8. If `duplicate-check` comments that the skill may repeat another (in this overlay, core or the official
+   skills), don't just resolve it. Agree with the developer what to do (use or build on the other skill,
+   combine them, or keep it because it's deliberately different), make the change, reply with the
+   decision, then resolve it. The pull request can't be merged while a comment is open.
 
 ## Releasing
 

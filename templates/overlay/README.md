@@ -48,7 +48,9 @@ Agents follow `AGENTS.md` here (Claude Code reads it through `CLAUDE.md`) and th
    node ../agent-skills/scripts/build-overlay.mjs .
    ```
    Work on a `feature/<name>` branch from `develop`, add a line under *Unreleased* in `CHANGELOG.md`, and
-   open the pull request into `develop`. A core owner or a project lead approves it. It reaches the team
+   open the pull request into `develop`. `duplicate-check` compares it with this overlay's, core's and the
+   official skills; if it looks like a repeat it comments with a suggestion and marks the pull request
+   "Request changes" until each comment is replied to and resolved. A core owner or a project lead approves it. It reaches the team
    with the next release (see below).
 
 ## Change a skill

@@ -77,6 +77,9 @@ gh pr create --base develop           # --base main only for release/ and hotfix
 - Run `npm run check` before every commit; the pre-commit hook runs it too.
 - Fill in the pull request template truthfully. Tick only what you actually did.
 - Stop at the open pull request and tell the developer it's ready for review. Don't merge it.
+- If `duplicate-check` comments that a skill may repeat another, don't just resolve it. Tell the developer,
+  agree what to do (use the other skill, build on it through `depends-on`, combine them, or keep it because
+  it's deliberately different), make the change, reply to the comment with the decision, then resolve it.
 
 ## Releasing
 

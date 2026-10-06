@@ -1,6 +1,7 @@
 name: branch-guard
-# Server-side alarm: every commit that lands on main or develop must come from a merged pull request.
-# It can't stop a push (only GitHub branch rules can), but it fails loudly and opens an issue.
+# Server-side alarm: every commit that lands on main or develop must come from a merged pull request, and
+# that pull request must not have an unresolved duplicate-check comment. It can't stop a push or a merge
+# (only GitHub branch rules can), but it fails loudly and opens an issue.
 on:
   push:
     branches: [main, develop]
@@ -26,3 +27,23 @@ jobs:
           gh issue create -R "$REPO" --title "Direct push to $BRANCH detected (${SHA:0:7})" \
             --body "Commit $SHA was pushed straight to \`$BRANCH\` by @$ACTOR without a pull request. Every change must arrive through a reviewed pull request (see GOVERNANCE.md). Review the commit and, if needed, revert it through a pull request."
           exit 1
+      - name: Check the merged pull request left no duplicate comment unresolved
+        # Until the repo has rulesets ("require conversation resolution"), a pull request can be merged with
+        # a duplicate-check comment still open. This makes sure that doesn't go unnoticed.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          for PR in $(gh api "repos/$REPO/commits/$SHA/pulls" --jq ".[] | select(.merged_at != null and .base.ref == \"$BRANCH\") | .number"); do
+            OPEN=$(gh api graphql -F o="${REPO%/*}" -F n="${REPO#*/}" -F pr="$PR" -f query='
+              query($o:String!,$n:String!,$pr:Int!){repository(owner:$o,name:$n){pullRequest(number:$pr){
+                reviewThreads(first:100){nodes{isResolved comments(first:1){nodes{body}}}}}}}' \
+              --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not) | .comments.nodes[0].body | capture("<!-- duplicate-check:(?<k>\\S+) -->") | .k] | join(", ")')
+            [ -z "$OPEN" ] && { echo "OK: #$PR has no unresolved duplicate comments."; continue; }
+            echo "::error::#$PR was merged into $BRANCH with unresolved duplicate comments: $OPEN"
+            gh issue create -R "$REPO" --title "#$PR merged with unresolved duplicate comments" \
+              --body "Pull request #$PR was merged into \`$BRANCH\` while the duplicate check still had open comments about possible repeats of existing skills: $OPEN. Review them on #$PR: reply with the decision and resolve each, or fix it in a new pull request before the next release ships it."
+            exit 1
+          done
