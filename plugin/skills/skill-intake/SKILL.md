@@ -2,7 +2,7 @@
 name: skill-intake
 description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.4.1
+version: 0.4.2
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
@@ -183,6 +183,27 @@ every agent it was actually tried on in `agents-tested`.
   Wednesday (00:00 IST) when there's something new, and merged into `main` by the owner or project lead.
   Claude Code users get it through the plugin update, other agents on their next pull and
   `npm run link -- --agent <agent>` (with `--from <path-to-overlay>` for client skills).
+
+### Promoting a project skill to core
+
+When the developer wants to move a skill from a client overlay into the shared library:
+
+1. Read the overlay skill and split it: what would help another engagement with the names removed, and
+   what is specific to this client. Show the developer the split and get a yes.
+2. Check that `<path-to-overlay>/.scrub/denylist.txt` lists the client's names. If it's missing or still
+   only the template's comments, the scan refuses it: build it with the developer first, from the names
+   in the overlay skill, the client project and anything else they mention, and commit it in the overlay.
+3. Run Steps 4 to 9 for the generic part as a **core** skill. Write it fresh rather than copying the file,
+   and in Step 5 scan with the overlay's denylist as well. The project lead confirms the scrub in the pull
+   request.
+4. Tell the developer the overlay update has to wait until the core skill is **released** to `main`
+   (the weekly release), because the overlay's checks validate `depends-on` against core's `main`. Offer
+   to do it then.
+5. After that release, in the overlay repo on a `feature/<name>` branch: if part of the skill was
+   client-specific, trim the overlay skill to that part, add the core skill to `depends-on`, call it by
+   name, and bump its `version`. If all of it moved, set `status: deprecated` and name the replacement in
+   `## When to use`. Rebuild with `build-overlay.mjs`, add a CHANGELOG line, and open the pull request
+   into the overlay's `develop`.
 
 ### Improving an existing skill
 

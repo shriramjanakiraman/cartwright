@@ -104,12 +104,35 @@ leaves this repo. The core repo's scanner uses it whenever a skill from here is 
 
 ## Promote a skill to core
 
-1. Copy the generic part into the core repo as `core/<name>.md`, without the project prefix, `project`
-   field or "Project … only" description.
-2. Scrub it, scanning with this repo's denylist:
-   `node scripts/scrub-scan.mjs --denylist ../<this-repo>/.scrub/denylist.txt core/<name>.md`
-3. Open the core pull request. The project lead confirms the scrub; the core owner approves.
-4. Change the overlay skill to depend on the new core skill instead of duplicating it.
+When a project skill turns out to be useful beyond this engagement, its generic part moves to the core
+library. It takes two pull requests, one per repo, **in this order**. Agents do it through the core
+library's `skill-intake` skill ("promote this project skill").
+
+1. **Split it.** Decide what's generic (it would help another engagement with the names removed) and
+   what's specific to this client. Either the whole skill is generic, or only part of it is.
+2. **Check the denylist.** `.scrub/denylist.txt` must list this client's names before anything leaves this
+   repo. The scan refuses a missing or empty list, so fill it in first if it's still the template.
+3. **Core pull request.** In the core repo, on a `feature/<name>` branch, write `core/<name>.md` fresh
+   (don't copy the file, so this repo's history doesn't travel): no project prefix, no `project` field,
+   no "Project … only" description. Scrub it against this client:
+   ```bash
+   node scripts/scrub-scan.mjs core/<name>.md
+   node scripts/scrub-scan.mjs --denylist ../<this-repo>/.scrub/denylist.txt core/<name>.md
+   ```
+   Open the pull request into core's `develop`. The project lead confirms the scrub; the core owner
+   approves.
+4. **Wait for the core release.** The core skill reaches users, and this repo's CI, only once it's
+   released to core's `main` (weekly, Wednesdays 00:00 IST). This repo's CI checks `depends-on` against
+   core's `main`, so the next step fails before then.
+5. **Overlay pull request**, on a `feature/<name>` branch into this repo's `develop`, with a CHANGELOG line:
+   - **Part of it was generic:** cut the overlay skill down to the client-specific part, add the core skill
+     to `depends-on`, call it by name instead of repeating it, and bump the skill's `version`.
+   - **All of it was generic:** set the overlay skill to `status: deprecated` and say in `## When to use`
+     which core skill replaces it. The next overlay release drops it from the plugin and `link` unlinks it;
+     delete the file one release later.
+
+The team then gets the core skill through the core plugin (already enabled by the client project's
+settings) and the trimmed or retired overlay skill with this repo's next release.
 
 ## When the engagement ends
 
