@@ -82,9 +82,8 @@ Merging it tags the release and syncs it back into `develop` like any other.
 ## Upstream-only weeks
 
 The daily upstream pull request writes its own CHANGELOG entries, so a week with only upstream changes
-releases like any other: version bumps and new official skills make it a minor release. If Salesforce
-removed official skills, they're recorded under *Removed*, and the weekly run opens the "Weekly release
-needs you" issue so the owner decides whether it's a major. See [Official skills](07-official-skills-upstream.md).
+releases like any other, as a minor release: new official skills, version bumps, and official skills
+Salesforce removed or renamed. See [Official skills](07-official-skills-upstream.md).
 
 ## Files
 

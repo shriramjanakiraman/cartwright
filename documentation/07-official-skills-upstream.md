@@ -56,7 +56,7 @@ refresh, so they always describe everything waiting):
 |---|---|---|
 | new official skills | *Added* | minor |
 | version bumps | *Changed* | minor |
-| official skills removed | *Removed* | the owner is asked whether it's a major |
+| official skills removed or renamed | *Changed* | minor |
 
 Don't change `package.json`. Merge it into `develop` like any other pull request; it ships with the next
 [release](06-releases.md). To reword an entry, do it in a small follow-up pull request, never on the

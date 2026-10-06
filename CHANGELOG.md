@@ -28,8 +28,8 @@ All notable changes to what users receive. Newest first.
 
 ### Fixed
 - The daily upstream pull request now writes its own CHANGELOG entries under *Unreleased* (new official
-  skills under *Added*, version bumps under *Changed*, removed official skills under *Removed*), so an
-  upstream-only week releases on its own. Before, nothing added one and the upstream branch couldn't be
+  skills under *Added*; version bumps and official skills removed or renamed upstream under *Changed*), so
+  an upstream-only week releases on its own as a minor release. Before, nothing added one and the upstream branch couldn't be
   committed to, so the weekly release stopped with an issue instead. Its checklist no longer tells
   reviewers to bump `package.json`.
 - Overlay changes now have a way to reach the team. The overlay template said changes ship "when `develop`
