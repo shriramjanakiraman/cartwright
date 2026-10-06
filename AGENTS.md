@@ -19,7 +19,7 @@ choose; tell them your choice in one line with the reason, then carry on. They c
 | `feature/<name>` | **adds or improves** something: a new skill, a new capability, an enhancement to existing behaviour, docs, a refactor, a dependency or upstream update, a new check or workflow | "add a skill for SFRA unit tests", "run the upstream check daily", "make find-skill rank better" | `develop` → `develop` |
 | `bugfix/<name>` | **corrects** something that is wrong: behaviour that doesn't match what the docs or the skill say it does, a failing check, a crash, a broken link, a typo that changes meaning | "the scrub scan flags placeholders", "link removes skills it shouldn't", "CI fails on pull requests" | `develop` → `develop` |
 | `hotfix/<name>` | corrects something **already released on `main` that can't wait** for the next release because it's actively harming users: a leaked secret, a skill giving dangerous instructions, a broken install | "the plugin won't install for anyone", "a released skill tells agents to delete data" | `main` → `main` |
-| `release/<x.y.z>` | the owner asks to **release** what's on `develop` | "cut the release", "ship 0.6.0" | `develop` → `main` |
+| `release/<x.y.z>` | the owner asks to **release** what's on `develop`; see *Releasing* below | "cut the release", "ship 0.6.0" | `develop` → `main` |
 
 **Deciding between them:**
 
@@ -49,6 +49,33 @@ gh pr create --base develop           # --base main only for release/ and hotfix
 - Run `npm run check` before every commit; the pre-commit hook runs it too.
 - Fill in the pull request template truthfully. Tick only what you actually did.
 - Stop at the open pull request and tell the developer it's ready for review. Don't merge it.
+
+## Releasing
+
+Only when the owner asks ("cut the release", "ship it", "release 0.6.0").
+
+1. **Pick the version** if they didn't give one. Read *Unreleased* in `CHANGELOG.md` and the current
+   version in `package.json`:
+   - **patch** (0.5.0 → 0.5.1) if it only fixes things: only *Fixed* entries
+   - **minor** (0.5.0 → 0.6.0) if it adds anything: any *Added* or *Changed* entry
+   - **major** (0.x → 1.0.0, or 1.x → 2.0.0) if anything breaks how people already use the library, such as
+     a renamed or removed skill, or a changed command. Check with the owner before choosing major.
+
+   Tell the owner the version and the one-line reason, then continue.
+2. **Cut it:** `npm run release -- <x.y.z>`. It creates `release/<x.y.z>` from the latest `develop`, sets
+   the version, turns *Unreleased* into `## [x.y.z] - <today>`, rebuilds, runs every check and commits.
+   It refuses a version that isn't newer, and an empty *Unreleased*.
+3. **Raise it:** `git push -u origin release/<x.y.z>` and `gh pr create --base main --title "Release <x.y.z>"`,
+   with the release notes as the body. Stop there; the owner reviews and merges.
+4. **After the owner merges**, a pull request syncing `main` back into `develop` opens automatically.
+   Tell the owner. If it conflicts in `CHANGELOG.md`, resolve it on a `bugfix/sync-<x.y.z>` branch: keep
+   every released section exactly as it is on `main`, and keep any entries added to `develop` since the
+   release under *Unreleased*. Then raise that as a pull request into `develop`.
+
+**Hotfix:** confirm with the owner that it can't wait for a normal release, then
+`npm run branch -- hotfix <name>`, make the fix, add a *Fixed* entry under *Unreleased*, and run
+`npm run release -- <patch version>` on the hotfix branch. It prepares the release in place. Raise it into
+`main` exactly as in step 3; the sync back into `develop` follows the same way.
 
 ## Adding or changing skills
 

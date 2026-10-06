@@ -8,6 +8,10 @@ All notable changes to what users receive. Newest first.
 - `AGENTS.md` (and `CLAUDE.md` pointing to it): AI agents classify each change as feature, bugfix, hotfix
   or release themselves, say which and why, branch accordingly, and stop at an open pull request.
 - `npm run branch -- <type> <name>`: starts a correctly named branch from the right base.
+- `npm run release -- <x.y.z>`: cuts `release/<x.y.z>` from `develop` (or prepares a `hotfix/` branch in
+  place), sets the version, dates the CHANGELOG section, rebuilds, checks and commits. `AGENTS.md`
+  gains the full release and hotfix procedure, including how to pick the version and resolve the
+  CHANGELOG conflict in the post-release sync.
 - Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
   included, arrives through a pull request from one of four branch types: `feature/`, `bugfix/` (into
   `develop`), `release/<x.y.z>` and `hotfix/` (into `main`).

@@ -22,6 +22,7 @@
     "build-overlay": "node scripts/build-overlay.mjs",
     "find": "node scripts/find-skill.mjs",
     "new-skill": "node scripts/new-skill.mjs",
-    "branch": "sh scripts/start-branch.sh"
+    "branch": "sh scripts/start-branch.sh",
+    "release": "node scripts/cut-release.mjs"
   }
 }
