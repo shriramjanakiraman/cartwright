@@ -1,6 +1,6 @@
 name: duplicate-recheck
-# Re-run the pull request's latest duplicate-check run when someone replies to a comment, submits a review
-# or comments on the pull request, so it re-reads which duplicate comments are resolved. Re-running
+# Re-run the pull request's latest duplicate-check run when someone replies to a review comment or comments
+# on the pull request, so it re-reads which duplicate comments are resolved. Re-running
 # (instead of checking here) keeps a single "duplicates" result on the pull request, which is what a
 # ruleset will require. GitHub can't start a workflow when a conversation is resolved, so after resolving
 # the last one, add a comment (in the conversation or on the pull request) or re-run the check.
@@ -9,8 +9,6 @@ name: duplicate-recheck
 on:
   pull_request_review_comment:
     types: [created, edited]
-  pull_request_review:
-    types: [submitted]
   issue_comment:
     types: [created]
 permissions:
