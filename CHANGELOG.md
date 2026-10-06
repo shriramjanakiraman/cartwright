@@ -4,6 +4,11 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Fixed
+- The daily upstream check runs from `develop`. GitHub only runs schedules from `main`, so a new
+  `upstream-schedule` workflow there starts `upstream-watch` on `develop` each day; changes to the check
+  now take effect as soon as they merge into `develop`. `upstream-watch` refuses to run from any other branch.
+
 ### Changed
 - The upstream check runs daily instead of weekly, and keeps one standing pull request
   (`feature/upstream-updates` into `develop`) that each run refreshes, instead of one per run.
