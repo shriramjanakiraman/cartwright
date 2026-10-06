@@ -5,14 +5,18 @@
 //   node scripts/upstream-check.mjs                       # report only; exit 0 = current, 10 = changes found
 //   node scripts/upstream-check.mjs --write               # also update upstream.lock.json
 //   node scripts/upstream-check.mjs --report report.md    # write the markdown report to a file
+//   node scripts/upstream-check.mjs --changelog           # also add the changes under CHANGELOG "Unreleased"
+// The CHANGELOG entries drive the weekly release's version: version bumps and new official skills are a
+// minor change; official skills removed upstream go under "Removed", so the owner decides on a major.
 // Set GITHUB_TOKEN (or GH_TOKEN) to avoid API rate limits.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, loadLock, loadSkills, asList } from './lib.mjs';
+import { ROOT, loadLock, loadSkills, asList, addUnreleased } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const write = args.includes('--write');
 const reportPath = args.includes('--report') ? args[args.indexOf('--report') + 1] : null;
+const changelog = args.includes('--changelog');
 const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 
 async function gh(path) {
@@ -110,11 +114,23 @@ if (changes.some((c) => c.kind !== 'error')) {
     : '- [ ] No core skill references a changed upstream skill.');
   if (newUpstream.length) lines.push('', `- [ ] New official skills (${newUpstream.map((x) => `\`${x}\``).join(', ')}): check none of ours now duplicates them. If one does, deprecate ours.`);
   lines.push('- [ ] Version bumps: check the skills that install these tools still work against the new version.');
-  lines.push('- [ ] Add a CHANGELOG entry and bump `package.json` so users get a release.');
+  lines.push('', '**Release:** the CHANGELOG entry under *Unreleased* is written for you (edit it in a follow-up pull request if it should say more). Don\'t change `package.json`; the weekly release sets the version.');
+  if (changes.some((c) => c.removed?.length)) lines.push('Official skills were removed, so this is recorded under *Removed*: the weekly release will ask the owner whether it needs a major version.');
 }
 const report = lines.join('\n') + '\n';
 if (reportPath) writeFileSync(reportPath, report);
 console.log(report);
 
 if (write) writeFileSync(join(ROOT, 'upstream.lock.json'), JSON.stringify(next, null, 2) + '\n');
+if (changelog && changes.some((c) => c.kind !== 'error')) {
+  const code = (xs) => xs.map((x) => `\`${x}\``).join(', ');
+  const bumps = changes.filter((c) => c.kind === 'version').map((c) => `${c.id} ${c.from ?? 'none'} → ${c.to}`);
+  const sets = changes.filter((c) => c.kind === 'skills');
+  const p = join(ROOT, 'CHANGELOG.md');
+  writeFileSync(p, addUnreleased(readFileSync(p, 'utf8'), {
+    Added: sets.filter((c) => c.added.length).map((c) => `Official skills from ${c.id} (${c.set}): ${code(c.added)}.`),
+    Changed: bumps.length ? [`Official sources updated: ${bumps.join('; ')}.`] : [],
+    Removed: sets.filter((c) => c.removed.length).map((c) => `Official skills removed upstream from ${c.id} (${c.set}): ${code(c.removed)}.`),
+  }));
+}
 process.exit(changes.some((c) => c.kind !== 'error') ? 10 : 0);

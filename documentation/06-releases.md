@@ -79,12 +79,12 @@ gh pr create --base main
 
 Merging it tags the release and syncs it back into `develop` like any other.
 
-## Known gap
+## Upstream-only weeks
 
-Merging the daily upstream pull request doesn't add a CHANGELOG line, and that branch can't be committed
-to (the upstream check force-pushes it). Until that's fixed, a week with only upstream changes produces
-the "Weekly release needs you" issue: add the CHANGELOG line through a small pull request and the next run
-releases it.
+The daily upstream pull request writes its own CHANGELOG entries, so a week with only upstream changes
+releases like any other: version bumps and new official skills make it a minor release. If Salesforce
+removed official skills, they're recorded under *Removed*, and the weekly run opens the "Weekly release
+needs you" issue so the owner decides whether it's a major. See [Official skills](07-official-skills-upstream.md).
 
 ## Files
 

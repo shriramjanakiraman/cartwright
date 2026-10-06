@@ -120,3 +120,39 @@ export function fail(msgs, label) {
   console.error('');
   return true;
 }
+
+// Add entries under CHANGELOG.md's "## [Unreleased]", each in its "### <Section>" (created in the usual
+// Keep a Changelog order when missing). `entries` maps section → list of entry text (without "- ").
+export function addUnreleased(changelog, entries) {
+  const ORDER = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security'];
+  const start = changelog.search(/^## \[Unreleased\][^\n]*\n/m);
+  if (start < 0) throw new Error('CHANGELOG.md has no "## [Unreleased]" section');
+  const bodyStart = changelog.indexOf('\n', start) + 1;
+  const next = changelog.slice(bodyStart).search(/^## \[/m);
+  const bodyEnd = next < 0 ? changelog.length : bodyStart + next;
+  // Parse the Unreleased body into its sections, keeping anything before the first heading.
+  const body = changelog.slice(bodyStart, bodyEnd);
+  const sections = new Map();
+  let lead = '', current = null;
+  for (const line of body.split('\n')) {
+    const h = line.match(/^### (.+?)\s*$/);
+    if (h) { current = h[1]; if (!sections.has(current)) sections.set(current, []); continue; }
+    if (current) sections.get(current).push(line); else lead += line + '\n';
+  }
+  for (const [name, list] of Object.entries(entries)) {
+    if (!list.length) continue;
+    if (!sections.has(name)) sections.set(name, []);
+    const lines = sections.get(name);
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    for (const e of list) lines.push(`- ${e}`);
+  }
+  const names = [...sections.keys()].sort((a, b) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99));
+  const out = names.map((n) => {
+    const lines = sections.get(n);
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    while (lines.length && !lines[0].trim()) lines.shift();
+    return `### ${n}\n${lines.join('\n')}\n`;
+  });
+  const leadText = lead.trim() ? lead.trimEnd() + '\n\n' : '';
+  return changelog.slice(0, bodyStart) + '\n' + leadText + out.join('\n') + (next < 0 ? '' : '\n') + changelog.slice(bodyEnd);
+}
