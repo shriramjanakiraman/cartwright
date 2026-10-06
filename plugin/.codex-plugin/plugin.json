@@ -1,0 +1,34 @@
+{
+  "name": "agent-skills",
+  "version": "1.1.0",
+  "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+  "author": {
+    "name": "Shriram Janakiraman"
+  },
+  "keywords": [
+    "salesforce",
+    "b2c-commerce",
+    "commerce-cloud",
+    "sfra",
+    "storefront-next",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Agent Skills",
+    "shortDescription": "Our B2C Commerce skills plus every official Salesforce skill and the B2C MCP server.",
+    "longDescription": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+    "developerName": "Shriram Janakiraman",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Make what we just did into a skill",
+      "Something is broken on the sandbox, check the logs",
+      "I need a shopper token for my storefront"
+    ]
+  }
+}

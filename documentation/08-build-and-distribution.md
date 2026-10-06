@@ -11,6 +11,9 @@ Skills are written in `core/` and mirrored in `upstream/`, but users never insta
 | `plugin/.mcp.json` | the official B2C MCP server, at the pinned version |
 | `plugin/licenses/` | each upstream publisher's licence (attribution required by Apache-2.0) |
 | `.claude-plugin/marketplace.json` | lets the repo install as a Claude Code plugin marketplace |
+| `plugin/.claude-plugin/plugin.json` | the Claude Code plugin manifest (name, version) |
+| `plugin/.codex-plugin/plugin.json` | the Codex plugin manifest: points at the same `skills/` and `.mcp.json`, plus what the Codex plugin directory shows |
+| `.agents/plugins/marketplace.json` | lets the repo install as a Codex plugin marketplace |
 | `INDEX.md` | the human catalogue: every skill, its source, version and status |
 
 Draft and deprecated core skills are left out of the plugin but still listed in `INDEX.md`.
@@ -26,6 +29,8 @@ npm run build:check    # fail if the committed output is stale (CI and the pre-c
 
 - **Claude Code** installs `.claude-plugin/marketplace.json` from the default branch (`main`), which is why
   `main` must always be the released state and stays the default branch.
+- **Codex** installs the same plugin through `.agents/plugins/marketplace.json`. Both manifests carry
+  `package.json`'s version, so one release updates both.
 - **Other agents** get the same `plugin/skills/` folders through `npm run link`, one symbolic link per
   skill, so official skills keep their `references/` and `scripts/` working.
 
@@ -34,8 +39,8 @@ See [Getting started](01-getting-started.md).
 ## Overlays
 
 Each overlay builds into its own small plugin with `node scripts/build-overlay.mjs ../<code>-agent-skills`
-(from this repo). It writes the overlay's `plugin/`, `.claude-plugin/marketplace.json`, `INDEX.md` and
-`client-project-settings.json`. The plugin's version comes from the overlay's `overlay.json`, set by its
+(from this repo). It writes the overlay's `plugin/` (with Claude Code and Codex manifests), both
+marketplaces, `INDEX.md` and `client-project-settings.json`. The plugin's version comes from the overlay's `overlay.json`, set by its
 releases. See [Project overlays](09-project-overlays.md).
 
 ## Local checks

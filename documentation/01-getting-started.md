@@ -18,7 +18,24 @@ changes reach users through [releases](06-releases.md).
 
 If you already installed Salesforce's own plugins, disable them, or every official skill appears twice.
 
-## Codex, Cursor, Copilot, Windsurf, OpenCode, Agentforce Vibes and others
+## Codex
+
+The repo is also a Codex plugin marketplace, with the same skills and the B2C MCP server:
+
+```bash
+codex plugin marketplace add shriramjanakiraman/agent-skills
+codex plugin add agent-skills@agent-skills
+```
+
+Or in the Codex app: open a clone of this repo as a workspace, restart Codex, then install **Agent Skills**
+from the plugin directory. That route also works when the command line can't reach the private repo
+with your GitHub credentials.
+
+Like Claude Code, Codex picks up a change when a release raises the plugin's version. If you installed
+Salesforce's own B2C plugins in Codex, or have their skills in `~/.codex/skills`, disable or move them, or
+every official skill appears twice.
+
+## Cursor, Copilot, Windsurf, OpenCode, Agentforce Vibes and others
 
 Clone once, then link the skills into the agent's skill folder:
 
@@ -35,7 +52,7 @@ npm run link -- --agent cursor --dry-run                        # show what woul
 | `claude-code` | `~/.claude/skills` | `.claude/skills` |
 | `cursor` | `~/.cursor/skills` | `.cursor/skills` |
 | `vscode` (Copilot) | `~/.copilot/skills` | `.github/skills` |
-| `codex` | `~/.codex/skills` | `.codex/skills` |
+| `codex` (if you don't use the plugin) | `~/.codex/skills` | `.codex/skills` |
 | `windsurf` | `~/.codeium/windsurf/skills` | `.windsurf/skills` |
 | `opencode` | `~/.config/opencode/skills` | `.opencode/skills` |
 | `agentforce-vibes` | (project only) | `.a4drules/skills` |
