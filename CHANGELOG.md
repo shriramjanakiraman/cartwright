@@ -4,16 +4,7 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
-### Fixed
-- The daily upstream check runs from `develop`. GitHub only runs schedules from `main`, so a new
-  `upstream-schedule` workflow there starts `upstream-watch` on `develop` each day; changes to the check
-  now take effect as soon as they merge into `develop`. `upstream-watch` refuses to run from any other branch.
-
-### Changed
-- The upstream check runs daily instead of weekly, and keeps one standing pull request
-  (`feature/upstream-updates` into `develop`) that each run refreshes, instead of one per run.
-- The upstream check runs validate, scrub, sync and build checks itself before proposing an update,
-  because pull requests opened by a workflow don't trigger CI automatically.
+## [0.5.0] - 2026-10-06
 
 ### Added
 - `AGENTS.md` (and `CLAUDE.md` pointing to it): AI agents classify each change as feature, bugfix, hotfix
@@ -37,10 +28,18 @@ All notable changes to what users receive. Newest first.
 - `scripts/protect-branches.sh`: applies the GitHub rulesets to core or an overlay once the plan allows.
 
 ### Changed
-- The weekly upstream check now opens its pull request against `develop`.
-- `skill-intake` 0.3.0 works on `feature/` (or `bugfix/`) branches into `develop`.
-- The weekly upstream check names its branch `feature/upstream-<date>`.
+- The upstream check runs daily instead of weekly, from `develop`: GitHub only runs schedules from `main`,
+  so a small `upstream-schedule` workflow there starts `upstream-watch` on `develop` each day, and changes
+  to the check take effect as soon as they merge into `develop`. It raises its pull request into `develop`
+  instead of `main`, and keeps one standing pull request (`feature/upstream-updates`) that each run
+  refreshes, instead of one per run.
+- The upstream check runs validate, scrub, sync and build checks itself before proposing an update,
+  because pull requests opened by a workflow don't trigger CI automatically.
+- `skill-intake` 0.4.0 starts its work with `npm run branch` on a `feature/` (or `bugfix/`) branch into `develop`.
 - Overlay template gains the same branches, hooks and guards.
+
+### Fixed
+- CI secret scan can read pull request commits (it failed on the first pull request run).
 
 ## [0.4.0] - 2026-10-05
 
