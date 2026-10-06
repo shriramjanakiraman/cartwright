@@ -1,8 +1,11 @@
 #!/usr/bin/env sh
 # Apply the branching rules from GOVERNANCE.md as GitHub rulesets, on the core repo or any overlay repo.
-#   main:    pull request required; CI, branch-name and (core) release-gate must pass; no direct push,
-#            force push or deletion
-#   develop: pull request required; CI and branch-name must pass; no direct push, force push or deletion
+#   main:    pull request required; CI, branch-name, duplicate-check and (core) release-gate must pass;
+#            no direct push, force push or deletion
+#   develop: pull request required; CI, branch-name and duplicate-check must pass; no direct push, force
+#            push or deletion
+# Both require every review conversation to be resolved, so a pull request with an open duplicate-check
+# comment can't be merged.
 # No bypass for anyone, owners included. Safe to re-run: existing rulesets with the same name are updated.
 #
 # Usage: sh scripts/protect-branches.sh <owner/repo> [--overlay]
@@ -16,7 +19,7 @@ if [ "$MODE" = "--overlay" ]; then GATE=""; else GATE="release-gate"; fi
 
 ruleset() { # name, branch, extra-required-check
   NAME="$1"; BRANCH="$2"; EXTRA="$3"
-  CHECKS="{\"context\":\"$CI_CHECK\"},{\"context\":\"branch-name\"}"
+  CHECKS="{\"context\":\"$CI_CHECK\"},{\"context\":\"branch-name\"},{\"context\":\"duplicates\"}"
   [ -n "$EXTRA" ] && CHECKS="$CHECKS,{\"context\":\"$EXTRA\"}"
   BODY=$(cat <<JSON
 {

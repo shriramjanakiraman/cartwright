@@ -50,6 +50,10 @@ jobs:
           node scripts/scrub-scan.mjs
           node scripts/sync-upstream.mjs --check
           node scripts/build.mjs --check
+          # New or changed official skills that may repeat one of ours (scripts/similar-skills.mjs).
+          CHANGED=$( { git ls-files --others --exclude-standard -- upstream; git diff --name-only -- upstream; } | grep '/SKILL.md$' || true)
+          OVERLAPS=$( [ -n "$CHANGED" ] && node scripts/similar-skills.mjs --markdown $CHANGED || true)
+          [ -z "$OVERLAPS" ] || printf '\n## Possible overlaps with our skills\n\n%s\n' "$OVERLAPS" >> upstream-report.md
           printf '\n---\nChecked by upstream-watch before opening: validate, scrub-scan, sync-upstream --check, build --check.\n' >> upstream-report.md
 
       - name: Open or refresh the review pull request into develop

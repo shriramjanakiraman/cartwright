@@ -5,6 +5,18 @@ All notable changes to what users receive. Newest first.
 ## [Unreleased]
 
 ### Added
+- Duplicate check (`duplicate-check` workflow, core and the overlay template): every skill a pull request
+  adds or changes is compared, offline, with the skills it can see. Core skills are compared with core and
+  the official skills; overlay skills with their overlay, core and the official skills (never other
+  overlays). Each likely repeat gets a comment with a suggestion (use, build on, or combine with the other
+  skill), the pull request gets "Request changes", and the check fails until every comment is resolved.
+  Skills listed in `depends-on` are never flagged. Run it yourself with `node scripts/similar-skills.mjs <file>`.
+- `branch-guard` opens an issue when a pull request is merged with a duplicate comment still open (the
+  free plan can't block the merge). `protect-branches.sh` requires the `duplicates` check for when
+  rulesets are available.
+- The upstream pull request lists new or changed official skills that may overlap ours.
+- `skill-intake` 0.4.3 and both `AGENTS.md` files: how to handle a duplicate comment (decide with the
+  developer, change the skill if needed, reply with the decision, then resolve).
 - Weekly releases: every Wednesday at 00:00 IST, `weekly-release` cuts a release from `develop` and opens
   the pull request into `main`, but only when *Unreleased* in the CHANGELOG has entries. Fixes only → patch
   (0.5.0 → 0.5.1); anything added or changed → minor (0.5.0 → 0.6.0). Majors stay manual: *Removed* or

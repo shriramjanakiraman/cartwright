@@ -1,0 +1,42 @@
+name: duplicate-check
+# Is a new or changed project skill a repeat of one that already exists? Compares each skill added or
+# changed in the pull request with this overlay's skills, the core library and the official skills, offline
+# (the core repo's scripts/similar-skills.mjs). Nothing is sent outside GitHub, and other overlays are never
+# seen. Each likely repeat gets a comment on the skill's file with a suggestion, and the pull request gets
+# "Request changes". The check fails until every such comment is resolved; then the review is dismissed.
+# Resolving doesn't start a run by itself: comment on the pull request (duplicate-recheck then re-runs this
+# check, so there is only ever one "duplicates" result) or re-run it by hand.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: duplicate-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  duplicates:   # required status check name used by scripts/protect-branches.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/checkout@v4
+        with:
+          repository: shriramjanakiraman/agent-skills
+          path: .core
+          token: ${{ secrets.CORE_REPO_TOKEN }}   # read-only token for the private core repo
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Find likely repeats among the skills this pull request adds or changes
+        # The checkout is the pull request's merge commit, so its first parent is the target branch and the
+        # diff between them is exactly what the pull request changes.
+        run: |
+          node .core/scripts/similar-skills.mjs --overlay . --base HEAD^1 --json > findings.json || true
+          echo "Likely repeats: $(node -p "require('./findings.json').length")"
+      - name: Comment, request changes, and pass only when every comment is resolved
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node .core/scripts/duplicate-review.mjs findings.json

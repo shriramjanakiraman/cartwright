@@ -148,6 +148,14 @@ gh pr create --base develop
 The pull request targets `develop`; complete the template. Add a `CHANGELOG.md` entry under *Unreleased*. Don't change
 the version in `package.json`; the owner sets it at release.
 
+**Duplicate check.** CI compares your skill with every core and official skill (offline, names and
+descriptions). If it looks like a repeat, a bot comments on the file naming the other skill, with a
+suggestion: use it, build on it through `depends-on`, or combine the two. The pull request is marked
+"Request changes" and can't be merged until each comment is resolved. Reply with what you decided, change
+the skill if needed, then resolve the comment. GitHub doesn't re-run checks on resolving, so finish by adding a
+comment (in the conversation or on the pull request) or re-running the check, and it turns green. Skills you list in
+`depends-on` are never flagged. To see it before you push: `node scripts/similar-skills.mjs core/<name>.md`.
+
 ## Upstream changes (Door A)
 
 The `upstream-watch` workflow opens a pull request when an official source changes. It has already

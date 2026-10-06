@@ -1,0 +1,34 @@
+name: duplicate-recheck
+# Re-run the pull request's latest duplicate-check run when someone replies to a review comment or comments
+# on the pull request, so it re-reads which duplicate comments are resolved. Re-running
+# (instead of checking here) keeps a single "duplicates" result on the pull request, which is what a
+# ruleset will require. GitHub can't start a workflow when a conversation is resolved, so after resolving
+# the last one, add a comment (in the conversation or on the pull request) or re-run the check.
+# Note: GitHub runs issue_comment (a comment on the pull request itself) from main's copy of this file, so
+# that trigger works once this file has been released; replies in the conversation work straight away.
+on:
+  pull_request_review_comment:
+    types: [created, edited]
+  issue_comment:
+    types: [created]
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+jobs:
+  recheck:
+    if: github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.comment.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run duplicate-check for this pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          HEAD_SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid --jq .headRefOid)
+          RUN=$(gh run list -R "$REPO" --workflow duplicate-check.yml --event pull_request --commit "$HEAD_SHA" --limit 1 --json databaseId,status --jq '.[0] | "\(.databaseId) \(.status)"')
+          [ -n "$RUN" ] || { echo "No duplicate-check run for $HEAD_SHA yet; nothing to re-run."; exit 0; }
+          ID=${RUN% *}; STATUS=${RUN#* }
+          if [ "$STATUS" != completed ]; then echo "duplicate-check run $ID is still $STATUS; it will read the current state."; exit 0; fi
+          gh run rerun "$ID" -R "$REPO" && echo "Re-running duplicate-check run $ID."

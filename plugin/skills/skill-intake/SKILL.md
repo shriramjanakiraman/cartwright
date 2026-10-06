@@ -2,7 +2,7 @@
 name: skill-intake
 description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.4.2
+version: 0.4.3
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
@@ -176,7 +176,10 @@ every agent it was actually tried on in `agents-tested`.
 
 ### Step 9 — Say what happens next
 
-- CI runs the same checks on the pull request.
+- CI runs the same checks on the pull request, plus a duplicate check. If it comments that the skill may
+  repeat another one, go through it with the developer: use or build on the other skill, combine them, or
+  keep it because it's deliberately different. Change the skill if needed, reply with the decision, resolve
+  the comment, then add a short comment in that conversation so the check re-runs. The pull request can't be merged while one is open.
 - The owner (or the project lead, for client skills) reviews and merges it into `develop`, where it's
   tried out.
 - It reaches everyone with the next release. Releases are cut from `develop` automatically every
