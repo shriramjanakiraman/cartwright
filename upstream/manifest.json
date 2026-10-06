@@ -3,7 +3,7 @@
   "sources": {
     "b2c-developer-tooling": {
       "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
-      "ref": "b2c-agent-plugins@1.10.3",
+      "ref": "b2c-agent-plugins@1.11.0",
       "license": "Apache-2.0",
       "skills": {
         "b2c": [
@@ -65,24 +65,30 @@
           "figma-to-sfnext-pagedesigner"
         ],
         "storefront-next": [
+          "sfnext-accessibility",
+          "sfnext-analytics-consent",
           "sfnext-authentication",
+          "sfnext-commerce-features",
           "sfnext-components",
           "sfnext-configuration",
-          "sfnext-create-component",
-          "sfnext-create-vertical",
-          "sfnext-custom-apis",
           "sfnext-data-fetching",
           "sfnext-deployment",
           "sfnext-extensions",
           "sfnext-hybrid-storefronts",
           "sfnext-i18n",
+          "sfnext-overview",
           "sfnext-page-designer",
           "sfnext-performance",
           "sfnext-project-setup",
+          "sfnext-quality-gates",
+          "sfnext-revalidation",
           "sfnext-routing",
-          "sfnext-scapi-management",
+          "sfnext-scapi",
+          "sfnext-security",
+          "sfnext-seo",
           "sfnext-state-management",
-          "sfnext-testing"
+          "sfnext-testing",
+          "sfnext-theming"
         ],
         "storefront-next-figma": [
           "sfnext-create-figma-kit"

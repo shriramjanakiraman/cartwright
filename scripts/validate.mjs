@@ -2,7 +2,8 @@
 // Door B check: every skill meets the standard in CONTRIBUTING.md.
 // Usage: node scripts/validate.mjs                      # core/
 //        node scripts/validate.mjs --overlay ../<repo>  # a project overlay repo, with overlay rules
-import { resolve, relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, resolve, relative } from 'node:path';
 import {
   ROOT, loadSkills, loadOverlay, upstreamSkillNames, asList, fail,
   REQUIRED_FIELDS, REQUIRED_SECTIONS, STATUSES, APPLIES_TO,
@@ -17,6 +18,17 @@ const upstream = upstreamSkillNames();
 const core = loadSkills();
 const coreNames = new Set(core.map((s) => s.data?.name).filter(Boolean));
 const code = overlay?.config.project;
+
+// Stock text from the skill templates. An active skill still containing it was never filled in. The
+// Constraints section is left out: its template lines are sensible defaults that skills may keep.
+const stock = new Set();
+for (const t of ['templates/skill.md', 'templates/overlay/skill-template.md']) {
+  let skip = false;
+  for (const line of readFileSync(join(ROOT, t), 'utf8').replace(/^---[\s\S]*?\n---\n/, '').split('\n')) {
+    if (/^#/.test(line)) { skip = /^##\s+Constraints\b/i.test(line); continue; }
+    if (!skip && line.trim().length > 25) stock.add(line.trim());
+  }
+}
 if (overlay && !/^[a-z][a-z0-9]{1,15}$/.test(code || '')) errors.push(`overlay.json: "project" must be a short lowercase code (e.g. prja), got "${code}"`);
 
 const skills = overlay ? overlay.skills : core;
@@ -66,6 +78,10 @@ for (const s of skills) {
     if (!new RegExp(`^##\\s+${sec}\\b`, 'mi').test(s.body)) errors.push(`${at}: missing required section "## ${sec}"`);
   }
   if (!overlay && /\.\.\/overlay|overlay-repo|project-overlay/i.test(s.body)) errors.push(`${at}: core skills must not reference project overlay repos`);
+  if (d.status === 'active') {
+    const left = s.body.split('\n').map((l) => l.trim()).find((l) => stock.has(l));
+    if (left) errors.push(`${at}: still has template text ("${left.slice(0, 60)}…"); fill it in, or keep status: draft`);
+  }
 }
 
 if (fail(errors, `validate${overlay ? ` (overlay ${code})` : ''}`)) process.exit(1);

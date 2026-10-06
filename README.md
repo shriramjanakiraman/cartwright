@@ -3,6 +3,9 @@
 One shared library of **reusable, agent-agnostic skills** for delivery teams. It works with Claude Code,
 Codex, Copilot, Cursor, Windsurf, OpenCode and any other agent that reads skill files.
 
+**New here?** The [documentation](documentation/README.md) has a guide for each feature: installing,
+writing and scrubbing skills, branches, the duplicate check, releases, official skills and project overlays.
+
 Three rules shape everything here:
 
 1. **One install delivers everything.** The plugin ships our own skills, every official Salesforce
@@ -33,6 +36,7 @@ plugin/                   generated plugin: core + upstream skills, MCP server, 
 templates/skill.md        required skeleton for a new skill
 templates/overlay/        starter kit for a project overlay repo
 scripts/                  validate · scrub-scan · build · upstream-check · link · check-updates
+documentation/            one guide per feature (start at documentation/README.md)
 CONTRIBUTING.md           the standard: classify, write, scrub, submit
 GOVERNANCE.md             owners, approvals, releases, retirement
 ```
@@ -114,7 +118,13 @@ Run the core checks against an overlay from this repo:
 ```bash
 node scripts/validate.mjs --overlay ../<code>-agent-skills
 node scripts/build-overlay.mjs ../<code>-agent-skills
+node scripts/cut-release.mjs --overlay ../<code>-agent-skills   # release it by hand
 ```
+
+**How a change reaches the team:** a pull request into the overlay's `develop`, then a release into its
+`main`, the same way core works. The overlay releases itself weekly (`weekly-release`, Wednesdays 00:00
+IST) when its CHANGELOG has something new, and the version it sets is what tells Claude Code to update.
+The overlay's own `README.md` and `AGENTS.md` have the details.
 
 ## Branches
 
@@ -128,7 +138,7 @@ branch names are accepted. Details in GOVERNANCE.md.
 ```bash
 npm run setup-hooks     # once: enables the pre-commit scrub and the pre-push branch guard
 npm run branch -- feature <name>   # start work on a correctly named branch from develop
-npm run release -- 0.6.0           # owner: cut and commit a release branch, ready for a PR into main
+npm run release                    # cut a release branch by hand (weekly-release does it every Wednesday)
 npm run check           # validate + scrub-scan + build --check
 npm run build           # regenerate plugin/ and INDEX.md after editing skills
 npm run upstream        # Door A report (set GH_TOKEN to avoid rate limits)

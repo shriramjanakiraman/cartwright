@@ -4,6 +4,64 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-06
+
+The first major release. Nothing in it breaks how the library is used today; 1.0.0 marks it as the
+version teams can rely on, with weekly releases, the duplicate check and overlay releases in place.
+
+### Added
+- `documentation/`: one guide per feature (getting started, writing a skill, scrubbing, branches and pull
+  requests, the duplicate check, releases, official skills, build and distribution, project overlays,
+  promoting to core) and an automation reference, linked from the README.
+- Duplicate check (`duplicate-check` workflow, core and the overlay template): every skill a pull request
+  adds or changes is compared, offline, with the skills it can see. Core skills are compared with core and
+  the official skills; overlay skills with their overlay, core and the official skills (never other
+  overlays). Each likely repeat gets a comment with a suggestion (use, build on, or combine with the other
+  skill), the pull request gets "Request changes", and the check fails until every comment is resolved.
+  Skills listed in `depends-on` are never flagged. Run it yourself with `node scripts/similar-skills.mjs <file>`.
+- `branch-guard` opens an issue when a pull request is merged with a duplicate comment still open (the
+  free plan can't block the merge). `protect-branches.sh` requires the `duplicates` check for when
+  rulesets are available.
+- The upstream pull request lists new or changed official skills that may overlap ours.
+- Weekly releases: every Wednesday at 00:00 IST, `weekly-release` cuts a release from `develop` and opens
+  the pull request into `main`, but only when *Unreleased* in the CHANGELOG has entries. Fixes only → patch
+  (0.5.0 → 0.5.1); anything added or changed → minor (0.5.0 → 0.6.0). Majors stay manual: *Removed* or
+  `- BREAKING:` entries, or unreleased commits with no CHANGELOG entry, open an issue for the owner instead.
+- `npm run release` without a version picks patch or minor from the CHANGELOG (`scripts/next-version.mjs`).
+
+### Changed
+- Official skills updated: b2c-developer-tooling 1.10.3 → 1.11.0. Storefront Next gains `sfnext-accessibility`,
+  `sfnext-analytics-consent`, `sfnext-commerce-features`, `sfnext-overview`, `sfnext-quality-gates`,
+  `sfnext-revalidation`, `sfnext-scapi`, `sfnext-security`, `sfnext-seo` and `sfnext-theming`. Salesforce
+  removed or renamed `sfnext-create-component`, `sfnext-create-vertical`, `sfnext-custom-apis` and
+  `sfnext-scapi-management`, so those are no longer delivered.
+- Tracked tools updated: spec-kit v1.0.13 → v1.1.0, graphify 0.9.73 → 0.9.77, storefront-next-template
+  `d0987c0` → `a45f45b`.
+- `skill-intake` 0.4.0 → 0.4.3: releases are described correctly (they go through `release/`, not a
+  `develop` merge); overlay branching and commit steps; a *Promoting a project skill to core* section;
+  how to handle a duplicate-check comment. Both `AGENTS.md` files cover duplicate comments too.
+
+### Fixed
+- The daily upstream pull request now writes its own CHANGELOG entries under *Unreleased* (new official
+  skills under *Added*; version bumps and official skills removed or renamed upstream under *Changed*), so
+  an upstream-only week releases on its own as a minor release. Before, nothing added one and the
+  upstream branch couldn't be committed to, so the weekly release stopped with an issue instead. Its checklist no longer tells
+  reviewers to bump `package.json`.
+- Overlay changes now have a way to reach the team. The overlay template said changes ship "when `develop`
+  is merged into `main`", which its own `branch-name` rule refuses, and nothing ever raised the overlay's
+  version, so Claude Code wouldn't pick up a change. Overlays now release like core: a `CHANGELOG.md`,
+  `cut-release.mjs --overlay <repo>` (version in `overlay.json`), a weekly `weekly-release`, `release-gate`,
+  and a tag plus `main → develop` sync on merge. The template also gains an `AGENTS.md` (with `CLAUDE.md`)
+  so agents working in an overlay follow the same rules, and its README now covers changing a skill,
+  releasing and how teammates pick up updates.
+- `validate` refuses an active skill that still contains the skill template's stock text.
+- Promoting a project skill to core is now documented end to end: split it, check the client denylist,
+  core pull request, **wait for the core release** (the overlay's checks validate `depends-on` against
+  core's `main`, so updating the overlay earlier fails), then trim or deprecate the overlay skill. Covered
+  in the overlay README and `skill-intake`.
+- `scrub-scan --denylist` refuses a missing or empty client list instead of passing without checking any
+  client names.
+
 ## [0.5.0] - 2026-10-06
 
 ### Added

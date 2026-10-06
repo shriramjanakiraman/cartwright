@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "checkedAt": "2026-10-01",
+  "checkedAt": "2026-10-06",
   "sources": {
     "b2c-developer-tooling": {
       "type": "github-release",
@@ -78,27 +78,33 @@
           "sfnext-create-figma-kit"
         ],
         "storefront-next": [
+          "sfnext-accessibility",
+          "sfnext-analytics-consent",
           "sfnext-authentication",
+          "sfnext-commerce-features",
           "sfnext-components",
           "sfnext-configuration",
-          "sfnext-create-component",
-          "sfnext-create-vertical",
-          "sfnext-custom-apis",
           "sfnext-data-fetching",
           "sfnext-deployment",
           "sfnext-extensions",
           "sfnext-hybrid-storefronts",
           "sfnext-i18n",
+          "sfnext-overview",
           "sfnext-page-designer",
           "sfnext-performance",
           "sfnext-project-setup",
+          "sfnext-quality-gates",
+          "sfnext-revalidation",
           "sfnext-routing",
-          "sfnext-scapi-management",
+          "sfnext-scapi",
+          "sfnext-security",
+          "sfnext-seo",
           "sfnext-state-management",
-          "sfnext-testing"
+          "sfnext-testing",
+          "sfnext-theming"
         ]
       },
-      "version": "1.10.3",
+      "version": "1.11.0",
       "mirror": {
         "license": "Apache-2.0",
         "excludeSets": [
@@ -167,7 +173,7 @@
       "type": "github-branch",
       "repo": "SalesforceCommerceCloud/storefront-next-template",
       "ref": "main",
-      "sha": "d0987c09bf9db11ba1b657af97f736f6c937a344",
+      "sha": "a45f45b76b735c71366f9cfdb46b556da65212c2",
       "install": "Ships inside projects created from the template",
       "skillPaths": [
         {
@@ -186,7 +192,7 @@
     "spec-kit": {
       "type": "github-release",
       "repo": "github/spec-kit",
-      "version": "v1.0.13",
+      "version": "v1.1.0",
       "install": "uv tool install specify-cli  (then: specify init --here --integration <agent>)",
       "usedBy": [
         "speckit-install",
@@ -208,7 +214,7 @@
     "graphify": {
       "type": "pypi",
       "package": "graphifyy",
-      "version": "0.9.73",
+      "version": "0.9.77",
       "install": "uv tool install graphifyy  (installs the graphify CLI and its agent skill)",
       "usedBy": [
         "repo-orientation",

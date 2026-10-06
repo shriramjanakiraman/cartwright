@@ -41,8 +41,17 @@ they check the open pull requests and add to a related one when it's safe to, ra
 **Everyday flow:** cut `feature/` or `bugfix/` from `develop` → pull request into `develop` → checks pass
 → owner merges → try it on `develop`.
 
-**Releasing:** `npm run release -- <x.y.z>` does steps 1 and 2 and commits them. Version numbers follow
-semver: patch for fixes only, minor when anything is added or changed, major when existing use breaks.
+**Releasing:** weekly. Every Wednesday at 00:00 IST, `release-schedule` (on `main`) starts
+`weekly-release` on `develop`. If *Unreleased* in the CHANGELOG has entries, it does steps 1–3 below and
+stops at the open pull request for the owner to merge. If there's nothing new, it does nothing. It skips a
+week while a release pull request or the post-release sync is still open, and opens a "Weekly release needs
+you" issue when it can't decide: commits on `develop` with an empty *Unreleased*, or *Removed* /
+`- BREAKING:` entries that may need a major version.
+
+Version numbers follow semver: patch (0.5.0 → 0.5.1) for fixes only, minor (0.5.0 → 0.6.0) when anything
+is added or changed, major when existing use breaks. Majors are always the owner's call. To release by
+hand, `npm run release` (or `npm run release -- <x.y.z>`) does steps 1 and 2 and commits them; without a
+version it picks patch or minor the same way the weekly run does.
 
 1. Cut `release/<x.y.z>` from `develop`.
 2. Set `package.json` to `x.y.z` and turn the CHANGELOG's *Unreleased* section into `## [x.y.z] - date`.
@@ -55,7 +64,10 @@ A **hotfix** follows the same steps from step 2, cut from `main` with a patch ve
 `npm run release -- <x.y.z>` on the `hotfix/` branch and it prepares the release there.
 
 **The same applies to overlay repos:** `main` and `develop`, the same four branch types, the same pull
-request rule and guards. Overlay changes are approved by the core owner or that engagement's project lead.
+request rule and guards, and the same releases: a CHANGELOG, a weekly `weekly-release` run, `release-gate`
+on pull requests into `main`, and a tag plus `main → develop` sync on merge. The version lives in
+`overlay.json`; `node scripts/cut-release.mjs --overlay <repo>` cuts one by hand. Overlay changes and
+releases are approved by the core owner or that engagement's project lead.
 
 ### How it's enforced
 
@@ -64,7 +76,8 @@ request rule and guards. Overlay changes are approved by the core owner or that 
 | GitHub rulesets (`scripts/protect-branches.sh <owner/repo>`) | Blocks direct pushes, force pushes and deletion of `main` and `develop`; requires a pull request with passing checks. No bypass, owners included. | **Needs a plan that supports it**: GitHub Pro, a Team/Enterprise organisation, or a public repo. Not available on the current free private repo. |
 | Pre-push hook (`npm run setup-hooks`) | Refuses a direct push to `main` or `develop`, and any branch not named `feature/`, `bugfix/`, `hotfix/` or `release/` | Active wherever hooks are enabled. Can be bypassed with `--no-verify`, so it catches mistakes, not intent. |
 | `branch-name` workflow | Fails a pull request from a wrongly named branch, or one aimed at the wrong target | Active |
-| `branch-guard` workflow | Fails and opens an issue if a commit lands on `main` or `develop` without a merged pull request | Active. Detects after the fact; can't prevent. |
+| `branch-guard` workflow | Fails and opens an issue if a commit lands on `main` or `develop` without a merged pull request, or from a pull request merged with a duplicate-check comment still open | Active. Detects after the fact; can't prevent. |
+| `duplicate-check` workflow | Compares every skill a pull request adds or changes with the skills it can see (core: core and official; an overlay: itself, core and official; never other overlays), offline. Each likely repeat gets a comment with a suggestion (use, build on, or combine with the other skill) and the pull request gets "Request changes". It fails until every such comment is resolved, then dismisses its review. Anyone may resolve one, after replying with the decision; the reviewer judges. | Active. Until rulesets are available it signals but can't stop a merge; `branch-guard` catches a merge that skips it. With rulesets, the required check and conversation resolution block the merge. |
 | `release-gate` workflow | Checks every pull request into `main` is a proper release from `release/` or `hotfix/` | Active |
 
 When the repo moves to a plan that supports rulesets, run `sh scripts/protect-branches.sh <owner/repo>`
