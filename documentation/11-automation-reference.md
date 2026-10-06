@@ -16,7 +16,7 @@ Every workflow and script in one place, and the GitHub behaviours they're built 
 | `release-schedule` | Tuesdays 18:30 UTC (Wed 00:00 IST); by hand | **`main`** | starts `weekly-release` on `develop` |
 | `weekly-release` | started by `release-schedule`; by hand | `develop` | picks the version, cuts the release, opens the pull request, or opens an issue |
 | `upstream-schedule` | daily 06:00 UTC; by hand | **`main`** | starts `upstream-watch` on `develop` |
-| `upstream-watch` | started by `upstream-schedule`; by hand | `develop` | compares, mirrors, checks, keeps one upstream pull request |
+| `upstream-watch` | started by `upstream-schedule`; by hand | `develop` | compares, mirrors, checks, writes the CHANGELOG entries, keeps one upstream pull request |
 
 Overlays get `overlay-ci` (job `check`), `branch-name`, `branch-guard`, `release-gate`, `release`,
 `release-schedule`, `weekly-release`, `duplicate-check` and `duplicate-recheck` from `templates/overlay/`.

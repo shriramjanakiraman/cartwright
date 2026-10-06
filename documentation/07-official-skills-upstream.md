@@ -49,23 +49,32 @@ The body lists version bumps and the official skills added or removed, then a ch
   ([Duplicate check](05-duplicate-check.md)).
 - **Version bumps.** Check the skills that install these tools still work against the new version.
 
-Merge it into `develop` like any other pull request; it ships with the next [release](06-releases.md).
+The pull request also adds its own entries under *Unreleased* in `CHANGELOG.md` (regenerated on every
+refresh, so they always describe everything waiting):
+
+| Upstream change | CHANGELOG section | Effect on the weekly release |
+|---|---|---|
+| new official skills | *Added* | minor |
+| version bumps | *Changed* | minor |
+| official skills removed or renamed | *Changed* | minor |
+
+Don't change `package.json`. Merge it into `develop` like any other pull request; it ships with the next
+[release](06-releases.md). To reword an entry, do it in a small follow-up pull request, never on the
+upstream branch.
 
 ## Running the scripts yourself
 
 ```bash
 GH_TOKEN=$(gh auth token) npm run upstream     # report only; exit 10 means changes were found
 node scripts/upstream-check.mjs --write        # also update the lock
+node scripts/upstream-check.mjs --changelog    # also add the entries under CHANGELOG "Unreleased"
 npm run sync-upstream                          # re-mirror upstream/ from the lock
 npm run sync-upstream:check                    # CI: fail if the mirror differs from the lock
 ```
 
 Setting a GitHub token avoids API rate limits.
 
-## Known gaps
+## Timing
 
-- Merging the upstream pull request doesn't add a CHANGELOG line, so a week with only upstream changes
-  needs one added by hand before it releases ([Releases](06-releases.md#known-gap)).
-- The checklist's last line still says to bump `package.json`. Don't: releases set the version.
-- Adopting a brand-new upstream release immediately is a choice; waiting a couple of days before merging
-  lets publishers fix early problems.
+Adopting a brand-new upstream release immediately is a choice; waiting a couple of days before merging
+lets publishers fix early problems.

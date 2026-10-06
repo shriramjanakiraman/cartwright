@@ -165,7 +165,8 @@ skills to everyone. Before merging:
 1. Check every one of our skills listed as referencing a changed upstream skill.
 2. For each new official skill, check none of ours duplicates it. If one does, set ours to `deprecated`.
 3. For version bumps, check the skills that install those tools still work.
-4. Add a CHANGELOG entry and bump `package.json` so users receive a release.
+4. Merge it. Its CHANGELOG entry under *Unreleased* is written automatically, so the next weekly release
+   ships it. Don't change `package.json`; the release sets the version.
 
 Never edit `upstream.lock.json` or anything in `upstream/` by hand. CI fails if `upstream/` differs from
 the pinned sources.

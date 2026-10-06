@@ -36,7 +36,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
-          node scripts/upstream-check.mjs --write --report upstream-report.md
+          node scripts/upstream-check.mjs --write --changelog --report upstream-report.md
           echo "code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Mirror, rebuild and run the same checks as CI
@@ -65,7 +65,7 @@ jobs:
           git config user.name "upstream-watch"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
-          git add upstream.lock.json upstream plugin INDEX.md .claude-plugin
+          git add upstream.lock.json upstream plugin INDEX.md .claude-plugin CHANGELOG.md
           git commit -m "Upstream changes $TODAY"
           git push -f origin "$BRANCH"
           OPEN=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
