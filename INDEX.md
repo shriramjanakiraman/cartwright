@@ -8,6 +8,7 @@ Version **0.5.0**. One install delivers **82 skills**: 1 of ours and 81 official
 
 | Skill | Status | Applies to | Description |
 |---|---|---|---|
+| `sfcc-log-investigation` | draft | any | Investigate server errors on a sandbox by pulling and filtering instance logs. Use when a developer sees a 500 error, a broken checkout or a failing job and needs to find the cause in the logs. |
 | `skill-intake` | active | any | Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill. |
 
 ## Official skills (bundled from `upstream/`, read-only)
