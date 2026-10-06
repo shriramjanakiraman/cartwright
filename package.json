@@ -21,6 +21,8 @@
     "sync-upstream:check": "node scripts/sync-upstream.mjs --check",
     "build-overlay": "node scripts/build-overlay.mjs",
     "find": "node scripts/find-skill.mjs",
-    "new-skill": "node scripts/new-skill.mjs"
+    "new-skill": "node scripts/new-skill.mjs",
+    "branch": "sh scripts/start-branch.sh",
+    "release": "node scripts/cut-release.mjs"
   }
 }

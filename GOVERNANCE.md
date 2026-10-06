@@ -34,11 +34,15 @@ skill, a script fix or a Salesforce update, arrives through a reviewed pull requ
 | `hotfix/<name>` | An urgent fix to what's already released | `main` | `main` |
 
 Names are lowercase with hyphens, for example `feature/sfra-unit-tests` or `bugfix/scrub-false-positive`.
+Start one with `npm run branch -- <type> <name>`, which picks the right base. AI agents classify the change
+themselves using the rules in `AGENTS.md` and say which type they chose and why. Before starting a branch
+they check the open pull requests and add to a related one when it's safe to, rather than opening another.
 
 **Everyday flow:** cut `feature/` or `bugfix/` from `develop` → pull request into `develop` → checks pass
 → owner merges → try it on `develop`.
 
-**Releasing:**
+**Releasing:** `npm run release -- <x.y.z>` does steps 1 and 2 and commits them. Version numbers follow
+semver: patch for fixes only, minor when anything is added or changed, major when existing use breaks.
 
 1. Cut `release/<x.y.z>` from `develop`.
 2. Set `package.json` to `x.y.z` and turn the CHANGELOG's *Unreleased* section into `## [x.y.z] - date`.
@@ -47,7 +51,8 @@ Names are lowercase with hyphens, for example `feature/sfra-unit-tests` or `bugf
 4. Merging publishes the `vx.y.z` tag and release notes, and opens an automatic pull request syncing
    `main` back into `develop`. Merge that too.
 
-A **hotfix** follows the same steps from step 2, cut from `main` with a patch version.
+A **hotfix** follows the same steps from step 2, cut from `main` with a patch version: run
+`npm run release -- <x.y.z>` on the `hotfix/` branch and it prepares the release there.
 
 **The same applies to overlay repos:** `main` and `develop`, the same four branch types, the same pull
 request rule and guards. Overlay changes are approved by the core owner or that engagement's project lead.
