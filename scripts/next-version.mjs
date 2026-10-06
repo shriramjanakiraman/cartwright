@@ -2,7 +2,7 @@
 // Decide the next release version from CHANGELOG.md's Unreleased section (see GOVERNANCE.md):
 //   - only Fixed / Security entries                  → patch (0.5.0 → 0.5.1)
 //   - anything else (Added, Changed, Deprecated, …)  → minor (0.5.0 → 0.6.0)
-//   - Removed entries, or "BREAKING" anywhere        → no version: a major release is the owner's call
+//   - Removed entries, or an entry starting BREAKING → no version: a major release is the owner's call
 // The base is the newer of package.json's version and the latest v* tag.
 //
 // Usage: node scripts/next-version.mjs [--ref <git-ref>]   (default: the working tree)
@@ -28,8 +28,8 @@ export function classify(changelog) {
     const h = line.match(/^###\s+(.+?)\s*$/);
     if (h) { heading = h[1].toLowerCase(); continue; }
     if (!line.trim()) continue;
-    if (/\bBREAKING\b/.test(line)) return { bump: 'owner', reason: 'an Unreleased entry is marked BREAKING' };
     if (!/^\s*[-*]\s/.test(line)) continue;   // continuation lines belong to the entry above
+    if (/^\s*[-*]\s+(\*\*)?BREAKING\b/.test(line)) return { bump: 'owner', reason: 'an Unreleased entry is marked BREAKING' };
     entries++;
     if (heading && OWNER_DECIDES.has(heading)) return { bump: 'owner', reason: `Unreleased has "${h1(heading)}" entries; removing something can break existing use` };
     if (!heading || !PATCH_ONLY.has(heading)) features++;

@@ -8,7 +8,7 @@ All notable changes to what users receive. Newest first.
 - Weekly releases: every Wednesday at 00:00 IST, `weekly-release` cuts a release from `develop` and opens
   the pull request into `main`, but only when *Unreleased* in the CHANGELOG has entries. Fixes only → patch
   (0.5.0 → 0.5.1); anything added or changed → minor (0.5.0 → 0.6.0). Majors stay manual: *Removed* or
-  `BREAKING` entries, or unreleased commits with no CHANGELOG entry, open an issue for the owner instead.
+  `- BREAKING:` entries, or unreleased commits with no CHANGELOG entry, open an issue for the owner instead.
 - `npm run release` without a version picks patch or minor from the CHANGELOG (`scripts/next-version.mjs`).
 
 ## [0.5.0] - 2026-10-06

@@ -6,7 +6,7 @@ name: weekly-release
 #
 # The version comes from CHANGELOG.md's Unreleased section (scripts/next-version.mjs): only fixes → patch
 # (0.5.0 → 0.5.1); anything added or changed → minor (0.5.0 → 0.6.0). It never cuts a major: Removed or
-# BREAKING entries open an issue for the owner instead. It stops at the open pull request into main; the
+# "- BREAKING:" entries open an issue for the owner instead. It stops at the open pull request into main; the
 # owner reviews and merges, which tags the release as usual.
 on:
   workflow_dispatch:
