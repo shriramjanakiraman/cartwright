@@ -86,6 +86,12 @@ Nothing reaches the team until it's released into `main`. `develop` is never mer
 offered core plus this overlay, enabled for that project only. After a release, teammates update with
 `claude plugin marketplace update <project-code>-agent-skills` (or the plugin manager's auto-update).
 
+**Codex:** install the overlay plugin once per person:
+`codex plugin marketplace add <owner>/<project-code>-agent-skills` then
+`codex plugin add <project-code>-skills@<project-code>-agent-skills` (or open a clone of this repo as a
+workspace and install it from the plugin directory). Releases raise its version, which is how Codex
+notices updates.
+
 **Other agents:** link at project scope, into the client project:
 ```bash
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>

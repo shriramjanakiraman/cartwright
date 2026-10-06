@@ -81,6 +81,11 @@ as `.claude/settings.json` (merging with anything already there). Anyone opening
 core plus the overlay, for that project only. After a release: `claude plugin marketplace update
 prja-agent-skills`.
 
+**Codex:** the overlay is also a Codex marketplace. Each teammate installs it once:
+`codex plugin marketplace add <owner>/prja-agent-skills` then `codex plugin add prja-skills@prja-agent-skills`
+(or open a clone as a workspace and install from the plugin directory). Unlike the Claude Code route,
+this is per person rather than switched on by the client project's settings.
+
 **Other agents:** link at project scope into the client project, from a clone of the overlay kept on
 `main`, and re-run after each release:
 
