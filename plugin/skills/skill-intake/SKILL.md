@@ -178,8 +178,8 @@ every agent it was actually tried on in `agents-tested`.
 
 - CI runs the same checks on the pull request, plus a duplicate check. If it comments that the skill may
   repeat another one, go through it with the developer: use or build on the other skill, combine them, or
-  keep it because it's deliberately different. Change the skill if needed, reply with the decision, then
-  resolve the comment. The pull request can't be merged while one is open.
+  keep it because it's deliberately different. Change the skill if needed, reply with the decision, resolve
+  the comment, then add a short comment in that conversation so the check re-runs. The pull request can't be merged while one is open.
 - The owner (or the project lead, for client skills) reviews and merges it into `develop`, where it's
   tried out.
 - It reaches everyone with the next release. Releases are cut from `develop` automatically every

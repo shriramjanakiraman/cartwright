@@ -4,8 +4,8 @@ name: duplicate-check
 # (the core repo's scripts/similar-skills.mjs). Nothing is sent outside GitHub, and other overlays are never
 # seen. Each likely repeat gets a comment on the skill's file with a suggestion, and the pull request gets
 # "Request changes". The check fails until every such comment is resolved; then the review is dismissed.
-# Resolving doesn't start a run by itself: reply to the comment (duplicate-recheck then re-runs this check,
-# so there is only ever one "duplicates" result) or re-run it by hand.
+# Resolving doesn't start a run by itself: comment on the pull request (duplicate-recheck then re-runs this
+# check, so there is only ever one "duplicates" result) or re-run it by hand.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]

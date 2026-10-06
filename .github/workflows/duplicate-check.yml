@@ -3,7 +3,7 @@ name: duplicate-check
 # Compares each skill added or changed in the pull request with core and the official skills, offline
 # (scripts/similar-skills.mjs). Each likely repeat gets a comment on the skill's file with a suggestion, and
 # the pull request gets "Request changes". The check fails until every such comment is resolved; then the
-# review is dismissed. Resolving doesn't start a run by itself: reply to the comment (duplicate-recheck
+# review is dismissed. Resolving doesn't start a run by itself: comment on the pull request (duplicate-recheck
 # then re-runs this check, so there is only ever one "duplicates" result) or re-run it by hand.
 on:
   pull_request:
