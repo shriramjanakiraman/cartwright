@@ -78,7 +78,7 @@ async function main() {
   if (open) {
     if (fresh.length || !blocking.length) {
       await gh(`/repos/${REPO}/pulls/${PR}/reviews`, { method: 'POST', body: { commit_id: SHA, event: 'REQUEST_CHANGES',
-        body: `**Duplicate check:** ${open} comment(s) about possible repeats of existing skills are open. Reply to each with the decision and resolve it; the check passes once all are resolved (re-run it, or reply, after resolving).` } });
+        body: `**Duplicate check:** ${open} comment(s) about possible repeats of existing skills are open. Reply to each with the decision and resolve it; the check re-runs on each reply and passes once all are resolved.` } });
     }
     summary(`**${open} duplicate comment(s) open.** Reply to each and resolve it; this check passes once all are resolved.`);
     process.exit(1);
