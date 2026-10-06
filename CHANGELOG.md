@@ -4,6 +4,8 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-06
+
 ### Added
 - Project skills reach the team automatically in Claude Code, Codex, GitHub Copilot CLI and VS Code.
   `build-overlay` generates a `client-project/` kit (`.claude/settings.json`, `.github/copilot/settings.json`,
