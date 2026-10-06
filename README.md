@@ -3,6 +3,9 @@
 One shared library of **reusable, agent-agnostic skills** for delivery teams. It works with Claude Code,
 Codex, Copilot, Cursor, Windsurf, OpenCode and any other agent that reads skill files.
 
+**New here?** The [documentation](documentation/README.md) has a guide for each feature: installing,
+writing and scrubbing skills, branches, the duplicate check, releases, official skills and project overlays.
+
 Three rules shape everything here:
 
 1. **One install delivers everything.** The plugin ships our own skills, every official Salesforce
@@ -33,6 +36,7 @@ plugin/                   generated plugin: core + upstream skills, MCP server, 
 templates/skill.md        required skeleton for a new skill
 templates/overlay/        starter kit for a project overlay repo
 scripts/                  validate · scrub-scan · build · upstream-check · link · check-updates
+documentation/            one guide per feature (start at documentation/README.md)
 CONTRIBUTING.md           the standard: classify, write, scrub, submit
 GOVERNANCE.md             owners, approvals, releases, retirement
 ```

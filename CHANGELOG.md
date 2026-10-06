@@ -5,6 +5,9 @@ All notable changes to what users receive. Newest first.
 ## [Unreleased]
 
 ### Added
+- `documentation/`: one guide per feature (getting started, writing a skill, scrubbing, branches and pull
+  requests, the duplicate check, releases, official skills, build and distribution, project overlays,
+  promoting to core) and an automation reference, linked from the README.
 - Duplicate check (`duplicate-check` workflow, core and the overlay template): every skill a pull request
   adds or changes is compared, offline, with the skills it can see. Core skills are compared with core and
   the official skills; overlay skills with their overlay, core and the official skills (never other
