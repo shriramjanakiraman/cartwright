@@ -20,6 +20,12 @@ All notable changes to what users receive. Newest first.
   so agents working in an overlay follow the same rules, and its README now covers changing a skill,
   releasing and how teammates pick up updates.
 - `validate` refuses an active skill that still contains the skill template's stock text.
+- Promoting a project skill to core is now documented end to end: split it, check the client denylist,
+  core pull request, **wait for the core release** (the overlay's checks validate `depends-on` against
+  core's `main`, so updating the overlay earlier fails), then trim or deprecate the overlay skill. Covered
+  in the overlay README and a new *Promoting a project skill to core* section in `skill-intake` (0.4.2).
+- `scrub-scan --denylist` refuses a missing or empty client list instead of passing without checking any
+  client names.
 - `skill-intake` 0.4.1: correct release wording (releases go through `release/`, not a `develop` merge) and
   the overlay steps for branching and committing.
 

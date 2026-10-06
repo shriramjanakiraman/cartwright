@@ -49,11 +49,15 @@ const LEAK_RULES = [
 
 const deny = [];
 for (const p of denylists) {
-  if (!existsSync(p)) { console.error(`scrub-scan: denylist not found: ${p}`); process.exit(2); }
+  // A missing or empty client list would let a promotion scan pass without checking a single client name.
+  const howTo = 'Add this client\'s names (clients, brands, cartridge prefixes, site IDs, hostnames, people), one per line, before scanning.';
+  if (!existsSync(p)) { console.error(`scrub-scan: denylist not found: ${p}\n${howTo}`); process.exit(2); }
+  const before = deny.length;
   for (const line of readFileSync(p, 'utf8').split(/\r?\n/)) {
     const term = line.replace(/#.*/, '').trim();
     if (term) deny.push([`denylisted term "${term}"`, new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')]);
   }
+  if (deny.length === before && p !== defaultDeny) { console.error(`scrub-scan: denylist has no terms: ${p}\n${howTo}`); process.exit(2); }
 }
 
 const rules = secretsOnly ? SECRET_RULES : [...SECRET_RULES, ...LEAK_RULES, ...deny];

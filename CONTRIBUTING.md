@@ -116,6 +116,10 @@ in this repo, including ones written from scratch.
 node scripts/scrub-scan.mjs --denylist ../<overlay-repo>/.scrub/denylist.txt core/<name>.md
 ```
 
+The scan refuses a missing or empty list, so a promotion can't pass without checking any client names.
+The full order (core pull request, core release, then the overlay update) is in the overlay template's
+README under *Promote a skill to core*.
+
 That list is created by whoever writes the project's first client-specific skill and kept up to date by
 everyone after them. It never leaves the overlay repo.
 
