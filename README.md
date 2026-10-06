@@ -75,7 +75,7 @@ unpublished experimental set.
 | | Door A: upstream | Door B: intake |
 |---|---|---|
 | Trigger | Salesforce or another publisher ships a change | Someone adds or changes one of our skills |
-| How it's caught | `upstream-watch` workflow, daily and on demand; one standing pull request into `develop` | Pull request |
+| How it's caught | `upstream-watch` workflow, run from `develop` daily and on demand; one standing pull request into `develop` | Pull request |
 | Checks | Diff of versions and skill lists; re-mirror into `upstream/`; our skills that reference changed upstream skills; new official skills that may duplicate ours | `validate`, `scrub-scan`, `sync-upstream --check`, `build --check`, secret scan |
 | Gate | Owner reviews the generated PR | Owner (or project lead) approval |
 | Reaches users via | Release → plugin update, `link`, `check-updates` | Release → plugin update, `link`, `check-updates` |

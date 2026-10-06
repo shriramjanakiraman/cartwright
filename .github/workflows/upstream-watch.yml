@@ -1,13 +1,12 @@
 name: upstream-watch
 # Door A: when an official publisher ships a change, raise a pull request into develop for review.
-# Runs daily. It keeps ONE standing branch and pull request (feature/upstream-updates): each run that finds
-# changes refreshes them, so unmerged updates never pile up as a pull request per day.
-#
-# Scheduled runs always use this file as it is on the default branch (main), so changes to it only take
-# effect for the schedule once they're released to main.
+# Runs daily from develop: upstream-schedule (on main) starts it there every day at 06:00 UTC, because
+# GitHub only runs schedules from the default branch. It always runs develop's copy of this file and the
+# scripts, so changes here take effect once they merge into develop. To run it by hand:
+#   gh workflow run upstream-watch.yml --ref develop
+# It keeps ONE standing branch and pull request (feature/upstream-updates): each run that finds changes
+# refreshes them, so unmerged updates never pile up as a pull request per day.
 on:
-  schedule:
-    - cron: '0 6 * * *'   # every day, 06:00 UTC
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,6 +20,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Only run from develop
+        if: github.ref != 'refs/heads/develop'
+        run: |
+          echo "::error::upstream-watch runs from develop only. Start it with: gh workflow run upstream-watch.yml --ref develop"
+          exit 1
       - uses: actions/checkout@v4
         with: { ref: develop, fetch-depth: 0 }   # upstream changes are tested on develop like everything else
       - uses: actions/setup-node@v4

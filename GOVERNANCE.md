@@ -86,8 +86,10 @@ limited to the engagement team.
 
 ## Review cadence
 
-- **Daily**, automatically: the upstream check (Door A). It keeps one pull request into `develop` open and
-  refreshes it while updates are waiting; review and merge it, then release.
+- **Daily**, automatically: the upstream check (Door A), run from `develop`. A small trigger on `main`
+  (`upstream-schedule`) starts it on `develop` each day, so it always uses `develop`'s workflow and scripts.
+  It keeps one pull request into `develop` open and refreshes it while updates are waiting; review and
+  merge it, then release.
 - **Quarterly**: review every `active` skill. Update `last-reviewed`, or deprecate what is no longer used
   or is now covered upstream.
 
