@@ -41,8 +41,17 @@ they check the open pull requests and add to a related one when it's safe to, ra
 **Everyday flow:** cut `feature/` or `bugfix/` from `develop` → pull request into `develop` → checks pass
 → owner merges → try it on `develop`.
 
-**Releasing:** `npm run release -- <x.y.z>` does steps 1 and 2 and commits them. Version numbers follow
-semver: patch for fixes only, minor when anything is added or changed, major when existing use breaks.
+**Releasing:** weekly. Every Wednesday at 00:00 IST, `release-schedule` (on `main`) starts
+`weekly-release` on `develop`. If *Unreleased* in the CHANGELOG has entries, it does steps 1–3 below and
+stops at the open pull request for the owner to merge. If there's nothing new, it does nothing. It skips a
+week while a release pull request or the post-release sync is still open, and opens a "Weekly release needs
+you" issue when it can't decide: commits on `develop` with an empty *Unreleased*, or *Removed* /
+`BREAKING` entries that may need a major version.
+
+Version numbers follow semver: patch (0.5.0 → 0.5.1) for fixes only, minor (0.5.0 → 0.6.0) when anything
+is added or changed, major when existing use breaks. Majors are always the owner's call. To release by
+hand, `npm run release` (or `npm run release -- <x.y.z>`) does steps 1 and 2 and commits them; without a
+version it picks patch or minor the same way the weekly run does.
 
 1. Cut `release/<x.y.z>` from `develop`.
 2. Set `package.json` to `x.y.z` and turn the CHANGELOG's *Unreleased* section into `## [x.y.z] - date`.

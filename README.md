@@ -128,7 +128,7 @@ branch names are accepted. Details in GOVERNANCE.md.
 ```bash
 npm run setup-hooks     # once: enables the pre-commit scrub and the pre-push branch guard
 npm run branch -- feature <name>   # start work on a correctly named branch from develop
-npm run release -- 0.6.0           # owner: cut and commit a release branch, ready for a PR into main
+npm run release                    # cut a release branch by hand (weekly-release does it every Wednesday)
 npm run check           # validate + scrub-scan + build --check
 npm run build           # regenerate plugin/ and INDEX.md after editing skills
 npm run upstream        # Door A report (set GH_TOKEN to avoid rate limits)
