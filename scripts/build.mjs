@@ -4,6 +4,8 @@
 //   plugin/.mcp.json                   the official B2C MCP server, at the pinned version
 //   plugin/licenses/                   each upstream publisher's licence (Apache-2.0 attribution)
 //   .claude-plugin/marketplace.json    so the repo installs as a Claude Code plugin marketplace
+//   plugin/.codex-plugin/plugin.json   the same plugin for Codex (skills/ and .mcp.json are shared)
+//   .agents/plugins/marketplace.json   so the repo installs as a Codex plugin marketplace
 //   INDEX.md                           the human catalogue
 // Drafts and deprecated core skills are left out of the plugin but listed in INDEX.md.
 //
@@ -41,6 +43,38 @@ for (const src of Object.values(lock.sources)) {
   if (src.mcpServer && src.version) servers[src.mcpServer.name] = { command: 'npx', args: ['-y', `${src.mcpServer.package}@${src.version}`] };
 }
 if (Object.keys(servers).length) out.set('plugin/.mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
+
+// Codex reads its own manifests but the same skills/ folder and .mcp.json. The version is what makes
+// Codex notice an update, so it follows package.json like the Claude Code plugin does.
+out.set('.agents/plugins/marketplace.json', JSON.stringify({
+  name: 'agent-skills',
+  interface: { displayName: 'Agent Skills' },
+  plugins: [{
+    name: 'agent-skills', description: pkg.description,
+    source: { source: 'local', path: './plugin' },
+    policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
+    category: 'Developer Tools',
+  }],
+}, null, 2) + '\n');
+out.set('plugin/.codex-plugin/plugin.json', JSON.stringify({
+  name: 'agent-skills', version: pkg.version, description: pkg.description, author: { name: pkg.author },
+  keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
+  skills: './skills/',
+  ...(Object.keys(servers).length ? { mcpServers: './.mcp.json' } : {}),
+  interface: {
+    displayName: 'Agent Skills',
+    shortDescription: 'Our B2C Commerce skills plus every official Salesforce skill and the B2C MCP server.',
+    longDescription: pkg.description,
+    developerName: pkg.author,
+    category: 'Developer Tools',
+    capabilities: ['Read', 'Write'],
+    defaultPrompt: [
+      'Make what we just did into a skill',
+      'Something is broken on the sandbox, check the logs',
+      'I need a shopper token for my storefront',
+    ],
+  },
+}, null, 2) + '\n');
 
 for (const s of shipped) out.set(`plugin/skills/${s.data.name}/SKILL.md`, s.text);
 

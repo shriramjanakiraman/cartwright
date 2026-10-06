@@ -2,6 +2,8 @@
 // Builds a project overlay repo into its own private Claude Code plugin, the same way build.mjs builds core:
 //   <overlay>/plugin/skills/<name>/SKILL.md            active project skills
 //   <overlay>/.claude-plugin/marketplace.json          so the overlay repo installs as a plugin marketplace
+//   <overlay>/plugin/.codex-plugin/plugin.json         the same plugin for Codex
+//   <overlay>/.agents/plugins/marketplace.json         so the overlay repo installs as a Codex marketplace
 //   <overlay>/INDEX.md                                 the overlay's catalogue
 //   <overlay>/client-project-settings.json             paste into the client project's .claude/settings.json
 // Run from the core repo:
@@ -31,6 +33,20 @@ out.set('plugin/.claude-plugin/plugin.json', JSON.stringify({
   name: plugin, version, description: `Project ${project} only: client-specific skills for this engagement.`, author: { name: owner },
 }, null, 2) + '\n');
 for (const s of shipped) out.set(`plugin/skills/${s.data.name}/SKILL.md`, s.text);
+
+// Codex: its own manifests over the same skills/ folder. The version (from overlay.json) is what makes
+// Codex notice an update.
+const desc = `Project ${project} only: client-specific skills for this engagement.`;
+out.set('.agents/plugins/marketplace.json', JSON.stringify({
+  name: marketplace,
+  interface: { displayName: `${project} agent skills` },
+  plugins: [{ name: plugin, description: desc, source: { source: 'local', path: './plugin' },
+    policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' }, category: 'Developer Tools' }],
+}, null, 2) + '\n');
+out.set('plugin/.codex-plugin/plugin.json', JSON.stringify({
+  name: plugin, version, description: desc, author: { name: owner }, skills: './skills/',
+  interface: { displayName: `${project} skills`, shortDescription: desc, developerName: owner, category: 'Developer Tools', capabilities: ['Read'] },
+}, null, 2) + '\n');
 
 // What the client project's repo commits as .claude/settings.json: anyone who opens that project in
 // Claude Code is offered core + this overlay, enabled for that project only. GitHub access decides who

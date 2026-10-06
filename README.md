@@ -53,6 +53,16 @@ claude plugin install agent-skills@agent-skills
 claude plugin marketplace update agent-skills     # pick up a new release
 ```
 
+**Codex** (the same plugin, with its skills and the B2C MCP server; updates when a release raises the version):
+
+```bash
+codex plugin marketplace add shriramjanakiraman/agent-skills
+codex plugin add agent-skills@agent-skills
+```
+
+Or in the Codex app: open a clone of this repo as a workspace, restart Codex, and install **Agent Skills**
+from the plugin directory.
+
 **Any other agent** (clone once, then link; re-run after every pull):
 
 ```bash
