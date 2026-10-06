@@ -1,7 +1,8 @@
 # Working in this repo (instructions for AI agents)
 
 Read by Codex, Copilot and other agents directly, and by Claude Code through `CLAUDE.md`. These rules
-apply to every change you make here, whoever asks for it. The full policy is in GOVERNANCE.md.
+apply to every change you make here, whoever asks for it. The full policy is in GOVERNANCE.md; how each
+feature works is in `documentation/`. When you change how a feature works, update its guide there too.
 
 ## Never change `main` or `develop` directly
 
