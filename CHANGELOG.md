@@ -8,8 +8,8 @@ All notable changes to what users receive. Newest first.
 - `AGENTS.md` (and `CLAUDE.md` pointing to it): AI agents classify each change as feature, bugfix, hotfix
   or release themselves, say which and why, branch accordingly, and stop at an open pull request.
 - `npm run branch -- <type> <name>`: starts a correctly named branch from the right base, after listing
-  the open pull requests. `AGENTS.md` tells agents to add to a related open pull request when it's safe
-  (same topic and kind, a human-owned branch, still open) instead of opening another.
+  the open pull requests. `AGENTS.md` tells agents to add to a related open pull request in the same repo when it's safe
+  (same topic and kind, a human-owned branch) instead of opening another; with none open, they just branch.
 - `npm run release -- <x.y.z>`: cuts `release/<x.y.z>` from `develop` (or prepares a `hotfix/` branch in
   place), sets the version, dates the CHANGELOG section, rebuilds, checks and commits. `AGENTS.md`
   gains the full release and hotfix procedure, including how to pick the version and resolve the

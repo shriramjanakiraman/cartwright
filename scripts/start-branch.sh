@@ -18,7 +18,8 @@ esac
 [ "$TYPE" = release ] || echo "$NAME" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$' || fail "name must be lowercase words joined by hyphens, e.g. scrub-false-positive (got '$NAME')"
 BRANCH="$TYPE/$NAME"
 [ -z "$(git status --porcelain)" ] || fail "you have uncommitted changes; commit or stash them first"
-# Reminder: a related open pull request may be the better place for this change (see AGENTS.md).
+# Reminder: a related OPEN pull request in this repo may be the better place for this change (see
+# AGENTS.md). Only open ones are listed; with none open, nothing is printed and the branch is created.
 if command -v gh >/dev/null 2>&1; then
   OPEN=$(gh pr list --state open --json number,headRefName,title --jq '.[] | "  #\(.number)  \(.headRefName)  \(.title)"' 2>/dev/null || true)
   if [ -n "$OPEN" ]; then

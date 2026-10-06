@@ -11,8 +11,13 @@ name outside the four types below. The pre-push hook and CI refuse anything else
 
 ## Check the open pull requests first
 
-Before creating a branch, list what's already open: `gh pr list --state open`. If one is **related** to
-the change and you can **safely** add to it, commit to that branch instead of opening another pull request.
+Before creating a branch, list the pull requests that are **open in this repository**:
+`gh pr list --state open`. This only ever applies to open pull requests in the same repo: merged or closed
+ones never count, and neither do pull requests in another repo (a client overlay's pull requests are only
+considered for changes to that overlay). **If none are open, skip this and start a new branch.**
+
+If an open one is **related** to the change and you can **safely** add to it, commit to that branch instead
+of opening another pull request.
 
 It's safe to add to an open pull request only when all of these hold:
 
@@ -24,7 +29,7 @@ It's safe to add to an open pull request only when all of these hold:
   so your commits would be lost. Not a `release/` branch, unless the change is release preparation.
 - **Ours to change.** Raised by the owner, or by an agent on the owner's behalf. Ask before adding to
   someone else's pull request.
-- **Still open and not mid-merge.** If it has been merged or closed, start a new branch.
+- **Not mid-merge.** If it's being merged or was just approved for merge, start a new branch instead.
 
 If it's safe: check out the branch, pull it, commit, push, and **update the pull request's title and
 description** so they still describe everything in it. Tell the developer which pull request you added
