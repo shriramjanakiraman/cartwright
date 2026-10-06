@@ -9,6 +9,28 @@ Every change goes on its own branch and arrives through a pull request. Never pu
 `develop`, never merge a pull request unless the owner explicitly tells you to, and never invent a branch
 name outside the four types below. The pre-push hook and CI refuse anything else.
 
+## Check the open pull requests first
+
+Before creating a branch, list what's already open: `gh pr list --state open`. If one is **related** to
+the change and you can **safely** add to it, commit to that branch instead of opening another pull request.
+
+It's safe to add to an open pull request only when all of these hold:
+
+- **Same topic.** The change belongs with what that pull request already does: the same skill, script,
+  workflow or doc area, or it fixes something that pull request introduced.
+- **Same kind.** It fits the branch's type. Don't put a fix for something already released into an
+  unrelated `feature/` branch.
+- **A branch people own.** Not `feature/upstream-updates`: the upstream check rebuilds and force-pushes it,
+  so your commits would be lost. Not a `release/` branch, unless the change is release preparation.
+- **Ours to change.** Raised by the owner, or by an agent on the owner's behalf. Ask before adding to
+  someone else's pull request.
+- **Still open and not mid-merge.** If it has been merged or closed, start a new branch.
+
+If it's safe: check out the branch, pull it, commit, push, and **update the pull request's title and
+description** so they still describe everything in it. Tell the developer which pull request you added
+to and why. If it isn't clearly safe, start a new branch, and mention the related pull request in the new
+one. When you can't tell, ask the developer once.
+
 ## Classify the change yourself, then branch
 
 Before editing anything, decide the branch type from what's being asked. Don't ask the developer to
@@ -36,6 +58,7 @@ choose; tell them your choice in one line with the reason, then carry on. They c
 ## The flow
 
 ```bash
+gh pr list --state open               # related and safe to add to? use that branch instead (see above)
 npm run branch -- feature <name>      # or bugfix / hotfix / release; picks the right base for you
 # … make the change …
 npm run build && npm run check        # regenerate outputs, then validate + scrub + build check

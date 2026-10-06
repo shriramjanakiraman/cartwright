@@ -18,6 +18,15 @@ esac
 [ "$TYPE" = release ] || echo "$NAME" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$' || fail "name must be lowercase words joined by hyphens, e.g. scrub-false-positive (got '$NAME')"
 BRANCH="$TYPE/$NAME"
 [ -z "$(git status --porcelain)" ] || fail "you have uncommitted changes; commit or stash them first"
+# Reminder: a related open pull request may be the better place for this change (see AGENTS.md).
+if command -v gh >/dev/null 2>&1; then
+  OPEN=$(gh pr list --state open --json number,headRefName,title --jq '.[] | "  #\(.number)  \(.headRefName)  \(.title)"' 2>/dev/null || true)
+  if [ -n "$OPEN" ]; then
+    echo "Open pull requests. If one is related and safe to add to, use its branch instead:"
+    echo "$OPEN"
+    echo
+  fi
+fi
 git fetch -q origin || fail "could not fetch origin; check your GitHub access"
 git show-ref -q --verify "refs/remotes/origin/$BRANCH" && fail "$BRANCH already exists on origin; pick another name or check it out"
 git checkout -q -b "$BRANCH" "origin/$BASE"

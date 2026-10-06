@@ -35,7 +35,8 @@ skill, a script fix or a Salesforce update, arrives through a reviewed pull requ
 
 Names are lowercase with hyphens, for example `feature/sfra-unit-tests` or `bugfix/scrub-false-positive`.
 Start one with `npm run branch -- <type> <name>`, which picks the right base. AI agents classify the change
-themselves using the rules in `AGENTS.md` and say which type they chose and why.
+themselves using the rules in `AGENTS.md` and say which type they chose and why. Before starting a branch
+they check the open pull requests and add to a related one when it's safe to, rather than opening another.
 
 **Everyday flow:** cut `feature/` or `bugfix/` from `develop` → pull request into `develop` → checks pass
 → owner merges → try it on `develop`.
