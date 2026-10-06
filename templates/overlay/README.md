@@ -81,28 +81,25 @@ Nothing reaches the team until it's released into `main`. `develop` is never mer
 
 ## How the team gets these skills
 
-**Claude Code:** commit the generated `client-project-settings.json` to the **client project's** repo as
-`.claude/settings.json` (merge with anything already there). Anyone opening that project in Claude Code is
-offered core plus this overlay, enabled for that project only. After a release, teammates update with
-`claude plugin marketplace update <project-code>-agent-skills` (or the plugin manager's auto-update).
+`build-overlay` generates `client-project/`: a kit a lead commits **once** into the root of the client
+project's repo (hidden folders included; merge with any of the files that already exist there). It
+contains no client skills, only pointers:
 
-**Codex:** install the overlay plugin once per person:
-`codex plugin marketplace add <owner>/<project-code>-agent-skills` then
-`codex plugin add <project-code>-skills@<project-code>-agent-skills` (or open a clone of this repo as a
-workspace and install it from the plugin directory). Releases raise its version, which is how Codex
-notices updates.
+- `.claude/settings.json`: Claude Code (and VS Code) offer core plus this overlay, for that project only
+- `.github/copilot/settings.json`: GitHub Copilot CLI and VS Code declare the same two plugins
+- `.agents/plugins/marketplace.json` and `.codex/config.toml`: Codex lists and enables both
 
-**Other agents:** link at project scope, into the client project:
+After that, anyone who opens the client project gets the shared skills and this project's skills with no
+setup of their own. Only GitHub accounts that can read this repo can download its skills. Releases raise
+the version, which is how each agent notices an update.
+
+Until VS Code fixes workspace plugin recommendations (microsoft/vscode#327404), VS Code users install once
+with *Chat: Install Plugin From Source* (the core repo, then this one). Agents without plugins link at
+project scope from a clone kept on `main`:
 ```bash
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from .
 ```
-
-Keep the overlay clone on `main` (`git checkout main && git pull`) and re-run the second command after
-each release; it links new skills and unlinks retired ones. A clone left on `develop` links unreleased
-skills.
-
-Project scope is deliberate: these skills only exist while someone is working in that client's project.
 
 ## The client denylist
 

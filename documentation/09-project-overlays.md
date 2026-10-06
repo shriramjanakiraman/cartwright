@@ -37,6 +37,7 @@ What the template gives the overlay:
 | `branch-name`, `branch-guard`, `release-gate`, `release` | the same guards and release steps as core |
 | `release-schedule` + `weekly-release` | the Wednesday release (delete `release-schedule.yml` to release only by hand) |
 | `duplicate-check` + `duplicate-recheck` | the [duplicate check](05-duplicate-check.md), against this overlay, core and the official skills |
+| `client-project/` (generated) | the kit a lead commits into the client project so the team gets the skills automatically |
 
 ## Writing project skills
 
@@ -76,22 +77,43 @@ change when it goes up. Merging into `develop` alone never reaches the team.
 
 ## How the team gets the skills
 
-**Claude Code:** commit the generated `client-project-settings.json` into the **client project's** repo
-as `.claude/settings.json` (merging with anything already there). Anyone opening that project is offered
-core plus the overlay, for that project only. After a release: `claude plugin marketplace update
-prja-agent-skills`.
+**Once per client project, a lead commits the kit.** `build-overlay` generates `client-project/` in the
+overlay repo. Copy its contents (hidden folders included) into the root of the **client project's** repo
+and commit them, merging with any of these files that already exist there:
 
-**Codex:** the overlay is also a Codex marketplace. Each teammate installs it once:
-`codex plugin marketplace add <owner>/prja-agent-skills` then `codex plugin add prja-skills@prja-agent-skills`
-(or open a clone as a workspace and install from the plugin directory). Unlike the Claude Code route,
-this is per person rather than switched on by the client project's settings.
+| File in the client project | Agent | Effect |
+|---|---|---|
+| `.claude/settings.json` | Claude Code (VS Code reads it too) | offers core and the overlay plugin, enabled for this project only |
+| `.github/copilot/settings.json` | GitHub Copilot CLI and VS Code | declares the same two plugins |
+| `.agents/plugins/marketplace.json` | Codex | lists both plugins straight from their GitHub repos |
+| `.codex/config.toml` | Codex | enables both for this project |
 
-**Other agents:** link at project scope into the client project, from a clone of the overlay kept on
-`main`, and re-run after each release:
+The kit holds no client skills, only pointers to the core and overlay repos. **After that, nobody adds
+anything:** whoever opens the client project gets the shared skills plus the project's skills. Only people
+whose GitHub account can read the overlay repo can download its skills; for anyone else that download
+fails and they keep just the core skills.
+
+**Updates** arrive with releases: the plugins follow each repo's `main`, and the version a release sets is
+what tells each agent to refresh.
+
+**Things to know:**
+
+- **VS Code** currently ignores workspace plugin recommendations (open bug
+  [microsoft/vscode#327404](https://github.com/microsoft/vscode/issues/327404)); Copilot CLI honours them.
+  Until it's fixed, VS Code users install once by hand: *Chat: Install Plugin From Source* with the core
+  repo, then with the overlay repo.
+- **Credentials:** each agent downloads with the developer's own git access to GitHub. If a download fails
+  with "repository not found", the git credentials on that machine can't see the private repo.
+- **GitHub Copilot** installs plugins per person, so once installed the overlay may also be active in that
+  developer's other projects. Claude Code and Codex enable it only in the client project. The overlay's
+  skills say "Project <code> only:", which keeps agents from using them elsewhere.
+
+**Agents without plugins** link at project scope into the client project, from clones kept on `main`, and
+re-run after each release:
 
 ```bash
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
-node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from ../prja-agent-skills
+node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from ../<code>-agent-skills
 ```
 
 A clone left on `develop` links unreleased skills.

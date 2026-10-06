@@ -6,6 +6,8 @@
 //   .claude-plugin/marketplace.json    so the repo installs as a Claude Code plugin marketplace
 //   plugin/.codex-plugin/plugin.json   the same plugin for Codex (skills/ and .mcp.json are shared)
 //   .agents/plugins/marketplace.json   so the repo installs as a Codex plugin marketplace
+//   plugin/plugin.json, plugin/mcp.json  the Agent Plugins 1.0 manifest and MCP file (GitHub Copilot CLI,
+//                                      VS Code); Claude Code and Codex use their own manifests above
 //   INDEX.md                           the human catalogue
 // Drafts and deprecated core skills are left out of the plugin but listed in INDEX.md.
 //
@@ -43,6 +45,16 @@ for (const src of Object.values(lock.sources)) {
   if (src.mcpServer && src.version) servers[src.mcpServer.name] = { command: 'npx', args: ['-y', `${src.mcpServer.package}@${src.version}`] };
 }
 if (Object.keys(servers).length) out.set('plugin/.mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
+
+// GitHub Copilot (CLI and VS Code) prefers the Agent Plugins 1.0 format: a plugin.json at the plugin root,
+// skills in skills/, and MCP servers in mcp.json at the root (its locations can't be overridden).
+out.set('plugin/plugin.json', JSON.stringify({
+  $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
+  name: 'agent-skills', version: pkg.version, description: pkg.description, author: { name: pkg.author },
+  repository: 'https://github.com/shriramjanakiraman/agent-skills',
+  keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
+}, null, 2) + '\n');
+if (Object.keys(servers).length) out.set('plugin/mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
 
 // Codex reads its own manifests but the same skills/ folder and .mcp.json. The version is what makes
 // Codex notice an update, so it follows package.json like the Claude Code plugin does.

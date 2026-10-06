@@ -57,8 +57,8 @@ Follow the core library's `skill-intake` skill (`../agent-skills/core/skill-inta
    ```
 6. Add one line under **Unreleased** in this repo's `CHANGELOG.md`. Don't change `overlay.json`'s version;
    the release sets it.
-7. Commit the skill and the generated output (`plugin/`, `INDEX.md`, `.claude-plugin/`,
-   `client-project-settings.json`), push and open the pull request into `develop`:
+7. Commit the skill and the generated output (`plugin/`, `INDEX.md`, `.claude-plugin/`, `.agents/`,
+   `client-project/`), push and open the pull request into `develop`:
    `gh pr create --base develop`. Fill it in truthfully. Stop there and say it's ready for review.
 8. If `duplicate-check` comments that the skill may repeat another (in this overlay, core or the official
    skills), don't just resolve it. Agree with the developer what to do (use or build on the other skill,
@@ -91,4 +91,4 @@ hotfix branch is checked out here. It prepares the release in place; raise it in
 - Put secrets, tokens or credentials in a skill, even here.
 - Copy client material into the core repo. Promotion to core goes through a scrub against
   `.scrub/denylist.txt` and the core owner's review.
-- Edit `plugin/`, `INDEX.md`, `.claude-plugin/` or `client-project-settings.json` by hand; they're generated.
+- Edit `plugin/`, `INDEX.md`, `.claude-plugin/`, `.agents/` or `client-project/` by hand; they're generated.

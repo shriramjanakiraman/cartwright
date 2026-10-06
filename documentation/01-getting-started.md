@@ -71,8 +71,10 @@ prerequisite step, so you're told to update instead of silently using old skills
 
 ## Client projects
 
-If you work on an engagement that has its own overlay repo, its skills are added **per project**, only
-inside that client's project. See [Project overlays](09-project-overlays.md#how-the-team-gets-the-skills).
+If you work on an engagement that has its own overlay repo, you normally don't install anything: the
+client project's repo carries a small kit that gives everyone who opens it the shared skills plus that
+project's skills, in Claude Code, Codex, GitHub Copilot CLI and VS Code. See
+[Project overlays](09-project-overlays.md#how-the-team-gets-the-skills).
 
 ## What's included
 
