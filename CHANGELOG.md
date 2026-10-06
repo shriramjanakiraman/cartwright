@@ -4,6 +4,8 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-06
+
 ### Added
 - `documentation/`: one guide per feature (getting started, writing a skill, scrubbing, branches and pull
   requests, the duplicate check, releases, official skills, build and distribution, project overlays,
