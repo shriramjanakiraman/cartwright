@@ -1,6 +1,6 @@
 ---
 name: sandbox-code-push
-description: "Upload cartridges to a development sandbox and activate the code version. Use when someone says deploy my code, push to the instance or switch the active version."
+description: "Push cartridges and upload them to a development sandbox and activate the code version. Use when someone says deploy my code, push to the instance or switch the active version."
 owner: shriramjanakiraman
 version: 0.1.0
 status: draft
@@ -26,3 +26,5 @@ Temporary skill for testing the duplicate check. Do not merge.
 ## References
 
 - None.
+
+- edited to trigger a fresh check

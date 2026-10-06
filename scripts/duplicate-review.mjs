@@ -55,7 +55,7 @@ Similarity ${f.score} on name and description; shared terms: ${f.shared.map((w) 
 
 **Suggestion:** ${f.suggestion}
 
-Reply with what you decided (combined it, built on it, or why it's deliberately different), then **resolve this conversation**. The pull request can't be merged while it's open.
+Reply with what you decided (combined it, built on it, or why it's deliberately different), then **resolve this conversation**. GitHub doesn't re-run checks when a conversation is resolved, so after resolving the last one, add a comment (in this conversation or on the pull request) or re-run the check, and it turns green. The pull request can't be merged while this is open.
 
 <!-- ${MARKER}${f.key} -->`;
 
@@ -78,7 +78,7 @@ async function main() {
   if (open) {
     if (fresh.length || !blocking.length) {
       await gh(`/repos/${REPO}/pulls/${PR}/reviews`, { method: 'POST', body: { commit_id: SHA, event: 'REQUEST_CHANGES',
-        body: `**Duplicate check:** ${open} comment(s) about possible repeats of existing skills are open. Reply to each with the decision and resolve it; the check re-runs on each reply and passes once all are resolved.` } });
+        body: `**Duplicate check:** ${open} comment(s) about possible repeats of existing skills are open. Reply to each with the decision and resolve it, then add a comment (in the conversation or on the pull request) or re-run the check; it passes once all are resolved.` } });
     }
     summary(`**${open} duplicate comment(s) open.** Reply to each and resolve it; this check passes once all are resolved.`);
     process.exit(1);
