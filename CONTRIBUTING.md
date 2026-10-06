@@ -133,7 +133,7 @@ Work on a `feature/` branch from `develop` (or `bugfix/` for a fix), never on `m
 Those are the only branch types besides `release/` and `hotfix/`, which the owner uses (see GOVERNANCE.md):
 
 ```bash
-git fetch origin && git checkout -b feature/<name> origin/develop
+npm run branch -- feature <name>     # or: bugfix <name>; branches from the latest develop
 # … write the skill …
 npm run build      # regenerates plugin/ and INDEX.md
 npm run check      # validate + scrub-scan + build --check

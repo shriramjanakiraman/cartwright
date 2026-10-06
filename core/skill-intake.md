@@ -2,7 +2,7 @@
 name: skill-intake
 description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.3.0
+version: 0.4.0
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
@@ -160,7 +160,7 @@ every agent it was actually tried on in `agents-tested`.
 2. Enable the commit checks once if they aren't already: `npm run setup-hooks`.
 3. Ask: *"Ready for me to push a branch and open the pull request?"* Only on a yes:
    ```bash
-   git fetch origin && git checkout -b feature/<name> origin/develop   # new skill or improvement
+   npm run branch -- feature <name>     # new skill or improvement; bugfix <name> to fix one
    git add -A && git commit -m "Add <name> skill"
    git push -u origin feature/<name>
    gh pr create --base develop --fill --body-file <filled-in copy of .github/pull_request_template.md>

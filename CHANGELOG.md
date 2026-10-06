@@ -4,9 +4,18 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-10-05
+## [0.5.0] - 2026-10-06
 
 ### Added
+- `AGENTS.md` (and `CLAUDE.md` pointing to it): AI agents classify each change as feature, bugfix, hotfix
+  or release themselves, say which and why, branch accordingly, and stop at an open pull request.
+- `npm run branch -- <type> <name>`: starts a correctly named branch from the right base, after listing
+  the open pull requests. `AGENTS.md` tells agents to add to a related open pull request in the same repo when it's safe
+  (same topic and kind, a human-owned branch) instead of opening another; with none open, they just branch.
+- `npm run release -- <x.y.z>`: cuts `release/<x.y.z>` from `develop` (or prepares a `hotfix/` branch in
+  place), sets the version, dates the CHANGELOG section, rebuilds, checks and commits. `AGENTS.md`
+  gains the full release and hotfix procedure, including how to pick the version and resolve the
+  CHANGELOG conflict in the post-release sync.
 - Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
   included, arrives through a pull request from one of four branch types: `feature/`, `bugfix/` (into
   `develop`), `release/<x.y.z>` and `hotfix/` (into `main`).
@@ -19,9 +28,12 @@ All notable changes to what users receive. Newest first.
 - `scripts/protect-branches.sh`: applies the GitHub rulesets to core or an overlay once the plan allows.
 
 ### Changed
-- The weekly upstream check now opens its pull request against `develop`.
-- `skill-intake` 0.3.0 works on `feature/` (or `bugfix/`) branches into `develop`.
-- The weekly upstream check names its branch `feature/upstream-<date>`.
+- The upstream check runs daily instead of weekly, raises its pull request into `develop` instead of
+  `main`, and keeps one standing pull request (`feature/upstream-updates`) that each run refreshes,
+  instead of one per run.
+- The upstream check runs validate, scrub, sync and build checks itself before proposing an update,
+  because pull requests opened by a workflow don't trigger CI automatically.
+- `skill-intake` 0.4.0 starts its work with `npm run branch` on a `feature/` (or `bugfix/`) branch into `develop`.
 - Overlay template gains the same branches, hooks and guards.
 
 ### Fixed
