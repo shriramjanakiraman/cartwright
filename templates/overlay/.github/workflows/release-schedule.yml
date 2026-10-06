@@ -1,0 +1,22 @@
+name: release-schedule
+# Starts the weekly release check (weekly-release) on develop.
+#
+# GitHub only runs scheduled workflows from the default branch (main), so this small trigger lives on main
+# and does one thing: start weekly-release on develop. That run uses develop's copy of the workflow and
+# scripts, so changes to the release logic take effect as soon as they merge into develop.
+on:
+  schedule:
+    - cron: '30 18 * * 2'   # every Tuesday 18:30 UTC = Wednesday 00:00 IST; delete this file to release only by hand
+  workflow_dispatch:
+permissions:
+  actions: write            # to start another workflow; GITHUB_TOKEN may trigger workflow_dispatch runs
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start weekly-release on develop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run weekly-release.yml --repo "$GITHUB_REPOSITORY" --ref develop
+          echo "Started weekly-release on develop. Its run is listed under the weekly-release workflow."

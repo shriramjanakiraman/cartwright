@@ -1,0 +1,100 @@
+name: weekly-release
+# Cuts a release of this overlay once a week, but only when develop has something to release.
+# release-schedule (on main) starts it every Wednesday 00:00 IST, because GitHub only runs schedules from
+# the default branch. To run it by hand:
+#   gh workflow run weekly-release.yml --ref develop
+#
+# The version comes from CHANGELOG.md's Unreleased section (the core repo's scripts/next-version.mjs):
+# only fixes → patch (0.1.0 → 0.1.1); anything added or changed → minor (0.1.0 → 0.2.0). It never cuts a
+# major: Removed or "- BREAKING:" entries open an issue instead. It stops at the open pull request into main;
+# a core owner or project lead reviews and merges, which tags the release.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+concurrency:
+  group: weekly-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Only run from develop
+        if: github.ref != 'refs/heads/develop'
+        run: |
+          echo "::error::weekly-release runs from develop only. Start it with: gh workflow run weekly-release.yml --ref develop"
+          exit 1
+      - uses: actions/checkout@v4
+        with: { ref: develop, fetch-depth: 0 }
+      - uses: actions/checkout@v4
+        with:
+          repository: shriramjanakiraman/agent-skills
+          path: .core
+          token: ${{ secrets.CORE_REPO_TOKEN }}   # read-only token for the private core repo
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Decide whether to release
+        id: decide
+        run: |
+          skip() { echo "action=skip" >> "$GITHUB_OUTPUT"; echo "No release this week: $1" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; }
+          attention() { echo "action=attention" >> "$GITHUB_OUTPUT"; echo "reason=$1" >> "$GITHUB_OUTPUT"; echo "No release this week, a lead needs to act: $1" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; }
+
+          OPEN=$(gh pr list --base main --state open --json number,headRefName --jq '[.[] | select(.headRefName | startswith("release/")) | "#\(.number) (\(.headRefName))"] | join(", ")')
+          [ -z "$OPEN" ] || skip "release pull request $OPEN is still open. Merge or close it first."
+          git merge-base --is-ancestor origin/main origin/develop \
+            || skip "main has changes develop doesn't (the post-release sync pull request isn't merged yet)."
+
+          set +e
+          V=$(node .core/scripts/next-version.mjs --overlay . --ref origin/develop 2> why.txt); CODE=$?
+          set -e
+          WHY=$(sed 's/^next-version: //' why.txt)
+          case "$CODE" in
+            0) echo "action=cut" >> "$GITHUB_OUTPUT"; echo "version=$V" >> "$GITHUB_OUTPUT"
+               echo "Releasing $V. $WHY" | tee -a "$GITHUB_STEP_SUMMARY" ;;
+            3) N=$(git rev-list --count --no-merges origin/main..origin/develop)
+               [ "$N" -eq 0 ] && skip "develop has nothing new since the last release."
+               attention "develop has $N commit(s) that aren't released, but nothing under Unreleased in CHANGELOG.md. Add the entries (or confirm there's nothing the team receives) and run it again." ;;
+            4) attention "$WHY. Pick the version and run, from the core repo: node scripts/cut-release.mjs --overlay <this-repo> <x.y.z>" ;;
+            *) cat why.txt; exit 1 ;;
+          esac
+
+      - name: Tell the leads
+        if: steps.decide.outputs.action == 'attention'
+        env:
+          REASON: ${{ steps.decide.outputs.reason }}
+        run: |
+          TITLE="Weekly release needs you"
+          N=$(gh issue list --state open --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ -n "$N" ]; then
+            gh issue comment "$N" --body "$(date -u +%Y-%m-%d): $REASON"
+          else
+            gh issue create --title "$TITLE" --body "$(date -u +%Y-%m-%d): $REASON
+
+          Close this issue once it's handled. The next weekly run checks again."
+          fi
+
+      - name: Cut the release and run the same checks as CI
+        if: steps.decide.outputs.action == 'cut'
+        # Pull requests opened by this workflow don't trigger other workflows, so everything overlay-ci and
+        # release-gate check is checked here before the pull request is opened.
+        env:
+          V: ${{ steps.decide.outputs.version }}
+        run: |
+          git config user.name "weekly-release"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node .core/scripts/cut-release.mjs --overlay . "$V"
+          git push origin "release/$V"
+
+      - name: Open the release pull request into main
+        if: steps.decide.outputs.action == 'cut'
+        env:
+          V: ${{ steps.decide.outputs.version }}
+        run: |
+          awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > body.md
+          printf '\n---\nCut automatically by weekly-release. Checked before opening: validate --overlay, the secrets scan, build-overlay --check, and the release-gate rules (new version, matching branch name, CHANGELOG section).\n\nPull requests opened by a workflow get no checks of their own, so `overlay-ci`, `branch-name` and `release-gate` may show as failed or missing here. That is expected.\n\nMerging tags v%s, publishes the notes and opens the main → develop sync. The team receives it through the plugin update (Claude Code) or their next pull of main and link (other agents).\n' "$V" >> body.md
+          gh pr create --base main --head "release/$V" --title "Release $V" --body-file body.md

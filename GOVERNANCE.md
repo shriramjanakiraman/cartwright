@@ -46,7 +46,7 @@ they check the open pull requests and add to a related one when it's safe to, ra
 stops at the open pull request for the owner to merge. If there's nothing new, it does nothing. It skips a
 week while a release pull request or the post-release sync is still open, and opens a "Weekly release needs
 you" issue when it can't decide: commits on `develop` with an empty *Unreleased*, or *Removed* /
-`BREAKING` entries that may need a major version.
+`- BREAKING:` entries that may need a major version.
 
 Version numbers follow semver: patch (0.5.0 → 0.5.1) for fixes only, minor (0.5.0 → 0.6.0) when anything
 is added or changed, major when existing use breaks. Majors are always the owner's call. To release by
@@ -64,7 +64,10 @@ A **hotfix** follows the same steps from step 2, cut from `main` with a patch ve
 `npm run release -- <x.y.z>` on the `hotfix/` branch and it prepares the release there.
 
 **The same applies to overlay repos:** `main` and `develop`, the same four branch types, the same pull
-request rule and guards. Overlay changes are approved by the core owner or that engagement's project lead.
+request rule and guards, and the same releases: a CHANGELOG, a weekly `weekly-release` run, `release-gate`
+on pull requests into `main`, and a tag plus `main → develop` sync on merge. The version lives in
+`overlay.json`; `node scripts/cut-release.mjs --overlay <repo>` cuts one by hand. Overlay changes and
+releases are approved by the core owner or that engagement's project lead.
 
 ### How it's enforced
 

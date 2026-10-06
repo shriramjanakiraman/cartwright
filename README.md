@@ -114,7 +114,13 @@ Run the core checks against an overlay from this repo:
 ```bash
 node scripts/validate.mjs --overlay ../<code>-agent-skills
 node scripts/build-overlay.mjs ../<code>-agent-skills
+node scripts/cut-release.mjs --overlay ../<code>-agent-skills   # release it by hand
 ```
+
+**How a change reaches the team:** a pull request into the overlay's `develop`, then a release into its
+`main`, the same way core works. The overlay releases itself weekly (`weekly-release`, Wednesdays 00:00
+IST) when its CHANGELOG has something new, and the version it sets is what tells Claude Code to update.
+The overlay's own `README.md` and `AGENTS.md` have the details.
 
 ## Branches
 

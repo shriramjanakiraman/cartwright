@@ -8,8 +8,20 @@ All notable changes to what users receive. Newest first.
 - Weekly releases: every Wednesday at 00:00 IST, `weekly-release` cuts a release from `develop` and opens
   the pull request into `main`, but only when *Unreleased* in the CHANGELOG has entries. Fixes only → patch
   (0.5.0 → 0.5.1); anything added or changed → minor (0.5.0 → 0.6.0). Majors stay manual: *Removed* or
-  `BREAKING` entries, or unreleased commits with no CHANGELOG entry, open an issue for the owner instead.
+  `- BREAKING:` entries, or unreleased commits with no CHANGELOG entry, open an issue for the owner instead.
 - `npm run release` without a version picks patch or minor from the CHANGELOG (`scripts/next-version.mjs`).
+
+### Fixed
+- Overlay changes now have a way to reach the team. The overlay template said changes ship "when `develop`
+  is merged into `main`", which its own `branch-name` rule refuses, and nothing ever raised the overlay's
+  version, so Claude Code wouldn't pick up a change. Overlays now release like core: a `CHANGELOG.md`,
+  `cut-release.mjs --overlay <repo>` (version in `overlay.json`), a weekly `weekly-release`, `release-gate`,
+  and a tag plus `main → develop` sync on merge. The template also gains an `AGENTS.md` (with `CLAUDE.md`)
+  so agents working in an overlay follow the same rules, and its README now covers changing a skill,
+  releasing and how teammates pick up updates.
+- `validate` refuses an active skill that still contains the skill template's stock text.
+- `skill-intake` 0.4.1: correct release wording (releases go through `release/`, not a `develop` merge) and
+  the overlay steps for branching and committing.
 
 ## [0.5.0] - 2026-10-06
 
