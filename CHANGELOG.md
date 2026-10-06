@@ -28,9 +28,11 @@ All notable changes to what users receive. Newest first.
 - `scripts/protect-branches.sh`: applies the GitHub rulesets to core or an overlay once the plan allows.
 
 ### Changed
-- The upstream check runs daily instead of weekly, raises its pull request into `develop` instead of
-  `main`, and keeps one standing pull request (`feature/upstream-updates`) that each run refreshes,
-  instead of one per run.
+- The upstream check runs daily instead of weekly, from `develop`: GitHub only runs schedules from `main`,
+  so a small `upstream-schedule` workflow there starts `upstream-watch` on `develop` each day, and changes
+  to the check take effect as soon as they merge into `develop`. It raises its pull request into `develop`
+  instead of `main`, and keeps one standing pull request (`feature/upstream-updates`) that each run
+  refreshes, instead of one per run.
 - The upstream check runs validate, scrub, sync and build checks itself before proposing an update,
   because pull requests opened by a workflow don't trigger CI automatically.
 - `skill-intake` 0.4.0 starts its work with `npm run branch` on a `feature/` (or `bugfix/`) branch into `develop`.
