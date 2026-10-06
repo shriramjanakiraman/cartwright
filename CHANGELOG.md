@@ -4,6 +4,12 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Changed
+- The upstream check runs daily instead of weekly, and keeps one standing pull request
+  (`feature/upstream-updates` into `develop`) that each run refreshes, instead of one per run.
+- The upstream check runs validate, scrub, sync and build checks itself before proposing an update,
+  because pull requests opened by a workflow don't trigger CI automatically.
+
 ### Added
 - Branching model: `main` (stable, what users install) and `develop` (test bed). Every change, owners
   included, arrives through a pull request from one of four branch types: `feature/`, `bugfix/` (into

@@ -28,7 +28,7 @@ skill, a script fix or a Salesforce update, arrives through a reviewed pull requ
 
 | Branch | Use it for | Cut from | Pull request into |
 |---|---|---|---|
-| `feature/<name>` | New skills, new capabilities, improvements, docs. Salesforce updates arrive as `feature/upstream-<date>`. | `develop` | `develop` |
+| `feature/<name>` | New skills, new capabilities, improvements, docs. Salesforce updates arrive on the standing `feature/upstream-updates` branch. | `develop` | `develop` |
 | `bugfix/<name>` | Fixing something on `develop` that hasn't been released yet | `develop` | `develop` |
 | `release/<x.y.z>` | Cutting a release: set the version and CHANGELOG, nothing else | `develop` | `main` |
 | `hotfix/<name>` | An urgent fix to what's already released | `main` | `main` |
@@ -81,7 +81,8 @@ limited to the engagement team.
 
 ## Review cadence
 
-- **Weekly**, automatically: the upstream check (Door A).
+- **Daily**, automatically: the upstream check (Door A). It keeps one pull request into `develop` open and
+  refreshes it while updates are waiting; review and merge it, then release.
 - **Quarterly**: review every `active` skill. Update `last-reviewed`, or deprecate what is no longer used
   or is now covered upstream.
 
