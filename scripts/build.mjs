@@ -8,6 +8,9 @@
 //   .agents/plugins/marketplace.json   so the repo installs as a Codex plugin marketplace
 //   plugin/plugin.json, plugin/mcp.json  the Agent Plugins 1.0 manifest and MCP file (GitHub Copilot CLI,
 //                                      VS Code); Claude Code and Codex use their own manifests above
+//   plugin/tools/                      client setup helper (setup.mjs, kit.mjs, registry-core.mjs) and the
+//                                      encrypted overlay registry (registry.json)
+//   plugin/hooks/hooks.json            session-start hook: offers client setup in projects not yet set up
 //   INDEX.md                           the human catalogue
 // Drafts and deprecated core skills are left out of the plugin but listed in INDEX.md.
 //
@@ -45,6 +48,21 @@ for (const src of Object.values(lock.sources)) {
   if (src.mcpServer && src.version) servers[src.mcpServer.name] = { command: 'npx', args: ['-y', `${src.mcpServer.package}@${src.version}`] };
 }
 if (Object.keys(servers).length) out.set('plugin/.mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
+
+// Client setup: the helper the hook and the client-setup skill call, with the code it needs and the
+// registry, so it runs from the installed plugin with nothing else on the machine but node and git.
+for (const f of ['setup.mjs', 'kit.mjs', 'registry-core.mjs']) out.set(`plugin/tools/${f}`, readFileSync(join(ROOT, 'scripts', f), 'utf8'));
+out.set('plugin/tools/registry.json', readFileSync(join(ROOT, 'registry', 'overlays.json'), 'utf8'));
+// One session-start hook in the format Claude Code, Codex, Copilot and VS Code all read. Each agent tells
+// the hook where the plugin is installed differently, so try the known variables, then the install caches.
+// It never fails a session: no node, no plugin found, or an error all end silently.
+const HOOK = 'for d in "$CLAUDE_PLUGIN_ROOT" "$PLUGIN_ROOT" "$CODEX_PLUGIN_ROOT" "$COPILOT_PLUGIN_ROOT"; do '
+  + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; '
+  + 'f=$(find "$HOME/.codex/plugins/cache" "$HOME/.copilot" "$HOME/.claude/plugins" -path "*agent-skills*/tools/setup.mjs" 2>/dev/null | tail -n 1); '
+  + '[ -n "$f" ] && exec node "$f" hook; exit 0';
+out.set('plugin/hooks/hooks.json', JSON.stringify({
+  hooks: { SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }] },
+}, null, 2) + '\n');
 
 // GitHub Copilot (CLI and VS Code) prefers the Agent Plugins 1.0 format: a plugin.json at the plugin root,
 // skills in skills/, and MCP servers in mcp.json at the root (its locations can't be overridden).

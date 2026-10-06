@@ -5,13 +5,23 @@ All notable changes to what users receive. Newest first.
 ## [Unreleased]
 
 ### Added
-- Project skills reach the team automatically in Claude Code, Codex, GitHub Copilot CLI and VS Code.
-  `build-overlay` generates a `client-project/` kit (`.claude/settings.json`, `.github/copilot/settings.json`,
-  `.agents/plugins/marketplace.json`, `.codex/config.toml`) that a lead commits once into the client
-  project's repo; whoever opens that project then gets core plus the overlay, with GitHub access to the
-  overlay deciding who can download it. It replaces `client-project-settings.json` (Claude Code only).
-- The plugin also ships the Agent Plugins 1.0 manifest (`plugin/plugin.json` and `plugin/mcp.json`) that
-  GitHub Copilot CLI and VS Code read.
+- Client setup: install the plugin once and, in any client project, get every shared SFCC skill plus the
+  project skills other developers wrote for that client. A session-start hook (Claude Code, Codex, GitHub
+  Copilot CLI and VS Code) offers setup in projects that aren't connected yet; the new `client-setup` skill
+  asks which client, finds its project skills from any spelling or abbreviation ("MK" = "Michael Kors"),
+  checks access, and after asking adds a small project kit to the client repo (on any git host) and opens a
+  pull or merge request, so everyone who opens the project gets both plugins with no setup. For a client
+  with no project skills yet, it guides creating and registering them.
+- An encrypted client registry (`registry/overlays.json`, `npm run registry`): finds a client's overlay
+  from any of its names without the core repo containing any client name. Names are key-stretched (scrypt)
+  and the details encrypted (AES-GCM); `npm run check` validates the file.
+- The project kit (`.claude/settings.json`, `.github/copilot/settings.json`, `.agents/plugins/marketplace.json`,
+  `.codex/config.toml`, `AGENT-SKILLS.md`) supports overlays on GitHub, GitLab, Bitbucket or any git host.
+  `build-overlay` also writes it to `client-project/`, replacing `client-project-settings.json` (Claude Code only).
+- The plugin ships the Agent Plugins 1.0 manifest (`plugin/plugin.json`, `plugin/mcp.json`) that GitHub
+  Copilot CLI and VS Code read, plus `plugin/tools/` (the setup helper and registry) and `plugin/hooks/`.
+- `overlay.json` gains `client`, `aliases` and `lead`.
+- `documentation/12-client-setup.md`.
 
 ## [1.1.0] - 2026-10-06
 

@@ -37,13 +37,14 @@ Client-specific skills live in separate private **overlay** repos, one per engag
 | [Project overlays](09-project-overlays.md) | set up or work in a client's private skills repo |
 | [Promoting a skill to core](10-promoting-to-core.md) | want to move a project skill into the shared library |
 | [Automation reference](11-automation-reference.md) | need every workflow, script and GitHub limit in one place |
+| [Client setup](12-client-setup.md) | want a client project to get its project skills automatically, or a new client registered |
 
 ## By role
 
-- **Developer using skills:** [Getting started](01-getting-started.md).
+- **Developer using skills:** [Getting started](01-getting-started.md), then [Client setup](12-client-setup.md) in a client project.
 - **Developer adding a skill:** [Writing a skill](02-writing-a-skill.md), [Scrubbing](03-scrubbing.md),
   [Branches and pull requests](04-branches-and-pull-requests.md), [Duplicate check](05-duplicate-check.md).
   An agent can do most of it for you through the `skill-intake` skill.
 - **Reviewer or owner:** [Releases](06-releases.md), [Official skills](07-official-skills-upstream.md),
   [Duplicate check](05-duplicate-check.md), [Automation reference](11-automation-reference.md).
-- **Project lead:** [Project overlays](09-project-overlays.md), [Promoting a skill to core](10-promoting-to-core.md).
+- **Project lead:** [Project overlays](09-project-overlays.md), [Client setup](12-client-setup.md), [Promoting a skill to core](10-promoting-to-core.md).
