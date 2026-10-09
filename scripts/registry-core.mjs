@@ -9,7 +9,7 @@
 // Shipped in the plugin with setup.mjs; registry.mjs (core repo only) adds entries. Plain Node 20+.
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 
-export const KDF = { name: 'scrypt', N: 2 ** 15, r: 8, p: 1, salt: 'agent-skills-overlay-registry-v1' };
+export const KDF = { name: 'scrypt', N: 2 ** 15, r: 8, p: 1, salt: 'cartwright-overlay-registry-v1' };
 const NOISE = new Set(['the', 'inc', 'incorporated', 'ltd', 'limited', 'llc', 'plc', 'corp', 'corporation', 'co', 'company', 'group', 'gmbh', 'ag', 'sa', 'bv', 'holdings']);
 
 const words = (s) => String(s).normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()

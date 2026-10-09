@@ -22,8 +22,8 @@ const check = process.argv.includes('--check');
 const ov = dirArg && loadOverlay(resolve(dirArg));
 if (!ov) { console.error('build-overlay: pass the path of an overlay repo (a folder containing overlay.json)'); process.exit(2); }
 
-const { project, version = '0.1.0', owner = 'engagement team', repo, coreRepo = 'shriramjanakiraman/agent-skills' } = ov.config;
-const marketplace = `${project}-agent-skills`;
+const { project, version = '0.1.0', owner = 'engagement team', repo, coreRepo = 'shriramjanakiraman/cartwright' } = ov.config;
+const marketplace = `${project}-cartwright`;
 const plugin = `${project}-skills`;
 const shipped = ov.skills.filter((s) => s.data?.status === 'active');
 const out = new Map();

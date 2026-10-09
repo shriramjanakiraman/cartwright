@@ -66,6 +66,8 @@ One flat file per skill in `core/`: no folders, no supporting scripts or assets.
 - **Invoke, don't duplicate.** If another skill (ours or official) already does a step, call it. Don't copy
   its logic.
 - **Cheap checks first.** Check whether something is already done before doing it again.
+- **Don't make developers install tools.** Call the B2C CLI, spec-kit or graphify as usual; on a machine
+  without them, the plugin runs the pinned version on demand (`documentation/13-tools-without-install.md`).
 - **Ask, don't invent.** Never fabricate acceptance criteria, scope, credentials or configuration.
 - **Outward actions need confirmation.** Posting to Jira, pushing, deploying: always ask first.
 

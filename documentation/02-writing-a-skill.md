@@ -16,7 +16,7 @@ before anything is pushed.
    client work, an overlay:
    ```bash
    npm run find -- "deploy cartridges to a sandbox"
-   npm run find -- "deploy cartridges" --overlay ../<code>-agent-skills
+   npm run find -- "deploy cartridges" --overlay ../<code>-cartwright
    ```
    "LIKELY" matches are worth reading first. If an official skill already does it, use that instead.
 2. **Decide where it belongs.** Generic (useful on another engagement with names removed) → core.

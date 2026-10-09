@@ -4,6 +4,40 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-09
+
+A major release: the library is renamed **Cartwright**, so the plugin and install commands change. Uninstall
+the old `agent-skills` plugin and install `cartwright@cartwright` (see *Changed*). Everything else carries on
+as before, and now runs the B2C CLI, spec-kit and graphify without installing them.
+
+### Added
+- Run the B2C CLI, spec-kit and graphify without installing them. `tools/run.mjs` in the plugin uses an
+  installed copy, or fetches the version pinned in `upstream.lock.json` on demand (`npx` for the B2C CLI,
+  `uvx` for spec-kit and graphify) and caches it, so a machine needs only Node.js, git and uv. The
+  session-start hook tells the agent which tools are missing and to run them through the helper, which also
+  makes Salesforce's official skills work without the B2C CLI installed. New skill `tools-without-install`
+  and guide `documentation/13-tools-without-install.md`. The B2C CLI (`@salesforce/b2c-cli`) is now a pinned
+  source tracked by the daily upstream check.
+- The tools stay current: the daily upstream check bumps their pins as they release and now smoke-tests every
+  pinned tool (`run.mjs --smoke`, results in the upstream pull request) before the update is proposed. An
+  installed copy older than the pin is skipped in favour of the pinned version, with the command to update it
+  (`CARTWRIGHT_PREFER_INSTALLED=1` keeps the old behaviour for pre-approved installs).
+
+### Changed
+- BREAKING: the library is now **Cartwright**: Claude Code reserves the name `agent-skills`, so the plugin
+  couldn't be installed under it. The repo becomes `shriramjanakiraman/cartwright` and the plugin
+  `cartwright@cartwright` in Claude Code, Codex and Copilot. Reinstall with
+  `claude plugin marketplace add shriramjanakiraman/cartwright` then `claude plugin install cartwright@cartwright`
+  (Codex: `codex plugin marketplace add …` / `codex plugin add cartwright@cartwright`), and remove the old
+  `agent-skills` plugin. Overlay repos and marketplaces are now named `<code>-cartwright` (plugins stay
+  `<code>-skills`); the project kit, templates, guides and install commands use the new names. Per-user setup
+  choices move to `~/.cartwright/`.
+
+### Fixed
+- `npm run branch` accepts a version in a branch name, so `bugfix/sync-1.2.0` (the name AGENTS.md gives for
+  resolving a post-release sync conflict) no longer fails with "name must be lowercase words joined by
+  hyphens".
+
 ## [1.2.0] - 2026-10-09
 
 ### Added

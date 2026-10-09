@@ -29,6 +29,7 @@ jobs:
         with: { ref: develop, fetch-depth: 0 }   # upstream changes are tested on develop like everything else
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - uses: astral-sh/setup-uv@v7      # uvx, to smoke-test the pinned spec-kit and graphify versions
 
       - name: Compare upstream.lock.json with official sources
         id: up
@@ -54,6 +55,10 @@ jobs:
           CHANGED=$( { git ls-files --others --exclude-standard -- upstream; git diff --name-only -- upstream; } | grep '/SKILL.md$' || true)
           OVERLAPS=$( [ -n "$CHANGED" ] && node scripts/similar-skills.mjs --markdown $CHANGED || true)
           [ -z "$OVERLAPS" ] || printf '\n## Possible overlaps with our skills\n\n%s\n' "$OVERLAPS" >> upstream-report.md
+          # The tools tools/run.mjs runs (B2C CLI, spec-kit, graphify): run each pinned version once, so a
+          # broken release is caught here, before it reaches anyone. A failure is reported in the pull request.
+          printf '\n' >> upstream-report.md
+          node scripts/run.mjs --smoke --markdown >> upstream-report.md || echo "::warning::A pinned tool version failed its smoke test; see the pull request."
           printf '\n---\nChecked by upstream-watch before opening: validate, scrub-scan, sync-upstream --check, build --check.\n' >> upstream-report.md
 
       - name: Open or refresh the review pull request into develop

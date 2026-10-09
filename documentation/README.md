@@ -13,11 +13,11 @@ own skills (`core/`), every official Salesforce B2C skill (mirrored in `upstream
 Client-specific skills live in separate private **overlay** repos, one per engagement.
 
 ```
-                 ┌──────────────── agent-skills (this repo) ────────────────┐
+                 ┌───────────────── cartwright (this repo) ─────────────────┐
  Salesforce  ──▶ │  upstream/  official skills, mirrored daily, read-only   │
  publishers      │  core/      our skills, added through pull requests      │ ──▶ plugin / link ──▶ every developer
                  └───────────────────────────────────────────────────────────┘
-                 ┌──────── <code>-agent-skills (one per engagement) ────────┐
+                 ┌───────── <code>-cartwright (one per engagement) ─────────┐
                  │  skills/    client-specific skills, private to the team  │ ──▶ plugin / link ──▶ that team, in
                  └───────────────────────────────────────────────────────────┘                     that client project
 ```
@@ -38,10 +38,12 @@ Client-specific skills live in separate private **overlay** repos, one per engag
 | [Promoting a skill to core](10-promoting-to-core.md) | want to move a project skill into the shared library |
 | [Automation reference](11-automation-reference.md) | need every workflow, script and GitHub limit in one place |
 | [Client setup](12-client-setup.md) | want a client project to get its project skills automatically, or a new client registered |
+| [Run tools without installing](13-tools-without-install.md) | are on a machine without the B2C CLI, spec-kit or graphify, or write a skill that uses them |
 
 ## By role
 
 - **Developer using skills:** [Getting started](01-getting-started.md), then [Client setup](12-client-setup.md) in a client project.
+  No tools to install first: see [Run tools without installing](13-tools-without-install.md).
 - **Developer adding a skill:** [Writing a skill](02-writing-a-skill.md), [Scrubbing](03-scrubbing.md),
   [Branches and pull requests](04-branches-and-pull-requests.md), [Duplicate check](05-duplicate-check.md).
   An agent can do most of it for you through the `skill-intake` skill.

@@ -23,10 +23,10 @@ install the plugin ─▶ open a client project ─▶ session-start hook: "not 
 
 | Agent | Command line | Or in the UI |
 |---|---|---|
-| Claude Code | `claude plugin marketplace add shriramjanakiraman/agent-skills` then `claude plugin install agent-skills@agent-skills` | `/plugin` → add marketplace |
-| Codex | `codex plugin marketplace add shriramjanakiraman/agent-skills` then `codex plugin add agent-skills@agent-skills` | plugin directory |
-| GitHub Copilot CLI | `copilot plugin marketplace add shriramjanakiraman/agent-skills` then `copilot plugin install agent-skills@agent-skills` | |
-| VS Code (Copilot) | | *Chat: Install Plugin From Source* → `shriramjanakiraman/agent-skills` |
+| Claude Code | `claude plugin marketplace add shriramjanakiraman/cartwright` then `claude plugin install cartwright@cartwright` | `/plugin` → add marketplace |
+| Codex | `codex plugin marketplace add shriramjanakiraman/cartwright` then `codex plugin add cartwright@cartwright` | plugin directory |
+| GitHub Copilot CLI | `copilot plugin marketplace add shriramjanakiraman/cartwright` then `copilot plugin install cartwright@cartwright` | |
+| VS Code (Copilot) | | *Chat: Install Plugin From Source* → `shriramjanakiraman/cartwright` |
 
 While the library repo is private, the developer's git account needs read access to it; agents download
 plugins with the machine's own git credentials.
@@ -44,7 +44,7 @@ about a quarter of a second, with no network access, it checks the project:
 | they said "not now" | nothing for 7 days, then it asks again |
 | otherwise | the agent asks once: *is this project for a client?* (set up / not now / no client) |
 
-Choices are remembered per project in `~/.agent-skills/projects.json` on the developer's machine.
+Choices are remembered per project in `~/.cartwright/projects.json` on the developer's machine.
 
 - **Codex** asks you to trust a plugin's hook once (`/hooks`).
 - The hook runs through `sh`, so on Windows it stays silent; ask the agent to "set up this project's skills"
@@ -97,13 +97,13 @@ plugins once with *Install Plugin From Source*.
 
 Setup says so and offers to carry on with the shared skills only, or to start project skills for the client:
 
-1. Create a private repo `<code>-agent-skills` (a short lowercase code, never the client's name) under your
+1. Create a private repo `<code>-cartwright` (a short lowercase code, never the client's name) under your
    own account or organisation, on any git host, from the library's `templates/overlay/`.
 2. In its `overlay.json`, fill in `project`, `client`, `aliases` (every name people use: abbreviations,
    brand names), `repo` (owner/repo for GitHub, otherwise the git URL) and `lead` (who grants access).
 3. Register it, from a clone of the library:
    ```bash
-   npm run registry -- add --from-overlay ../<code>-agent-skills
+   npm run registry -- add --from-overlay ../<code>-cartwright
    npm run registry -- lookup "<an alias>"        # check it's found
    ```
    Commit `registry/overlays.json` and open a pull request into `develop`. It reaches developers with the

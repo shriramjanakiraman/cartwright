@@ -2,7 +2,7 @@
 name: client-setup
 description: "Connect a client project to the shared SFCC skills and that client's own project skills, so every developer who opens it gets both automatically. Use when the session-start notice says this project isn't set up, or when a developer says \"set up this project's skills\", \"connect this repo to the client skills\", \"which client skills do we have\", \"I can't see the project skills\" or \"onboard me to this client project\". Finds the client's existing project skills from any spelling or abbreviation of its name, checks access, adds the small project kit after asking, or guides creating project skills for a new client."
 owner: shriramjanakiraman
-version: 0.1.0
+version: 0.1.1
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:node]
@@ -18,11 +18,11 @@ Copilot (CLI and VS Code) and any agent that can run a command.
 
 ## When to use
 
-- The session-start notice from the agent-skills plugin says this project isn't set up, and the developer
+- The session-start notice from the Cartwright plugin says this project isn't set up, and the developer
   answered "set up".
 - A developer asks to set up, connect or check the project skills for the repo they're in, or says they
   can't see their client's skills.
-- **Skip** when the developer is working in the agent-skills library or in a project skills repo itself,
+- **Skip** when the developer is working in the Cartwright library or in a project skills repo itself,
   when they said the project has no client, or when they only want to *use* a skill.
 
 ## How to talk to the developer
@@ -35,7 +35,7 @@ Copilot (CLI and VS Code) and any agent that can run a command.
 
 The helper is `setup.mjs`. The session-start notice gives its full path; otherwise it's `tools/setup.mjs`
 in the plugin's folder (two folders up from this skill's own `SKILL.md`), or `scripts/setup.mjs` in a clone
-of the agent-skills library. Every command below prints JSON. Run them from the project's folder.
+of the Cartwright library. Every command below prints JSON. Run them from the project's folder.
 
 ### Step 0 — Fast check
 
@@ -72,7 +72,7 @@ node <helper> access <overlay>
 - `canRead: false`: tell them the project skills exist but their git account can't read
   `<overlay>` yet, and to ask `<lead>` for access. Offer to continue with Step 3 anyway, so the project is
   ready the moment access is granted. Their agent will download the skills once it can.
-- Also check the shared library: `node <helper> access shriramjanakiraman/agent-skills`. If that fails,
+- Also check the shared library: `node <helper> access shriramjanakiraman/cartwright`. If that fails,
   they need access to it too.
 
 ### Step 3 — Add the project kit, after asking
@@ -88,10 +88,10 @@ node <helper> kit --code <code> --overlay <overlay> --lead <lead>
 Show the `changed` files and a short `git diff`. Then ask whether to open a pull or merge request:
 
 ```bash
-git switch -c chore/agent-skills-setup
+git switch -c chore/cartwright-setup
 git add .claude/settings.json .github/copilot/settings.json .agents/plugins/marketplace.json .codex/config.toml AGENT-SKILLS.md
 git commit -m "Connect this project to the shared agent skills and the <code> project skills"
-git push -u origin chore/agent-skills-setup
+git push -u origin chore/cartwright-setup
 ```
 
 Open the request with the host's own tool if it's installed (`gh pr create` for GitHub, `glab mr create` for
@@ -110,7 +110,7 @@ node <helper> install --code <code> --overlay <overlay>
 Then tell them to restart or reload their agent. Notes per agent:
 - **Claude Code:** after the kit is in the project, it offers both plugins when the folder is opened and
   trusted.
-- **Codex:** approve the agent-skills session hook once if `/hooks` asks.
+- **Codex:** approve the Cartwright session hook once if `/hooks` asks.
 - **VS Code:** it may not pick up workspace plugins yet (microsoft/vscode#327404); use the listed
   *Install Plugin From Source* steps once.
 
@@ -132,7 +132,7 @@ Say so plainly, then offer two paths:
 2. **Start project skills for this client.** Project skills live in their own private repo, which the
    developer or their lead creates under their own account or organisation, on any git host. Point them to
    the library's `templates/overlay/README.md` and its *Project overlays* guide, and summarise:
-   - create a private repo named `<code>-agent-skills` (a short lowercase code, never the client's name)
+   - create a private repo named `<code>-cartwright` (a short lowercase code, never the client's name)
    - copy the template in, set `project`, `client`, `aliases` and `lead` in `overlay.json`, and list the
      client's names in `.scrub/denylist.txt`
    - register it so others can find it: from a clone of the library,
@@ -158,6 +158,6 @@ Don't create repos, register anything or push on the developer's behalf without 
 
 ## References
 
-- `documentation/12-client-setup.md` in the agent-skills library: the whole flow and the registry.
+- `documentation/12-client-setup.md` in the Cartwright library: the whole flow and the registry.
 - The *Project overlays* guide in the library's `documentation/` folder: project skills repos.
 - The library's `templates/overlay/`: the starting point for a new client's project skills.

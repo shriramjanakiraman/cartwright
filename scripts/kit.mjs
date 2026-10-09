@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-export const CORE_REPO = 'shriramjanakiraman/agent-skills';
+export const CORE_REPO = 'shriramjanakiraman/cartwright';
 
 // "owner/repo", or a GitHub URL, as owner/repo; null for any other host.
 export function githubRepo(ref) {
@@ -21,14 +21,14 @@ export const gitUrl = (ref) => (githubRepo(ref) && !/^(https?:|git@|ssh:)/.test(
 // Marketplace source for Claude Code and Copilot settings files.
 const settingsSource = (ref) => (githubRepo(ref) ? { source: 'github', repo: githubRepo(ref) } : { source: 'git', url: ref });
 
-export const names = (code) => ({ marketplace: `${code}-agent-skills`, plugin: `${code}-skills`, codexMarketplace: `${code}-project` });
+export const names = (code) => ({ marketplace: `${code}-cartwright`, plugin: `${code}-skills`, codexMarketplace: `${code}-project` });
 
 // The kit for project `code` whose overlay lives at `overlay` (owner/repo or any git URL).
 export function kitFiles({ code, overlay, core = CORE_REPO, lead }) {
   const { marketplace, plugin, codexMarketplace } = names(code);
   const settings = JSON.stringify({
-    extraKnownMarketplaces: { 'agent-skills': { source: settingsSource(core) }, [marketplace]: { source: settingsSource(overlay) } },
-    enabledPlugins: { 'agent-skills@agent-skills': true, [`${plugin}@${marketplace}`]: true },
+    extraKnownMarketplaces: { 'cartwright': { source: settingsSource(core) }, [marketplace]: { source: settingsSource(overlay) } },
+    enabledPlugins: { 'cartwright@cartwright': true, [`${plugin}@${marketplace}`]: true },
   }, null, 2) + '\n';
   const gitPlugin = (name, ref, description) => ({ name, description,
     source: { source: 'git-subdir', url: gitUrl(ref), path: './plugin', ref: 'main' },
@@ -40,7 +40,7 @@ export function kitFiles({ code, overlay, core = CORE_REPO, lead }) {
       name: codexMarketplace,
       interface: { displayName: `${code} project skills` },
       plugins: [
-        gitPlugin('agent-skills', core, 'Shared skills: ours plus every official Salesforce B2C skill and the B2C MCP server.'),
+        gitPlugin('cartwright', core, 'Shared skills: ours plus every official Salesforce B2C skill and the B2C MCP server.'),
         gitPlugin(plugin, overlay, `Project ${code} only: client-specific skills for this engagement.`),
       ],
     }, null, 2) + '\n'],
@@ -50,7 +50,7 @@ export function kitFiles({ code, overlay, core = CORE_REPO, lead }) {
 }
 
 const codexToml = (market, plugin) => `# Enables this project's skills in Codex (see .agents/plugins/marketplace.json).
-[plugins."agent-skills@${market}"]
+[plugins."cartwright@${market}"]
 enabled = true
 
 [plugins."${plugin}@${market}"]
@@ -59,7 +59,7 @@ enabled = true
 
 const readme = ({ code, overlay, lead }) => `# Agent skills for this project
 
-This project is set up for the shared agent skills library plus the **${code}** project skills. Anyone who
+This project is set up for Cartwright (the shared agent skills library) plus the **${code}** project skills. Anyone who
 opens it in Claude Code, Codex, GitHub Copilot CLI or VS Code gets both, with no setup of their own.
 
 | File | Agent |
@@ -118,8 +118,8 @@ export function readKit(dir) {
     try {
       const s = JSON.parse(readFileSync(join(dir, rel), 'utf8'));
       for (const key of Object.keys(s.enabledPlugins || {})) {
-        const m = key.match(/^([a-z][a-z0-9]{1,15})-skills@\1-agent-skills$/);
-        if (m) { const src = s.extraKnownMarketplaces?.[`${m[1]}-agent-skills`]?.source || {}; return { code: m[1], overlay: src.repo || src.url || null }; }
+        const m = key.match(/^([a-z][a-z0-9]{1,15})-skills@\1-cartwright$/);
+        if (m) { const src = s.extraKnownMarketplaces?.[`${m[1]}-cartwright`]?.source || {}; return { code: m[1], overlay: src.repo || src.url || null }; }
       }
     } catch { /* not there */ }
   }

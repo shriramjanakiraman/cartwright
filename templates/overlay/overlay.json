@@ -2,9 +2,9 @@
   "project": "<project-code>",
   "client": "<client name as people usually write it>",
   "aliases": ["<abbreviation>", "<other name the client goes by>"],
-  "repo": "<owner>/<project-code>-agent-skills",
+  "repo": "<owner>/<project-code>-cartwright",
   "owner": "<project-lead-name>",
   "lead": "<@lead-handle or email to ask for access>",
   "version": "0.1.0",
-  "coreRepo": "shriramjanakiraman/agent-skills"
+  "coreRepo": "shriramjanakiraman/cartwright"
 }

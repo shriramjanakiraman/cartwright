@@ -141,6 +141,17 @@
       },
       "note": "The plugin registers this MCP server at the pinned version. Its own skills are served by the server, so they are not mirrored as files."
     },
+    "b2c-cli": {
+      "type": "github-release",
+      "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
+      "tagPrefix": "@salesforce/b2c-cli@",
+      "version": "2.5.1",
+      "install": "npm install -g @salesforce/b2c-cli  (or run it without installing: node <plugin>/tools/run.mjs b2c …)",
+      "usedBy": [
+        "tools-without-install"
+      ],
+      "note": "the b2c command used by the official B2C skills; pinned so tools/run.mjs runs the tested version"
+    },
     "commerce-apps": {
       "type": "github-branch",
       "repo": "SalesforceCommerceCloud/commerce-apps",

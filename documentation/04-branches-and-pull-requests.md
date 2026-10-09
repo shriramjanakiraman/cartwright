@@ -14,7 +14,8 @@ Overlay repos use exactly the same model.
 | `hotfix/<name>` | corrects something already released that is actively harming users; agree it with the owner first | `main` | `main` |
 | `release/<x.y.z>` | releases `develop`; normally cut automatically ([Releases](06-releases.md)) | `develop` | `main` |
 
-Names are lowercase words joined by hyphens: `feature/sfra-unit-tests`, `bugfix/scrub-false-positive`.
+Names are lowercase words joined by hyphens: `feature/sfra-unit-tests`, `bugfix/scrub-false-positive`. A
+version keeps its dots: `bugfix/sync-1.2.0`.
 The only other pull request allowed is the automatic `main → develop` sync after a release.
 
 ## Everyday flow
@@ -59,8 +60,8 @@ direct push or a merge with red checks. The guards above signal and alert instea
 GitHub Pro or an organisation, run once:
 
 ```bash
-sh scripts/protect-branches.sh shriramjanakiraman/agent-skills
-sh scripts/protect-branches.sh <owner>/<code>-agent-skills --overlay     # each overlay
+sh scripts/protect-branches.sh shriramjanakiraman/cartwright
+sh scripts/protect-branches.sh <owner>/<code>-cartwright --overlay     # each overlay
 ```
 
 That blocks direct pushes, force pushes and deletion of `main` and `develop`, requires `check`,
