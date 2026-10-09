@@ -4,6 +4,12 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-09
+
+A major release: the library is renamed **Cartwright**, so the plugin and install commands change. Uninstall
+the old `agent-skills` plugin and install `cartwright@cartwright` (see *Changed*). Everything else carries on
+as before, and now runs the B2C CLI, spec-kit and graphify without installing them.
+
 ### Added
 - Run the B2C CLI, spec-kit and graphify without installing them. `tools/run.mjs` in the plugin uses an
   installed copy, or fetches the version pinned in `upstream.lock.json` on demand (`npx` for the B2C CLI,
