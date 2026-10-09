@@ -15,7 +15,8 @@ case "$TYPE" in
   release)        BASE=develop; echo "$NAME" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || fail "release needs a version like 0.6.0, got '$NAME'" ;;
   *) fail "type must be feature, bugfix, hotfix or release (got '$TYPE')" ;;
 esac
-[ "$TYPE" = release ] || echo "$NAME" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$' || fail "name must be lowercase words joined by hyphens, e.g. scrub-false-positive (got '$NAME')"
+# Lowercase words joined by hyphens; a version may keep its dots (bugfix/sync-1.2.0 after a release).
+[ "$TYPE" = release ] || echo "$NAME" | grep -Eq '^[a-z0-9]+([.-][a-z0-9]+)*$' || fail "name must be lowercase words joined by hyphens, e.g. scrub-false-positive or sync-1.2.0 (got '$NAME')"
 BRANCH="$TYPE/$NAME"
 [ -z "$(git status --porcelain)" ] || fail "you have uncommitted changes; commit or stash them first"
 # Reminder: a related OPEN pull request in this repo may be the better place for this change (see
