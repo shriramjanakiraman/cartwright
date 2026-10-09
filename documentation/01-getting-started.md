@@ -71,8 +71,10 @@ prerequisite step, so you're told to update instead of silently using old skills
 
 ## Client projects
 
-If you work on an engagement that has its own overlay repo, its skills are added **per project**, only
-inside that client's project. See [Project overlays](09-project-overlays.md#how-the-team-gets-the-skills).
+Open a client project after installing, and the plugin offers to connect it to that client's project
+skills: tell it the client's name (any spelling or abbreviation) and it finds them, checks your access, and
+adds a small kit to the project so everyone who opens it gets the same. If the project already has the kit,
+you get the client's skills straight away. See [Client setup](12-client-setup.md).
 
 ## What's included
 

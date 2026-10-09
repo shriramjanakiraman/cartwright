@@ -4,6 +4,33 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-09
+
+### Added
+- Client setup: install the plugin once and, in any client project, get every shared SFCC skill plus the
+  project skills other developers wrote for that client. A session-start hook (Claude Code, Codex, GitHub
+  Copilot CLI and VS Code) offers setup in projects that aren't connected yet; the new `client-setup` skill
+  asks which client, finds its project skills from any spelling or abbreviation ("AC" = "Acme Corporation"),
+  checks access, and after asking adds a small project kit to the client repo (on any git host) and opens a
+  pull or merge request, so everyone who opens the project gets both plugins with no setup. For a client
+  with no project skills yet, it guides creating and registering them.
+- An encrypted client registry (`registry/overlays.json`, `npm run registry`): finds a client's overlay
+  from any of its names without the core repo containing any client name. Names are key-stretched (scrypt)
+  and the details encrypted (AES-GCM); `npm run check` validates the file.
+- The project kit (`.claude/settings.json`, `.github/copilot/settings.json`, `.agents/plugins/marketplace.json`,
+  `.codex/config.toml`, `AGENT-SKILLS.md`) supports overlays on GitHub, GitLab, Bitbucket or any git host.
+  `build-overlay` also writes it to `client-project/`, replacing `client-project-settings.json` (Claude Code only).
+- The plugin ships the Agent Plugins 1.0 manifest (`plugin/plugin.json`, `plugin/mcp.json`) that GitHub
+  Copilot CLI and VS Code read, plus `plugin/tools/` (the setup helper and registry) and `plugin/hooks/`.
+- `overlay.json` gains `client`, `aliases` and `lead`.
+- `documentation/12-client-setup.md`.
+- Official skills from b2c-developer-tooling (b2c-ops): `b2c-edge-traffic-triage`.
+- Official skills from b2c-dx-mcp (b2c-dx-mcp): `b2c-mcp-cip`, `b2c-mcp-config`, `b2c-mcp-debugger`, `b2c-mcp-scapi`, `b2c-mcp-server`.
+
+### Changed
+- Official sources updated: b2c-developer-tooling 1.11.0 → 1.12.0; b2c-dx-mcp 3.2.1 → 3.4.1; storefront-next-template a45f45b → 1d553d1; spec-kit v1.1.0 → v1.1.2; graphify 0.9.77 → 0.9.82.
+- Official skills removed or renamed upstream in b2c-dx-mcp (b2c-dx-mcp): `b2c-config`, `cip`, `debugger`, `scapi`, `server`.
+
 ## [1.1.0] - 2026-10-06
 
 ### Added

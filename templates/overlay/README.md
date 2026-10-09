@@ -7,13 +7,28 @@ of the shared core library. Only this engagement's team can read this repo, so o
 
 1. Create a **private** repo `<project-code>-agent-skills`; give only the engagement team access.
 2. Copy this folder into it, hidden files included (`.github/`, `.githooks/`, `.scrub/`, `.gitignore`).
-   Replace `<project-code>` everywhere with a short lowercase code such as `prja`, and fill in
-   `overlay.json`. Leave its `version` at `0.1.0`; releases set it from then on.
+   Replace `<project-code>` everywhere with a short lowercase code such as `prja` (never the client's
+   name), and fill in `overlay.json`:
+   - `client`: the client's name as people usually write it
+   - `aliases`: every other name people use (abbreviations, brands, parent company), e.g. `["AC"]`
+   - `repo`: `owner/repo` on GitHub, otherwise the full git URL (GitLab, Bitbucket and others work)
+   - `lead`: who grants access, e.g. `@handle` or an email
+   Leave `version` at `0.1.0`; releases set it from then on.
 3. Put the core owner and the project leads in `CODEOWNERS`.
 4. Create `.scrub/denylist.txt` with this client's names and identifiers (see below).
 5. Add a repo secret `CORE_REPO_TOKEN`: a read-only token for the core repo. CI and the release workflows
    use it to run the core scripts.
 6. Clone the core repo next to this one (`../agent-skills`); the commands below run its scripts.
+7. **Register this overlay** so the core plugin's client setup can find it from any name of the client.
+   The core repo stores the names only in encrypted form. From the core repo:
+   ```bash
+   npm run registry -- add --from-overlay ../<project-code>-agent-skills
+   npm run registry -- lookup "<one of the aliases>"     # check it's found
+   ```
+   Commit `registry/overlays.json` there and open a pull request into its `develop`.
+
+The automation in `.github/workflows/` is GitHub Actions. On another host the overlay works for installing
+and using skills, but has no automated checks or releases yet.
 
 ## Branches
 
@@ -81,28 +96,27 @@ Nothing reaches the team until it's released into `main`. `develop` is never mer
 
 ## How the team gets these skills
 
-**Claude Code:** commit the generated `client-project-settings.json` to the **client project's** repo as
-`.claude/settings.json` (merge with anything already there). Anyone opening that project in Claude Code is
-offered core plus this overlay, enabled for that project only. After a release, teammates update with
-`claude plugin marketplace update <project-code>-agent-skills` (or the plugin manager's auto-update).
+Developers install only the core plugin. When they open the client project, its client setup asks which
+client it's for, finds this overlay through the registry, checks they can read this repo, and (after
+asking) adds the **project kit** to the client project's repo:
 
-**Codex:** install the overlay plugin once per person:
-`codex plugin marketplace add <owner>/<project-code>-agent-skills` then
-`codex plugin add <project-code>-skills@<project-code>-agent-skills` (or open a clone of this repo as a
-workspace and install it from the plugin directory). Releases raise its version, which is how Codex
-notices updates.
+- `.claude/settings.json`: Claude Code (and VS Code) offer core plus this overlay, for that project only
+- `.github/copilot/settings.json`: GitHub Copilot CLI and VS Code declare the same two plugins
+- `.agents/plugins/marketplace.json` and `.codex/config.toml`: Codex lists and enables both
+- `AGENT-SKILLS.md`: what the files are, and who to ask for access
 
-**Other agents:** link at project scope, into the client project:
+Once it's merged, anyone who opens the client project gets the shared skills and this project's skills
+with no setup of their own. Only accounts that can read this repo can download its skills. Releases raise
+the version, which is how each agent notices an update. `build-overlay` also writes the same kit to
+`client-project/`, for a lead who'd rather add it by hand.
+
+Until VS Code fixes workspace plugin recommendations (microsoft/vscode#327404), VS Code users install once
+with *Chat: Install Plugin From Source* (the core repo, then this one). Agents without plugins link at
+project scope from a clone kept on `main`:
 ```bash
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from .
 ```
-
-Keep the overlay clone on `main` (`git checkout main && git pull`) and re-run the second command after
-each release; it links new skills and unlinks retired ones. A clone left on `develop` links unreleased
-skills.
-
-Project scope is deliberate: these skills only exist while someone is working in that client's project.
 
 ## The client denylist
 

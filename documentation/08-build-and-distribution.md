@@ -12,6 +12,7 @@ Skills are written in `core/` and mirrored in `upstream/`, but users never insta
 | `plugin/licenses/` | each upstream publisher's licence (attribution required by Apache-2.0) |
 | `.claude-plugin/marketplace.json` | lets the repo install as a Claude Code plugin marketplace |
 | `plugin/.claude-plugin/plugin.json` | the Claude Code plugin manifest (name, version) |
+| `plugin/plugin.json`, `plugin/mcp.json` | the Agent Plugins 1.0 manifest and MCP file that GitHub Copilot CLI and VS Code read |
 | `plugin/.codex-plugin/plugin.json` | the Codex plugin manifest: points at the same `skills/` and `.mcp.json`, plus what the Codex plugin directory shows |
 | `.agents/plugins/marketplace.json` | lets the repo install as a Codex plugin marketplace |
 | `INDEX.md` | the human catalogue: every skill, its source, version and status |
@@ -39,8 +40,9 @@ See [Getting started](01-getting-started.md).
 ## Overlays
 
 Each overlay builds into its own small plugin with `node scripts/build-overlay.mjs ../<code>-agent-skills`
-(from this repo). It writes the overlay's `plugin/` (with Claude Code and Codex manifests), both
-marketplaces, `INDEX.md` and `client-project-settings.json`. The plugin's version comes from the overlay's `overlay.json`, set by its
+(from this repo). It writes the overlay's `plugin/` (with Claude Code, Codex and Copilot manifests), both
+marketplaces, `INDEX.md`, and `client-project/`: the kit a lead commits into the client project so the
+team gets core and the overlay automatically. The plugin's version comes from the overlay's `overlay.json`, set by its
 releases. See [Project overlays](09-project-overlays.md).
 
 ## Local checks

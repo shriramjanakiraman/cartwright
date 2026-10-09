@@ -112,9 +112,11 @@ client project repo  ── .claude/settings.json enables ──▶  agent-skill
 
 **How it reaches only the right people and the right project:**
 - Only the engagement team can read the overlay repo, so only they can install it.
-- It is enabled at **project scope**: the client project's `.claude/settings.json` turns it on (generated
-  for you as `client-project-settings.json`), and other agents link it into that project's folder. Its
-  skills exist only while someone is working in that client's project.
+- It is switched on **by the client project itself**. The core plugin's client setup asks which client a
+  project is for, finds that client's overlay from any spelling or abbreviation (an encrypted registry, so
+  core holds no client names), and adds a small kit to the client project after asking. Anyone who then
+  opens that project in Claude Code, Codex, GitHub Copilot CLI or VS Code gets core plus the overlay, with
+  no setup of their own. See [documentation/12-client-setup.md](documentation/12-client-setup.md).
 
 **Rules:**
 - Overlay skills may depend on core and official skills; core never depends on an overlay.
