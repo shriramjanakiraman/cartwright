@@ -15,4 +15,4 @@ and the answer should come from here.
 | [0007](0007-branching-and-weekly-releases.md) | Branching model and weekly releases | Accepted |
 | [0008](0008-rename-to-cartwright.md) | Rename the library to Cartwright | Accepted |
 | [0009](0009-test-framework-levels.md) | A test framework with three levels and real agents | Accepted |
-| [0010](0010-ai-development-team.md) | An AI development team with team-lead gates | Proposed |
+| [0010](0010-ai-development-team.md) | An AI development team with team-lead gates | Accepted |

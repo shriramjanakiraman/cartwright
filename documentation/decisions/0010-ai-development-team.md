@@ -1,6 +1,6 @@
 # 10. An AI development team with team-lead gates
 
-**Status:** Proposed · **Date:** 2026-10-10 · **Deciders:** team lead, architect
+**Status:** Accepted (by the team lead, 2026-10-10) · **Date:** 2026-10-10 · **Deciders:** team lead, architect
 
 ## Context
 Work arrives as quick, roughly worded requests from the team lead. The team lead wants a proper development
@@ -20,6 +20,11 @@ instead of guessing. Process: `documentation/15-how-we-work.md`.
 ## Consequences
 More hand-offs and questions for small changes (the architect can declare a design small and obvious).
 Decisions become traceable and challengeable.
+
+**Cartwright uses what it ships.** The employees, project profile and guardrails being built for consumers
+(the "employees" initiative) apply to this repo too: as each phase ships, Cartwright adopts it for its own
+development (its own `.cartwright/` profile, hooks and auditor), so every phase is used on Cartwright before
+consumers rely on it.
 
 ## Links
 `documentation/15-how-we-work.md`.
