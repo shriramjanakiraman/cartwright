@@ -12,6 +12,10 @@ All notable changes to what users receive. Newest first.
   makes Salesforce's official skills work without the B2C CLI installed. New skill `tools-without-install`
   and guide `documentation/13-tools-without-install.md`. The B2C CLI (`@salesforce/b2c-cli`) is now a pinned
   source tracked by the daily upstream check.
+- The tools stay current: the daily upstream check bumps their pins as they release and now smoke-tests every
+  pinned tool (`run.mjs --smoke`, results in the upstream pull request) before the update is proposed. An
+  installed copy older than the pin is skipped in favour of the pinned version, with the command to update it
+  (`CARTWRIGHT_PREFER_INSTALLED=1` keeps the old behaviour for pre-approved installs).
 
 ### Changed
 - BREAKING: the library is now **Cartwright**: Claude Code reserves the name `agent-skills`, so the plugin

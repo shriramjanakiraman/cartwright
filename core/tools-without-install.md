@@ -37,8 +37,10 @@ The helper's full path is in the session-start notice. Otherwise it's `tools/run
 node <run.mjs> --check
 ```
 
-It lists each tool as `installed`, `runs on demand via npx|uvx`, or `NOT RUNNABLE (needs …)` with the fix,
-plus the pinned version. If everything is installed or runnable, go straight to Step 1.
+It lists each tool as `installed <version>`, `runs on demand via npx|uvx`, or `NOT RUNNABLE (needs …)` with
+the fix, plus the pinned version. An installed copy **older** than the pinned version is skipped and the
+pinned one runs instead; `--check` shows the command to update the installed copy. Offer it, but don't run it
+without a yes. If everything is installed or runnable, go straight to Step 1.
 
 ### Step 1 — Run the tool through the helper
 
@@ -82,6 +84,7 @@ changes. Ask before installing anything.
 
 - `node <run.mjs> --check` shows every tool as installed or runnable on demand.
 - `node <run.mjs> b2c --version` (or `specify --version`, `graphify --help`) prints the tool's own output.
+- `node <run.mjs> --smoke` confirms each pinned version runs and reports that version.
 
 ## Constraints
 

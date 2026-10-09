@@ -16,7 +16,7 @@ Every workflow and script in one place, and the GitHub behaviours they're built 
 | `release-schedule` | Tuesdays 18:30 UTC (Wed 00:00 IST); by hand | **`main`** | starts `weekly-release` on `develop` |
 | `weekly-release` | started by `release-schedule`; by hand | `develop` | picks the version, cuts the release, opens the pull request, or opens an issue |
 | `upstream-schedule` | daily 06:00 UTC; by hand | **`main`** | starts `upstream-watch` on `develop` |
-| `upstream-watch` | started by `upstream-schedule`; by hand | `develop` | compares, mirrors, checks, writes the CHANGELOG entries, keeps one upstream pull request |
+| `upstream-watch` | started by `upstream-schedule`; by hand | `develop` | compares, mirrors, checks, smoke-tests the pinned tools, writes the CHANGELOG entries, keeps one upstream pull request |
 
 Overlays get `overlay-ci` (job `check`), `branch-name`, `branch-guard`, `release-gate`, `release`,
 `release-schedule`, `weekly-release`, `duplicate-check` and `duplicate-recheck` from `templates/overlay/`.
@@ -37,7 +37,7 @@ Run one by hand: `gh workflow run <file> --ref develop` (or `--ref main` for the
 | `npm run release [-- x.y.z]` | cut a release branch (`--overlay <repo>` for overlays) |
 | `node scripts/next-version.mjs` | print the version the next release would get |
 | `node scripts/similar-skills.mjs <files>` | the duplicate check, locally |
-| `node scripts/run.mjs <tool> [args]` / `--check` | run the B2C CLI, spec-kit or graphify without installing them, at the pinned version |
+| `node scripts/run.mjs <tool> [args]` / `--check` / `--smoke` | run the B2C CLI, spec-kit or graphify without installing them, at the pinned version; check what's installed or outdated; smoke-test the pinned versions |
 | `npm run setup -- <command>` | the client setup helper (`status`, `lookup`, `access`, `kit`, `install`, `remember`, `hook`) |
 | `npm run registry -- add --from-overlay <repo>` / `lookup "<name>"` | register a client's overlay; check what setup would find |
 | `npm run upstream` | compare the lock with the official sources |

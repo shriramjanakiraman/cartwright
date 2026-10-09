@@ -33,12 +33,34 @@ node <plugin>/tools/run.mjs b2c sandbox list
 | spec-kit | `specify` | `uvx`, from the spec-kit GitHub repo at the pinned tag | pinned as `spec-kit` |
 | graphify | `graphify` | `uvx`, PyPI package `graphifyy` | pinned as `graphify` |
 
-- **An installed copy always wins.** A developer, or a locked-down machine with approved versions, can still
-  install tools the normal way. Set `CARTWRIGHT_USE_PINNED=1` to use the pinned version anyway.
-- **The pinned versions move with the daily upstream check** ([Official skills](07-official-skills-upstream.md)),
-  so everyone runs the version that was reviewed and released, not whatever is newest that day.
+- **An installed copy at the pinned version or newer is used as is.** One that's **older** than the pin is
+  skipped: the pinned version runs on demand instead, with a one-line note and the command to update the
+  installed copy. So nobody silently runs an outdated tool.
+- `CARTWRIGHT_USE_PINNED=1` always runs the pinned version; `CARTWRIGHT_PREFER_INSTALLED=1` always runs the
+  installed copy, even an older one (for machines that may only run pre-approved installs).
 - **The first run downloads** (around 20 seconds per tool on a normal connection); later runs start in a
   second or two from the cache.
+
+## Staying up to date
+
+```
+tool releases a new version
+   │  daily upstream check (06:00 UTC) notices it: B2C CLI tags, spec-kit releases, graphify on PyPI
+   ▼
+standing upstream pull request: lock bumped, plugin/tools/versions.json regenerated,
+CHANGELOG entry written, and every pinned tool smoke-tested (✅/❌ in the pull request)
+   │  owner merges
+   ▼
+next weekly release ─▶ everyone's plugin updates ─▶ the next run fetches the new version
+```
+
+- **Nothing to do on developer machines.** The new pinned version is fetched on first use after the plugin
+  updates; old cached versions are simply not used any more.
+- **Installed copies** that fall behind are skipped (see above), and `--check` lists the command to update them.
+- **A broken release** shows up as a ❌ in the upstream pull request before anything is merged. To stay on
+  the previous version, don't merge, or pin back in a small follow-up pull request.
+- How the version is checked: `--check` asks each installed tool for `--version` once and caches the answer
+  until the tool is reinstalled, so normal runs stay fast.
 
 ## How agents know to use it
 
@@ -55,6 +77,7 @@ node <plugin>/tools/run.mjs --check            # what's installed, what runs on 
 node <plugin>/tools/run.mjs --check --json     # the same, plus the exact command to install each permanently
 node <plugin>/tools/run.mjs --plan specify init --here    # the command it would run, without running it
 node <plugin>/tools/run.mjs b2c --version      # run a tool
+node <plugin>/tools/run.mjs --smoke            # run every pinned version once and confirm it reports that version
 ```
 
 In a clone of the library, the same helper is `scripts/run.mjs`.

@@ -49,6 +49,9 @@ The body lists version bumps and the official skills added or removed, then a ch
   of ours, with a suggestion: deprecate ours in favour of the official one, or make ours build on it
   ([Duplicate check](05-duplicate-check.md)).
 - **Version bumps.** Check the skills that install these tools still work against the new version.
+- **Tool versions smoke-tested.** The B2C CLI, spec-kit and graphify are run once at their pinned versions;
+  each line shows ✅ or ❌. Don't merge past a ❌ until it's understood
+  ([Run tools without installing](13-tools-without-install.md#staying-up-to-date)).
 
 The pull request also adds its own entries under *Unreleased* in `CHANGELOG.md` (regenerated on every
 refresh, so they always describe everything waiting):
