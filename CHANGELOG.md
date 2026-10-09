@@ -8,7 +8,7 @@ All notable changes to what users receive. Newest first.
 - Client setup: install the plugin once and, in any client project, get every shared SFCC skill plus the
   project skills other developers wrote for that client. A session-start hook (Claude Code, Codex, GitHub
   Copilot CLI and VS Code) offers setup in projects that aren't connected yet; the new `client-setup` skill
-  asks which client, finds its project skills from any spelling or abbreviation ("MK" = "Michael Kors"),
+  asks which client, finds its project skills from any spelling or abbreviation ("AC" = "Acme Corporation"),
   checks access, and after asking adds a small project kit to the client repo (on any git host) and opens a
   pull or merge request, so everyone who opens the project gets both plugins with no setup. For a client
   with no project skills yet, it guides creating and registering them.

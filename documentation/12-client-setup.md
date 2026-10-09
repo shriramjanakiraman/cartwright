@@ -9,7 +9,7 @@ install the plugin ─▶ open a client project ─▶ session-start hook: "not 
                                                      │
                      agent asks once: "Is this for a client? set up / not now / no client"
                                                      │ set up
-                     client-setup skill ─▶ "Which client?" ─▶ registry lookup ("MK" = "Michael Kors")
+                     client-setup skill ─▶ "Which client?" ─▶ registry lookup ("AC" = "Acme Corporation")
                           │ found                                   │ not found
                           ▼                                         ▼
                access check ─▶ add the project kit        guide: start project skills for
@@ -53,7 +53,7 @@ Choices are remembered per project in `~/.agent-skills/projects.json` on the dev
 
 ## 3. Finding the client: the registry
 
-Developers type a client's name however they know it: "Michael Kors", "MK", "michael-kors". The registry
+Developers type a client's name however they know it: "Acme Corporation", "AC", "acme-corporation". The registry
 in `registry/overlays.json` maps those to the client's project skills repo **without the library containing
 any client name**:
 
@@ -61,9 +61,9 @@ any client name**:
   with scrypt into a lookup id and a key. An entry stores only that id and the details (project code, client
   name, project skills repo, lead) encrypted with that key.
 - Typing any registered form finds and decrypts the entry. Without a name, the file is unreadable.
-- A typed full name beats shared initials: "Michael Kors" finds only Michael Kors even if another client is
-  also "MK". An unknown name that only shares initials shows the candidates for the developer to choose.
-- **Limit:** a short alias like "MK" can be guessed by someone trying likely names, which would confirm the
+- A typed full name beats shared initials: "Acme Corporation" finds only Acme Corporation even if another client is
+  also "AC". An unknown name that only shares initials shows the candidates for the developer to choose.
+- **Limit:** a short alias like "AC" can be guessed by someone trying likely names, which would confirm the
   client exists. The key stretching makes each guess slow, but can't make short aliases secret.
 
 Matching ignores case, spaces, punctuation and accents. Try it: `npm run registry -- lookup "<name>"`.
