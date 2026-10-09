@@ -108,6 +108,8 @@ of their own. Leads who prefer to do it by hand can copy the same kit from the o
   repo, then with the overlay repo.
 - **Credentials:** each agent downloads with the developer's own git access. "Repository not found" means
   the git credentials on that machine can't see the private repo.
+- **GitHub Copilot CLI** applies the kit when an interactive session starts in the project (after trusting
+  the folder), not in headless `copilot -p` runs.
 - **GitHub Copilot** installs plugins per person, so once installed the overlay may also be active in that
   developer's other projects. Claude Code and Codex enable it only in the client project. The overlay's
   skills say "Project <code> only:", which keeps agents from using them elsewhere.

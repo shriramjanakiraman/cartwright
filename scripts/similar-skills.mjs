@@ -15,7 +15,7 @@
 //   --base   check the skill files changed since <git-ref> instead (in the overlay repo with --overlay)
 // Exits 0 with nothing found, 1 when there are likely repeats (they're printed), 2 on bad usage.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT, loadSkills, loadUpstreamSkills, loadOverlay, parseFrontmatter, asList } from './lib.mjs';
@@ -119,7 +119,10 @@ export function changedSkillFiles(ref, dir = ROOT, overlay = false) {
   return files.map((f) => join(dir, f));
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Run as a command (not imported)? Compare real paths: the script may be started through a symlinked path,
+// such as macOS's /var → /private/var or a symlinked home folder, and then the plain paths differ.
+const isMain = (() => { try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+if (isMain) {
   const args = process.argv.slice(2);
   const val = (f) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : null; };
   const ovDir = val('--overlay');

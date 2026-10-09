@@ -1,6 +1,6 @@
 {
   "name": "cartwright",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
   "author": "Shriram Janakiraman",
   "private": true,
@@ -25,6 +25,9 @@
     "branch": "sh scripts/start-branch.sh",
     "release": "node scripts/cut-release.mjs",
     "registry": "node scripts/registry.mjs",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "test:release": "node scripts/test-release.mjs",
+    "test:agents": "node scripts/agent-e2e.mjs"
   }
 }

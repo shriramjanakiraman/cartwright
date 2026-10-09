@@ -76,6 +76,10 @@ gh pr create --base develop           # --base main only for release/ and hotfix
 - Add a line under **Unreleased** in `CHANGELOG.md`. Don't change `package.json`'s version except on a
   `release/` branch.
 - Run `npm run check` before every commit; the pre-commit hook runs it too.
+- Test at the right depth before raising the pull request: `npm run test:release -- --level quick` for
+  feature and bugfix work (`major` if it touches the setup flow, kit, hook, tool runner or packaging). The
+  `release-tester` agent (`.claude/agents/release-tester.md`) runs it and investigates failures; other
+  agents follow the same steps from `documentation/14-end-to-end-test.md`.
 - Fill in the pull request template truthfully. Tick only what you actually did.
 - Stop at the open pull request and tell the developer it's ready for review. Don't merge it.
 - If `duplicate-check` comments that a skill may repeat another, don't just resolve it. Tell the developer,
@@ -102,9 +106,11 @@ owner asks ("cut the release", "ship it", "release 0.6.0").
 2. **Cut it:** `npm run release` (or `npm run release -- <x.y.z>`). It creates `release/<x.y.z>` from the latest `develop`, sets
    the version, turns *Unreleased* into `## [x.y.z] - <today>`, rebuilds, runs every check and commits.
    It refuses a version that isn't newer, and an empty *Unreleased*.
-3. **Raise it:** `git push -u origin release/<x.y.z>` and `gh pr create --base main --title "Release <x.y.z>"`,
+3. **Test it:** `npm run test:release -- --level minor` for a minor or patch release, `--level major` for a
+   major one (or ask the `release-tester` agent). Put the verdict and any open issues in the pull request.
+4. **Raise it:** `git push -u origin release/<x.y.z>` and `gh pr create --base main --title "Release <x.y.z>"`,
    with the release notes as the body. Stop there; the owner reviews and merges.
-4. **After the owner merges**, a pull request syncing `main` back into `develop` opens automatically.
+5. **After the owner merges**, a pull request syncing `main` back into `develop` opens automatically.
    Tell the owner. If it conflicts in `CHANGELOG.md`, resolve it on a `bugfix/sync-<x.y.z>` branch: keep
    every released section exactly as it is on `main`, and keep any entries added to `develop` since the
    release under *Unreleased*. Then raise that as a pull request into `develop`.

@@ -14,7 +14,7 @@
 // installed copy, even an older one (for machines that may only run pre-approved installs).
 // Registry mirrors work as usual: npm_config_registry for npm, UV_DEFAULT_INDEX (or UV_INDEX_URL) for uv.
 import { spawnSync } from 'node:child_process';
-import { accessSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,7 +73,7 @@ export function older(a, b) {
 
 // The version an installed executable reports, cached by path, size and modification time so normal runs
 // don't pay for "--version" again until the tool is reinstalled or upgraded.
-const CACHE = join(homedir(), '.cartwright', 'tool-versions.json');
+const CACHE = join(process.env.CARTWRIGHT_STATE_DIR || join(homedir(), '.cartwright'), 'tool-versions.json');
 export function installedVersion(path) {
   let cache = {};
   try { cache = JSON.parse(readFileSync(CACHE, 'utf8')); } catch { /* none yet */ }
@@ -134,7 +134,10 @@ export function smoke(versions = pinned()) {
   });
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Run as a command (not imported)? Compare real paths: the script may be started through a symlinked path,
+// such as macOS's /var → /private/var or a symlinked home folder, and then the plain paths differ.
+const isMain = (() => { try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+if (isMain) {
   const [first, ...rest] = process.argv.slice(2);
   if (!first || first === '--help' || first === '-h') {
     console.log(`usage: node run.mjs <${Object.keys(TOOLS).join('|')}> [args…]  |  --check [--json]  |  --plan <tool> [args…]`);

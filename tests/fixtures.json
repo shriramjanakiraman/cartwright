@@ -1,0 +1,11 @@
+{
+  "_comment": "Test fixtures for npm run e2e / test:release. The client is made up (Zephyr Trading, code zzt). Never put a real client here.",
+  "core": "shriramjanakiraman/cartwright",
+  "client": "shriramjanakiraman/zzt-client-test",
+  "overlay": "shriramjanakiraman/zzt-cartwright",
+  "code": "zzt",
+  "alias": "ZT",
+  "unknown": "Acme Widgets",
+  "projectSkill": "zzt-storefront-release-checklist",
+  "registry": "tests/fixtures/registry.json"
+}
