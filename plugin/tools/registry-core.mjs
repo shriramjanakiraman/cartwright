@@ -1,10 +1,10 @@
 // The overlay registry: lets client setup find an existing client's overlay from any name a developer
-// types ("Michael Kors", "MK", "michael-kors") without the core repo containing any client name.
+// types ("Acme Corporation", "AC", "acme-corporation") without the core repo containing any client name.
 //
 // Each name form is stretched with scrypt into a lookup id and an encryption key. An entry stores only the
 // id and the details encrypted with AES-GCM and a 256-bit key (project code, client name, overlay repo,
 // lead). Nothing is readable unless you already know a name for that client. Short aliases can still be guessed, so scrypt is
-// deliberately slow to make guessing many names costly; it can't make "MK" secret.
+// deliberately slow to make guessing many names costly; it can't make "AC" secret.
 //
 // Shipped in the plugin with setup.mjs; registry.mjs (core repo only) adds entries. Plain Node 20+.
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
@@ -33,7 +33,7 @@ function derive(value) {
 }
 
 // Encrypted entries for one client: one per form of every alias. An alias given in full (even a short one
-// like "MK") is a "name" form; initials worked out from a longer name are "initials" forms.
+// like "AC") is a "name" form; initials worked out from a longer name are "initials" forms.
 export function makeEntries(details, aliases) {
   const all = new Map();
   for (const f of aliases.flatMap(forms)) if (all.get(f.value) !== 'name') all.set(f.value, f.kind);
@@ -48,7 +48,7 @@ export function makeEntries(details, aliases) {
 
 // The clients a typed name matches: [{ code, client, overlay, lead, match }], one per project. "strong":
 // the typed name equals a registered name or alias. "possible": they only share initials; returned only
-// when nothing matches strongly, so "Michael Kors" never also brings back another "MK" client.
+// when nothing matches strongly, so "Acme Corporation" never also brings back another "AC" client.
 export function lookup(registry, name) {
   const found = new Map();
   for (const f of forms(name)) {

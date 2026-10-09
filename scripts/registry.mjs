@@ -65,7 +65,7 @@ if (!details.lead || /<.*>/.test(details.lead)) fail('a lead to ask for access i
 const r = load();
 const fresh = makeEntries(details, aliases);
 // Re-registering replaces this project's entries for the same names; another client that happens to
-// share a name form (two clients both "MK") keeps its own entry, and setup shows both.
+// share a name form (two clients both "AC") keeps its own entry, and setup shows both.
 const freshIds = new Set(fresh.map((e) => e.id));
 const ours = (e) => freshIds.has(e.id) && aliases.some((a) => lookup({ entries: [e] }, a).some((d) => d.code === details.code));
 r.entries = [...r.entries.filter((e) => !ours(e)), ...fresh];

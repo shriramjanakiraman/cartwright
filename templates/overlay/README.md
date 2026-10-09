@@ -10,7 +10,7 @@ of the shared core library. Only this engagement's team can read this repo, so o
    Replace `<project-code>` everywhere with a short lowercase code such as `prja` (never the client's
    name), and fill in `overlay.json`:
    - `client`: the client's name as people usually write it
-   - `aliases`: every other name people use (abbreviations, brands, parent company), e.g. `["MK"]`
+   - `aliases`: every other name people use (abbreviations, brands, parent company), e.g. `["AC"]`
    - `repo`: `owner/repo` on GitHub, otherwise the full git URL (GitLab, Bitbucket and others work)
    - `lead`: who grants access, e.g. `@handle` or an email
    Leave `version` at `0.1.0`; releases set it from then on.
