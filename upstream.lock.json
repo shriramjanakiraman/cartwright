@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "checkedAt": "2026-10-06",
+  "checkedAt": "2026-10-09",
   "sources": {
     "b2c-developer-tooling": {
       "type": "github-release",
@@ -42,6 +42,7 @@
         ],
         "b2c-ops": [
           "b2c-checkout-triage",
+          "b2c-edge-traffic-triage",
           "b2c-job-health",
           "b2c-order-failure-triage",
           "b2c-production-triage"
@@ -104,7 +105,7 @@
           "sfnext-theming"
         ]
       },
-      "version": "1.11.0",
+      "version": "1.12.0",
       "mirror": {
         "license": "Apache-2.0",
         "excludeSets": [
@@ -126,14 +127,14 @@
       ],
       "skills": {
         "b2c-dx-mcp": [
-          "b2c-config",
-          "cip",
-          "debugger",
-          "scapi",
-          "server"
+          "b2c-mcp-cip",
+          "b2c-mcp-config",
+          "b2c-mcp-debugger",
+          "b2c-mcp-scapi",
+          "b2c-mcp-server"
         ]
       },
-      "version": "3.2.1",
+      "version": "3.4.1",
       "mcpServer": {
         "name": "b2c-dx-mcp",
         "package": "@salesforce/b2c-dx-mcp"
@@ -173,7 +174,7 @@
       "type": "github-branch",
       "repo": "SalesforceCommerceCloud/storefront-next-template",
       "ref": "main",
-      "sha": "a45f45b76b735c71366f9cfdb46b556da65212c2",
+      "sha": "1d553d1efcb78d8bfdc52f468f4d2c07b6d9b995",
       "install": "Ships inside projects created from the template",
       "skillPaths": [
         {
@@ -192,7 +193,7 @@
     "spec-kit": {
       "type": "github-release",
       "repo": "github/spec-kit",
-      "version": "v1.1.0",
+      "version": "v1.1.2",
       "install": "uv tool install specify-cli  (then: specify init --here --integration <agent>)",
       "usedBy": [
         "speckit-install",
@@ -214,7 +215,7 @@
     "graphify": {
       "type": "pypi",
       "package": "graphifyy",
-      "version": "0.9.77",
+      "version": "0.9.82",
       "install": "uv tool install graphifyy  (installs the graphify CLI and its agent skill)",
       "usedBy": [
         "repo-orientation",
