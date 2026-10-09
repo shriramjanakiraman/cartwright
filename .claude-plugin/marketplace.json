@@ -7,7 +7,7 @@
     {
       "name": "cartwright",
       "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "source": "./plugin"
     }
   ]

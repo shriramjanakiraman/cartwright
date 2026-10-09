@@ -4,6 +4,8 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-09
+
 ### Added
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
   `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
