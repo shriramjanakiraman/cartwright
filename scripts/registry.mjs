@@ -3,7 +3,7 @@
 // core repo containing the client's name (see registry-core.mjs and documentation/12-client-setup.md).
 //
 // Usage (core repo):
-//   node scripts/registry.mjs add --from-overlay ../<code>-agent-skills     # reads overlay.json
+//   node scripts/registry.mjs add --from-overlay ../<code>-cartwright     # reads overlay.json
 //   node scripts/registry.mjs add --code prja --client "Client Name" --alias CN --repo <owner/repo or git URL> --lead @handle
 //   node scripts/registry.mjs lookup "<name>"     # what setup would find
 //   node scripts/registry.mjs --check             # CI: the registry file is well formed

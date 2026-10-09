@@ -2,7 +2,7 @@
 // Create a correctly labelled draft skill from the template, so nobody fills in frontmatter by hand.
 //
 // Core skill:     node scripts/new-skill.mjs --name checkout-review --description "..." [--applies-to sfra,storefront-next]
-// Overlay skill:  node scripts/new-skill.mjs --name deploy-to-staging --overlay ../<code>-agent-skills --description "..."
+// Overlay skill:  node scripts/new-skill.mjs --name deploy-to-staging --overlay ../<code>-cartwright --description "..."
 // Options: --owner <github-handle>   (default: the signed-in gh user, else git user.name)
 //          --agent <agent-id>        (default: claude-code; goes into agents-tested)
 //          --dry-run                 (print the draft instead of writing it)

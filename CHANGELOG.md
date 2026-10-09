@@ -4,6 +4,16 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Changed
+- BREAKING: the library is now **Cartwright**: Claude Code reserves the name `agent-skills`, so the plugin
+  couldn't be installed under it. The repo becomes `shriramjanakiraman/cartwright` and the plugin
+  `cartwright@cartwright` in Claude Code, Codex and Copilot. Reinstall with
+  `claude plugin marketplace add shriramjanakiraman/cartwright` then `claude plugin install cartwright@cartwright`
+  (Codex: `codex plugin marketplace add …` / `codex plugin add cartwright@cartwright`), and remove the old
+  `agent-skills` plugin. Overlay repos and marketplaces are now named `<code>-cartwright` (plugins stay
+  `<code>-skills`); the project kit, templates, guides and install commands use the new names. Per-user setup
+  choices move to `~/.cartwright/`.
+
 ### Added
 - Client setup: install the plugin once and, in any client project, get every shared SFCC skill plus the
   project skills other developers wrote for that client. A session-start hook (Claude Code, Codex, GitHub

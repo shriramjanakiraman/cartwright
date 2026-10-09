@@ -8,11 +8,11 @@ skill. Claude Code users also get the B2C MCP server.
 One install, kept current by the plugin manager:
 
 ```bash
-claude plugin marketplace add shriramjanakiraman/agent-skills
-claude plugin install agent-skills@agent-skills
+claude plugin marketplace add shriramjanakiraman/cartwright
+claude plugin install cartwright@cartwright
 ```
 
-After a release, update with `claude plugin marketplace update agent-skills` (or let the plugin manager's
+After a release, update with `claude plugin marketplace update cartwright` (or let the plugin manager's
 auto-update do it). Claude Code only picks up a change when the plugin's version goes up, which is why
 changes reach users through [releases](06-releases.md).
 
@@ -23,11 +23,11 @@ If you already installed Salesforce's own plugins, disable them, or every offici
 The repo is also a Codex plugin marketplace, with the same skills and the B2C MCP server:
 
 ```bash
-codex plugin marketplace add shriramjanakiraman/agent-skills
-codex plugin add agent-skills@agent-skills
+codex plugin marketplace add shriramjanakiraman/cartwright
+codex plugin add cartwright@cartwright
 ```
 
-Or in the Codex app: open a clone of this repo as a workspace, restart Codex, then install **Agent Skills**
+Or in the Codex app: open a clone of this repo as a workspace, restart Codex, then install **Cartwright**
 from the plugin directory. That route also works when the command line can't reach the private repo
 with your GitHub credentials.
 
@@ -40,8 +40,8 @@ every official skill appears twice.
 Clone once, then link the skills into the agent's skill folder:
 
 ```bash
-git clone https://github.com/shriramjanakiraman/agent-skills.git
-cd agent-skills
+git clone https://github.com/shriramjanakiraman/cartwright.git
+cd cartwright
 npm run link -- --agent codex                                   # global: every project on this machine
 npm run link -- --agent codex --scope project --project-dir ../my-repo   # one project only
 npm run link -- --agent cursor --dry-run                        # show what would change

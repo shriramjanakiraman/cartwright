@@ -5,7 +5,7 @@
     "N": 32768,
     "r": 8,
     "p": 1,
-    "salt": "agent-skills-overlay-registry-v1"
+    "salt": "cartwright-overlay-registry-v1"
   },
   "entries": []
 }

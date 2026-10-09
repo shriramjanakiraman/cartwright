@@ -14,7 +14,7 @@ import { ROOT, loadLock } from './lib.mjs';
 const check = process.argv.includes('--check');
 const UP = join(ROOT, 'upstream');
 const lock = loadLock();
-const work = mkdtempSync(join(tmpdir(), 'agent-skills-up-'));
+const work = mkdtempSync(join(tmpdir(), 'cartwright-up-'));
 const staging = join(work, 'upstream');
 mkdirSync(staging, { recursive: true });
 

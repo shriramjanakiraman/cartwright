@@ -1,12 +1,12 @@
 # Project overlays
 
 Client-specific skills never enter this repo: anyone with access to it could read them. Each engagement
-gets its own **private overlay repo**, `<code>-agent-skills`, readable only by that team. It builds into its
+gets its own **private overlay repo**, `<code>-cartwright`, readable only by that team. It builds into its
 own small plugin that sits on top of the shared library, and is switched on only inside that client's
 project.
 
 ```
-client project repo ── .claude/settings.json enables ──▶  agent-skills (core)  +  <code>-skills (overlay)
+client project repo ── .claude/settings.json enables ──▶  cartwright (core)  +  <code>-skills (overlay)
                                                            everyone                 engagement team only
 ```
 
@@ -15,7 +15,7 @@ the same branches, pull requests and releases as core.
 
 ## Setting one up
 
-1. Create a **private** repo `<code>-agent-skills` (`<code>` is a short lowercase project code, such as
+1. Create a **private** repo `<code>-cartwright` (`<code>` is a short lowercase project code, such as
    `prja`) and give only the engagement team access.
 2. Copy `templates/overlay/` into it, hidden files included. Replace `<project-code>` everywhere and fill
    in `overlay.json`: `client`, `aliases` (every name people use for the client), `repo` (owner/repo on
@@ -25,9 +25,9 @@ the same branches, pull requests and releases as core.
 5. Add a repo secret `CORE_REPO_TOKEN`: a read-only token for this core repo. The overlay's CI, duplicate
    check and releases use it to run the core scripts.
 6. Create `develop` from `main`, enable the hooks (`git config core.hooksPath .githooks`), and clone the
-   core repo next to it (`../agent-skills`).
+   core repo next to it (`../cartwright`).
 7. **Register it** so client setup can find it from any name of the client, without the core repo holding
-   the name: from the core repo, `npm run registry -- add --from-overlay ../<code>-agent-skills`, then a pull
+   the name: from the core repo, `npm run registry -- add --from-overlay ../<code>-cartwright`, then a pull
    request with `registry/overlays.json` ([Client setup](12-client-setup.md#3-finding-the-client-the-registry)).
 
 Overlays hosted outside GitHub work for installing and using skills; the template's automation below is
@@ -60,10 +60,10 @@ reuse a core or official skill's name; client names are fine, secrets never are.
 From the core repo:
 
 ```bash
-node scripts/new-skill.mjs --name prja-<name> --description "Project prja only: …" --overlay ../prja-agent-skills
-node scripts/validate.mjs --overlay ../prja-agent-skills
-node scripts/scrub-scan.mjs --secrets-only ../prja-agent-skills/skills/*.md
-node scripts/build-overlay.mjs ../prja-agent-skills
+node scripts/new-skill.mjs --name prja-<name> --description "Project prja only: …" --overlay ../prja-cartwright
+node scripts/validate.mjs --overlay ../prja-cartwright
+node scripts/scrub-scan.mjs --secrets-only ../prja-cartwright/skills/*.md
+node scripts/build-overlay.mjs ../prja-cartwright
 ```
 
 Then, in the overlay: a `feature/<name>` branch from `develop`, a CHANGELOG line, commit the skill with the
@@ -76,7 +76,7 @@ Exactly as core ([Releases](06-releases.md)), with the version in `overlay.json`
 
 - weekly on Wednesdays at 00:00 IST when *Unreleased* has entries: patch for fixes only, minor otherwise,
   majors by a lead
-- by hand, from the core repo: `node scripts/cut-release.mjs --overlay ../prja-agent-skills [x.y.z]`
+- by hand, from the core repo: `node scripts/cut-release.mjs --overlay ../prja-cartwright [x.y.z]`
 - merging the release pull request tags it and opens the `main → develop` sync
 
 The version matters: it goes into the overlay plugin's `plugin.json`, and Claude Code only picks up a
@@ -116,8 +116,8 @@ of their own. Leads who prefer to do it by hand can copy the same kit from the o
 re-run after each release:
 
 ```bash
-node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
-node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from ../<code>-agent-skills
+node ../cartwright/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
+node ../cartwright/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from ../<code>-cartwright
 ```
 
 A clone left on `develop` links unreleased skills.
