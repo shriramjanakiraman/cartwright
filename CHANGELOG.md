@@ -4,6 +4,14 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- Official skills from b2c-developer-tooling (b2c-ops): `b2c-edge-traffic-triage`.
+- Official skills from b2c-dx-mcp (b2c-dx-mcp): `b2c-mcp-cip`, `b2c-mcp-config`, `b2c-mcp-debugger`, `b2c-mcp-scapi`, `b2c-mcp-server`.
+
+### Changed
+- Official sources updated: b2c-developer-tooling 1.11.0 → 1.12.0; b2c-dx-mcp 3.2.1 → 3.4.1; storefront-next-template a45f45b → 1d553d1; spec-kit v1.1.0 → v1.1.2; graphify 0.9.77 → 0.9.82.
+- Official skills removed or renamed upstream in b2c-dx-mcp (b2c-dx-mcp): `b2c-config`, `cip`, `debugger`, `scapi`, `server`.
+
 ## [1.1.0] - 2026-10-06
 
 ### Added
