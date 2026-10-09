@@ -5,13 +5,17 @@
 //   <overlay>/plugin/.codex-plugin/plugin.json         the same plugin for Codex
 //   <overlay>/.agents/plugins/marketplace.json         so the overlay repo installs as a Codex marketplace
 //   <overlay>/INDEX.md                                 the overlay's catalogue
-//   <overlay>/client-project-settings.json             paste into the client project's .claude/settings.json
+//   <overlay>/plugin/plugin.json                       the Agent Plugins 1.0 manifest (GitHub Copilot, VS Code)
+//   <overlay>/client-project/                          the kit a lead commits once into the client project's repo,
+//                                                      so everyone who opens that project gets core + this overlay
+//                                                      in Claude Code, Codex, Copilot CLI and VS Code
 // Run from the core repo:
 //   node scripts/build-overlay.mjs ../<overlay-repo>           # write
 //   node scripts/build-overlay.mjs ../<overlay-repo> --check   # CI: fail if stale
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { loadOverlay, asList } from './lib.mjs';
+import { kitFiles } from './kit.mjs';
 
 const dirArg = process.argv.slice(2).find((a) => !a.startsWith('--'));
 const check = process.argv.includes('--check');
@@ -48,16 +52,16 @@ out.set('plugin/.codex-plugin/plugin.json', JSON.stringify({
   interface: { displayName: `${project} skills`, shortDescription: desc, developerName: owner, category: 'Developer Tools', capabilities: ['Read'] },
 }, null, 2) + '\n');
 
-// What the client project's repo commits as .claude/settings.json: anyone who opens that project in
-// Claude Code is offered core + this overlay, enabled for that project only. GitHub access decides who
-// can actually fetch the overlay.
-out.set('client-project-settings.json', JSON.stringify({
-  extraKnownMarketplaces: {
-    'agent-skills': { source: { source: 'github', repo: coreRepo } },
-    [marketplace]: { source: { source: 'github', repo: repo || `<owner>/${marketplace}` } },
-  },
-  enabledPlugins: { 'agent-skills@agent-skills': true, [`${plugin}@${marketplace}`]: true },
+out.set('plugin/plugin.json', JSON.stringify({
+  $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
+  name: plugin, version, description: desc, author: { name: owner },
 }, null, 2) + '\n');
+
+// The client project kit (kit.mjs, shared with client setup): the files a client project's repo carries so
+// everyone who opens it gets core plus this overlay in Claude Code, Codex, Copilot and VS Code. Client setup
+// adds them for the developer after asking; client-project/ is the same kit for leads who'd rather copy it.
+const overlayRepo = repo || `<owner>/${marketplace}`;
+for (const [rel, text] of kitFiles({ code: project, overlay: overlayRepo, core: coreRepo, lead: ov.config.lead })) out.set(`client-project/${rel}`, text);
 
 const row = (s) => `| \`${s.data.name}\` | ${s.data.status} | ${String(s.data.description).replace(/\|/g, '\\|').replace(/\s+/g, ' ')} |`;
 out.set('INDEX.md', `# ${project} overlay skills
@@ -72,12 +76,15 @@ ${ov.skills.length ? ['| Skill | Status | Description |', '|---|---|---|', ...ov
 const walk = (d, base = d, acc = []) => { for (const f of readdirSync(d)) { const p = join(d, f); statSync(p).isDirectory() ? walk(p, base, acc) : acc.push(relative(base, p)); } return acc; };
 if (check) {
   const stale = [...out].filter(([rel, c]) => { const p = join(ov.dir, rel); return !existsSync(p) || readFileSync(p, 'utf8') !== c; }).map(([r]) => r);
-  const pdir = join(ov.dir, 'plugin');
-  if (existsSync(pdir)) for (const f of walk(pdir)) if (!out.has(`plugin/${f}`)) stale.push(`plugin/${f} (no longer shipped)`);
+  for (const d of ['plugin', 'client-project']) {
+    const dir = join(ov.dir, d);
+    if (existsSync(dir)) for (const f of walk(dir)) if (!out.has(`${d}/${f}`)) stale.push(`${d}/${f} (no longer generated)`);
+  }
+  if (existsSync(join(ov.dir, 'client-project-settings.json'))) stale.push('client-project-settings.json (replaced by client-project/)');
   if (stale.length) { console.error(`build-overlay --check: stale output, run build-overlay and commit:\n  ${stale.join('\n  ')}`); process.exit(1); }
   console.log(`build-overlay --check (${project}): generated output is current`);
 } else {
-  rmSync(join(ov.dir, 'plugin'), { recursive: true, force: true });
+  for (const d of ['plugin', 'client-project', 'client-project-settings.json']) rmSync(join(ov.dir, d), { recursive: true, force: true });
   for (const [rel, c] of out) { const p = join(ov.dir, rel); mkdirSync(join(p, '..'), { recursive: true }); writeFileSync(p, c); }
   console.log(`build-overlay (${project}): ${shipped.length} skill(s) → plugin ${plugin}@${marketplace}`);
 }

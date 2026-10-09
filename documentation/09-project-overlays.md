@@ -18,13 +18,20 @@ the same branches, pull requests and releases as core.
 1. Create a **private** repo `<code>-agent-skills` (`<code>` is a short lowercase project code, such as
    `prja`) and give only the engagement team access.
 2. Copy `templates/overlay/` into it, hidden files included. Replace `<project-code>` everywhere and fill
-   in `overlay.json`. Leave its `version` at `0.1.0`.
+   in `overlay.json`: `client`, `aliases` (every name people use for the client), `repo` (owner/repo on
+   GitHub, otherwise the git URL; any host works), and `lead` (who grants access). Leave `version` at `0.1.0`.
 3. Put the core owner and the project leads in `CODEOWNERS`.
 4. Fill in `.scrub/denylist.txt` with this client's names ([Scrubbing](03-scrubbing.md#client-denylists)).
 5. Add a repo secret `CORE_REPO_TOKEN`: a read-only token for this core repo. The overlay's CI, duplicate
    check and releases use it to run the core scripts.
 6. Create `develop` from `main`, enable the hooks (`git config core.hooksPath .githooks`), and clone the
    core repo next to it (`../agent-skills`).
+7. **Register it** so client setup can find it from any name of the client, without the core repo holding
+   the name: from the core repo, `npm run registry -- add --from-overlay ../<code>-agent-skills`, then a pull
+   request with `registry/overlays.json` ([Client setup](12-client-setup.md#3-finding-the-client-the-registry)).
+
+Overlays hosted outside GitHub work for installing and using skills; the template's automation below is
+GitHub Actions only for now.
 
 What the template gives the overlay:
 
@@ -37,6 +44,7 @@ What the template gives the overlay:
 | `branch-name`, `branch-guard`, `release-gate`, `release` | the same guards and release steps as core |
 | `release-schedule` + `weekly-release` | the Wednesday release (delete `release-schedule.yml` to release only by hand) |
 | `duplicate-check` + `duplicate-recheck` | the [duplicate check](05-duplicate-check.md), against this overlay, core and the official skills |
+| `client-project/` (generated) | the project kit, for leads who'd rather add it to the client project by hand |
 
 ## Writing project skills
 
@@ -76,22 +84,40 @@ change when it goes up. Merging into `develop` alone never reaches the team.
 
 ## How the team gets the skills
 
-**Claude Code:** commit the generated `client-project-settings.json` into the **client project's** repo
-as `.claude/settings.json` (merging with anything already there). Anyone opening that project is offered
-core plus the overlay, for that project only. After a release: `claude plugin marketplace update
-prja-agent-skills`.
+Through [client setup](12-client-setup.md): a developer who installed the core plugin opens the client
+project, says which client it is, and setup adds the **project kit** to the client project's repo (after
+asking), merging with any existing files:
 
-**Codex:** the overlay is also a Codex marketplace. Each teammate installs it once:
-`codex plugin marketplace add <owner>/prja-agent-skills` then `codex plugin add prja-skills@prja-agent-skills`
-(or open a clone as a workspace and install from the plugin directory). Unlike the Claude Code route,
-this is per person rather than switched on by the client project's settings.
+| File in the client project | Agent | Effect |
+|---|---|---|
+| `.claude/settings.json` | Claude Code (VS Code reads it too) | offers core and the overlay plugin, enabled for this project only |
+| `.github/copilot/settings.json` | GitHub Copilot CLI and VS Code | declares the same two plugins |
+| `.agents/plugins/marketplace.json` | Codex | lists both plugins straight from their git repos |
+| `.codex/config.toml` | Codex | enables both for this project |
+| `AGENT-SKILLS.md` | people | what the files are, and who to ask for access |
 
-**Other agents:** link at project scope into the client project, from a clone of the overlay kept on
-`main`, and re-run after each release:
+Once it's merged, whoever opens the project gets the shared skills plus the project's skills with no setup
+of their own. Leads who prefer to do it by hand can copy the same kit from the overlay's generated
+`client-project/` folder. For setup to find the overlay, register it once (see *Setting one up*).
+
+**Things to know:**
+
+- **VS Code** currently ignores workspace plugin recommendations (open bug
+  [microsoft/vscode#327404](https://github.com/microsoft/vscode/issues/327404)); Copilot CLI honours them.
+  Until it's fixed, VS Code users install once by hand: *Chat: Install Plugin From Source* with the core
+  repo, then with the overlay repo.
+- **Credentials:** each agent downloads with the developer's own git access. "Repository not found" means
+  the git credentials on that machine can't see the private repo.
+- **GitHub Copilot** installs plugins per person, so once installed the overlay may also be active in that
+  developer's other projects. Claude Code and Codex enable it only in the client project. The overlay's
+  skills say "Project <code> only:", which keeps agents from using them elsewhere.
+
+**Agents without plugins** link at project scope into the client project, from clones kept on `main`, and
+re-run after each release:
 
 ```bash
 node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
-node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from ../prja-agent-skills
+node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from ../<code>-agent-skills
 ```
 
 A clone left on `develop` links unreleased skills.

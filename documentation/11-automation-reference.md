@@ -37,6 +37,8 @@ Run one by hand: `gh workflow run <file> --ref develop` (or `--ref main` for the
 | `npm run release [-- x.y.z]` | cut a release branch (`--overlay <repo>` for overlays) |
 | `node scripts/next-version.mjs` | print the version the next release would get |
 | `node scripts/similar-skills.mjs <files>` | the duplicate check, locally |
+| `npm run setup -- <command>` | the client setup helper (`status`, `lookup`, `access`, `kit`, `install`, `remember`, `hook`) |
+| `npm run registry -- add --from-overlay <repo>` / `lookup "<name>"` | register a client's overlay; check what setup would find |
 | `npm run upstream` | compare the lock with the official sources |
 | `npm run sync-upstream` / `sync-upstream:check` | re-mirror official skills, or check the mirror |
 | `npm run link -- --agent <agent>` | link skills into another agent |

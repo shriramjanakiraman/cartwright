@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'for d in \"$CLAUDE_PLUGIN_ROOT\" \"$PLUGIN_ROOT\" \"$CODEX_PLUGIN_ROOT\" \"$COPILOT_PLUGIN_ROOT\"; do [ -n \"$d\" ] && [ -f \"$d/tools/setup.mjs\" ] && exec node \"$d/tools/setup.mjs\" hook; done; f=$(find \"$HOME/.codex/plugins/cache\" \"$HOME/.copilot\" \"$HOME/.claude/plugins\" -path \"*agent-skills*/tools/setup.mjs\" 2>/dev/null | tail -n 1); [ -n \"$f\" ] && exec node \"$f\" hook; exit 0'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

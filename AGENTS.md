@@ -119,6 +119,9 @@ owner asks ("cut the release", "ship it", "release 0.6.0").
 Use the `skill-intake` skill (`core/skill-intake.md`). It covers duplicate checks, core versus client
 overlay, drafting, scrubbing and validation, and ends at the same pull request flow above.
 
+Never write a client's name anywhere in this repo. To make a client's overlay findable by client setup,
+use `npm run registry -- add --from-overlay <path>`, which stores the names only in encrypted form.
+
 Client overlay repos have their own `AGENTS.md` (from `templates/overlay/`) with the same branch, pull
 request and release rules. The release script works for them with `--overlay <path>`. If you change how
 releases or branches work here, update `templates/overlay/` to match.
