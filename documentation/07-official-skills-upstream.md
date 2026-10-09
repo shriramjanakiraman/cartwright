@@ -12,10 +12,11 @@ here. A daily check proposes updates as a pull request.
 |---|---|
 | `b2c-developer-tooling` | the official B2C skills (CLI, platform, Storefront Next) |
 | `b2c-dx-mcp` | the B2C MCP server version shipped with the Claude Code plugin |
+| `b2c-cli` | the B2C CLI (`b2c`) version that `tools/run.mjs` runs when it isn't installed |
 | `commerce-apps` | the Commerce Apps skills |
 | `storefront-next-template` | tracked for changes; its skills aren't bundled (they only work inside a template project) |
-| `spec-kit` | tracked so the skills that install it stay current |
-| `graphify` | tracked so the skills that install it stay current |
+| `spec-kit` | the `specify` version `tools/run.mjs` runs when it isn't installed |
+| `graphify` | the `graphify` version `tools/run.mjs` runs when it isn't installed |
 
 **Never edit `upstream/` or `upstream.lock.json` by hand.** CI fails if `upstream/` differs from the pinned
 sources.

@@ -19,6 +19,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyKit, CORE_REPO, gitUrl, names, readKit } from './kit.mjs';
 import { lookup } from './registry-core.mjs';
+import { TOOLS, which } from './run.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
@@ -51,6 +52,13 @@ const [cmd] = args;
 
 if (cmd === 'hook') {
   // Must stay fast and silent unless there is something to offer: no network, no key derivation.
+  // 1. Tools the skills use that aren't installed here: tell the agent how to run them anyway.
+  try {
+    const RUN = join(HERE, 'run.mjs');
+    const missing = Object.values(TOOLS).filter((t) => !which(t.bin)).map((t) => t.bin);
+    if (missing.length && existsSync(RUN)) console.log(`[cartwright] Not installed on this machine: ${missing.join(', ')}. When a skill or the user says to run one of them, don't install it: run node "${RUN}" <tool> <same arguments> instead (for example node "${RUN}" ${missing[0]} --help). It fetches the team's pinned version on first use. Check prerequisites with node "${RUN}" --check; the tools-without-install skill has the details.`);
+  } catch { /* never block a session */ }
+  // 2. Client setup, for projects not connected yet.
   try {
     const root = projectRoot(dir);
     if (!root || isLibraryRepo(root) || readKit(root)) process.exit(0);

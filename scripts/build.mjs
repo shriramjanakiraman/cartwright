@@ -8,8 +8,9 @@
 //   .agents/plugins/marketplace.json   so the repo installs as a Codex plugin marketplace
 //   plugin/plugin.json, plugin/mcp.json  the Agent Plugins 1.0 manifest and MCP file (GitHub Copilot CLI,
 //                                      VS Code); Claude Code and Codex use their own manifests above
-//   plugin/tools/                      client setup helper (setup.mjs, kit.mjs, registry-core.mjs) and the
-//                                      encrypted overlay registry (registry.json)
+//   plugin/tools/                      client setup helper (setup.mjs, kit.mjs, registry-core.mjs), the
+//                                      encrypted overlay registry (registry.json), and run.mjs with the
+//                                      pinned tool versions (versions.json) to run tools without installing
 //   plugin/hooks/hooks.json            session-start hook: offers client setup in projects not yet set up
 //   INDEX.md                           the human catalogue
 // Drafts and deprecated core skills are left out of the plugin but listed in INDEX.md.
@@ -51,7 +52,9 @@ if (Object.keys(servers).length) out.set('plugin/.mcp.json', JSON.stringify({ mc
 
 // Client setup: the helper the hook and the client-setup skill call, with the code it needs and the
 // registry, so it runs from the installed plugin with nothing else on the machine but node and git.
-for (const f of ['setup.mjs', 'kit.mjs', 'registry-core.mjs']) out.set(`plugin/tools/${f}`, readFileSync(join(ROOT, 'scripts', f), 'utf8'));
+for (const f of ['setup.mjs', 'kit.mjs', 'registry-core.mjs', 'run.mjs']) out.set(`plugin/tools/${f}`, readFileSync(join(ROOT, 'scripts', f), 'utf8'));
+// The versions run.mjs fetches when a tool isn't installed: the ones pinned in the lock.
+out.set('plugin/tools/versions.json', JSON.stringify(Object.fromEntries(Object.entries(lock.sources).filter(([, s]) => s.version).map(([id, s]) => [id, s.version])), null, 2) + '\n');
 out.set('plugin/tools/registry.json', readFileSync(join(ROOT, 'registry', 'overlays.json'), 'utf8'));
 // One session-start hook in the format Claude Code, Codex, Copilot and VS Code all read. Each agent tells
 // the hook where the plugin is installed differently, so try the known variables, then the install caches.

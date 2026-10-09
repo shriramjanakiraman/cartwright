@@ -75,6 +75,10 @@ npm run link -- --agent codex --scope project --project-dir ../my-repo
 `link` is idempotent: it adds new skills, refreshes moved ones and removes links to deleted or
 deprecated skills. It never touches files that don't point into this repo.
 
+**No tools to install first.** Skills that use the B2C CLI, spec-kit or graphify work on a machine without
+them: the plugin runs the team's pinned version on demand (Node.js, git and uv are all you need). See
+[documentation/13-tools-without-install.md](documentation/13-tools-without-install.md).
+
 **Staying current.** `scripts/check-updates.sh` is a cheap check (one `git fetch`) that prints how far a
 checkout is behind. Skills call it from their fast prerequisite step, so developers are told to update
 instead of silently running stale skills.
