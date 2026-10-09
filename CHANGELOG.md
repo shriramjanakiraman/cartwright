@@ -4,6 +4,12 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Fixed
+- The plugin's `tools/run.mjs` did nothing (and reported success) when started through a symlinked path, such
+  as macOS's `/var` → `/private/var` or a symlinked home folder, so tools couldn't be run without installing
+  there. Scripts now compare real paths to decide whether they were run as a command. Found by the end-to-end
+  test.
+
 ## [2.0.0] - 2026-10-09
 
 A major release: the library is renamed **Cartwright**, so the plugin and install commands change. Uninstall
