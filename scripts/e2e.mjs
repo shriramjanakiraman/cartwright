@@ -7,16 +7,18 @@
 // Usage: node scripts/e2e.mjs [options]
 //   --ref <branch|tag>     plugin to test, fetched from GitHub like a plugin manager would (default: main)
 //   --plugin <dir>         test a local plugin folder instead (e.g. ./plugin after npm run build)
-//   --registry <file>      use this registry file in the tested plugin (e.g. one with a test client)
-//   --client <owner/repo>  client project to set up (default: shriramjanakiraman/zzt-client-test)
-//   --alias <name>         a registered name of that client to look up (default: ZT)
-//   --unknown <name>       a name that must NOT be found (default: Acme Widgets)
+//   --registry <file>      registry for the tested plugin (default: tests/fixtures/registry.json, which holds
+//                          the made-up test client; --no-fixture-registry keeps the plugin's own)
+//   --client <owner/repo>  client project to set up (default: from tests/fixtures.json)
+//   --alias <name>         a registered name of that client to look up (default: from tests/fixtures.json)
+//   --unknown <name>       a name that must NOT be found (default: from tests/fixtures.json)
+//   --fast                 skip the steps that download tools (B2C CLI run, --smoke): for quick checks
 //   --pr                   also push the kit to a branch of the client repo and open a draft pull request
 //                          (closed and the branch deleted afterwards unless --keep)
 //   --keep                 keep the work folder (and the pull request) for inspection
 // Needs git credentials that can read the core, overlay and client repos (and push, with --pr).
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,11 +26,15 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = (f, d) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : d; };
-const CORE = 'shriramjanakiraman/cartwright';
-const CLIENT = opt('--client', 'shriramjanakiraman/zzt-client-test');
-const ALIAS = opt('--alias', 'ZT');
-const UNKNOWN = opt('--unknown', 'Acme Widgets');
-const WORK = mkdtempSync(join(tmpdir(), 'cartwright-e2e-'));
+const FX = JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures.json'), 'utf8'));
+const CORE = FX.core;
+const CLIENT = opt('--client', FX.client);
+const ALIAS = opt('--alias', FX.alias);
+const UNKNOWN = opt('--unknown', FX.unknown);
+const REGISTRY = args.includes('--no-fixture-registry') ? null : opt('--registry', join(ROOT, FX.registry));
+const FAST = args.includes('--fast');
+// Real path for the work folder (macOS's tmpdir is behind a symlink); symlinked starts are tested on purpose below.
+const WORK = mkdtempSync(join(realpathSync(tmpdir()), 'cartwright-e2e-'));
 const HOME = join(WORK, 'home');
 mkdirSync(HOME);
 
@@ -62,9 +68,9 @@ step(`get the plugin (${opt('--plugin') ? opt('--plugin') : `${CORE}@${opt('--re
     assert(r.status === 0, `clone failed: ${r.stderr.trim()}`);
     PLUGIN = join(coreDir, 'plugin');
   }
-  if (opt('--registry')) cpSync(resolve(opt('--registry')), join(PLUGIN, 'tools', 'registry.json'));
+  if (REGISTRY) cpSync(resolve(REGISTRY), join(PLUGIN, 'tools', 'registry.json'));
   const v = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'));
-  return `${v.name} ${v.version}${opt('--registry') ? ', registry replaced' : ''}`;
+  return `${v.name} ${v.version}${REGISTRY ? ', test registry' : ''}`;
 });
 const RUN = () => join(PLUGIN, 'tools', 'run.mjs');
 const SETUP = () => join(PLUGIN, 'tools', 'setup.mjs');
@@ -116,14 +122,22 @@ step('--check without uv: B2C CLI on demand, spec-kit and graphify need uv', () 
   return `b2c via npx; specify/graphify: "${by.graphify.fix}"`;
 });
 
-step('B2C CLI runs without installing, at the pinned version', () => {
+step('the helper works when started through a symlinked path', () => {
+  const link = join(WORK, 'plugin-link');
+  symlinkSync(PLUGIN, link);
+  const r = node(join(link, 'tools', 'run.mjs'), ['--check', '--json'], BARE);
+  assert(r.stdout.trim(), 'no output: the helper did nothing when started through a symlink');
+  return `${JSON.parse(r.stdout).tools.length} tools reported`;
+});
+
+if (!FAST) step('B2C CLI runs without installing, at the pinned version', () => {
   const r = node(RUN(), ['b2c', '--version'], BARE);
   assert(r.status === 0, `exit ${r.status}: ${r.stderr.trim().slice(-300)}`);
   assert(r.stdout.includes(pins()['b2c-cli']), `expected ${pins()['b2c-cli']}, got ${r.stdout.trim()}`);
   return r.stdout.trim().split('\n')[0];
 });
 
-step('with uv: every pinned tool runs and reports its version (--smoke)', () => {
+if (!FAST) step('with uv: every pinned tool runs and reports its version (--smoke)', () => {
   const r = node(RUN(), ['--smoke'], WITH_UV);
   const rows = JSON.parse(r.stdout);
   const bad = rows.filter((x) => !x.ok);
@@ -142,7 +156,7 @@ step(`clone the client project (${CLIENT})`, () => {
 step('session start in the client project: offers client setup once', () => {
   const out = hook(clientDir);
   assert(/isn't set up for client project skills/.test(out), `no setup offer; got: ${out.slice(0, 200) || '(nothing)'}`);
-  assert(/"set up", "not now", "no client"/.test(out), 'answers missing from the offer');
+  assert(/set up, not now, or no client/.test(out), 'answers missing from the offer');
   return 'offer shown';
 });
 

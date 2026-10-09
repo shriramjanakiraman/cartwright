@@ -5,10 +5,17 @@ All notable changes to what users receive. Newest first.
 ## [Unreleased]
 
 ### Added
-- End-to-end test (`npm run e2e`, `documentation/14-end-to-end-test.md`): on a simulated bare machine it
-  checks packaging (Claude Code's validator, matching manifests), running tools without installing,
-  the whole client-setup chain, that every plugin source in the project kit resolves for Claude Code,
-  Copilot and Codex, and optionally a real pull request in the test client repo.
+- A test framework with three levels (`npm run test:release -- --level quick|minor|major`), the
+  `release-tester` agent that runs it and investigates failures (`.claude/agents/release-tester.md`), and a
+  guide (`documentation/14-end-to-end-test.md`). It checks the plugin on a simulated bare machine
+  (`npm run e2e`: packaging, tools without installing, the client-setup chain, that every plugin source in
+  the kit resolves, optionally a real pull request) and drives real agents headless (`npm run test:agents`:
+  Claude Code and Copilot scenarios, with flaky agents reported as such). Fixtures for a made-up client live
+  in `tests/`. `CARTWRIGHT_STATE_DIR` moves the plugin's per-user state, which the tests use.
+
+### Changed
+- The session-start setup offer is worded as a required first line, so agents ask it reliably; the test
+  framework caught an agent skipping it.
 
 ## [2.0.0] - 2026-10-09
 
