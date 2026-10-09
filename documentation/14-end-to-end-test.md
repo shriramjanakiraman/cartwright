@@ -1,7 +1,7 @@
 # End-to-end test
 
 The test framework checks what a developer actually gets from the plugin, at three depths. Run it, or ask the
-`release-tester` agent (`.claude/agents/release-tester.md`) to run it, investigate and report back.
+`tester` agent (`.claude/agents/tester.md`) to run it, investigate and report back.
 
 ```bash
 GH_TOKEN=$(gh auth token) npm run test:release -- --level quick     # feature/bugfix work, patch releases (~20s)

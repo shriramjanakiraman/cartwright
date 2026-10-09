@@ -4,6 +4,16 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
+  `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
+  process in `documentation/15-how-we-work.md` (gates for the brief and significant designs, ask instead of
+  guessing, engineering principles), a requirement brief template, a GitHub issue template, and decision
+  records for the significant choices made so far (`documentation/decisions/`).
+
+### Changed
+- The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
+
 ## [2.1.0] - 2026-10-09
 
 ### Added
