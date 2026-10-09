@@ -4,6 +4,19 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- A test framework with three levels (`npm run test:release -- --level quick|minor|major`), the
+  `release-tester` agent that runs it and investigates failures (`.claude/agents/release-tester.md`), and a
+  guide (`documentation/14-end-to-end-test.md`). It checks the plugin on a simulated bare machine
+  (`npm run e2e`: packaging, tools without installing, the client-setup chain, that every plugin source in
+  the kit resolves, optionally a real pull request) and drives real agents headless (`npm run test:agents`:
+  Claude Code and Copilot scenarios, with flaky agents reported as such). Fixtures for a made-up client live
+  in `tests/`. `CARTWRIGHT_STATE_DIR` moves the plugin's per-user state, which the tests use.
+
+### Changed
+- The session-start setup offer is worded as a required first line, so agents ask it reliably; the test
+  framework caught an agent skipping it.
+
 ### Fixed
 - The plugin's `tools/run.mjs` did nothing (and reported success) when started through a symlinked path, such
   as macOS's `/var` → `/private/var` or a symlinked home folder, so tools couldn't be run without installing

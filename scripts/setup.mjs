@@ -23,7 +23,8 @@ import { TOOLS, which } from './run.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
-const STATE = join(homedir(), '.cartwright', 'projects.json');
+// Per-user state; CARTWRIGHT_STATE_DIR moves it (the end-to-end tests use a throwaway folder).
+const STATE = join(process.env.CARTWRIGHT_STATE_DIR || join(homedir(), '.cartwright'), 'projects.json');
 const ASK_AGAIN_DAYS = 7;
 const args = process.argv.slice(2);
 const opt = (f) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : undefined; };
@@ -65,8 +66,9 @@ if (cmd === 'hook') {
     const s = loadState()[root];
     if (s && (s.choice !== 'later' || Date.now() - s.at < ASK_AGAIN_DAYS * 864e5)) process.exit(0);
     console.log(`[cartwright] This project (${root}) isn't set up for client project skills yet.
-In your first reply, before anything else, ask the user once, in one short line: whether this project is for a
-client, and offer to connect it to that client's project skills (answers: "set up", "not now", "no client").
+REQUIRED: begin your very first reply in this session with this one line, before answering anything else:
+"Is this project for a client? I can connect it to that client's project skills: reply set up, not now, or no client."
+Then answer the user's message as usual.
 - "set up": follow the client-setup skill. Its helper is: node "${SELF}"
 - "not now": run node "${SELF}" remember later --dir "${root}" (asks again in ${ASK_AGAIN_DAYS} days)
 - "no client": run node "${SELF}" remember no-client --dir "${root}"

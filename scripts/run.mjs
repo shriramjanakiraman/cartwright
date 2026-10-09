@@ -73,7 +73,7 @@ export function older(a, b) {
 
 // The version an installed executable reports, cached by path, size and modification time so normal runs
 // don't pay for "--version" again until the tool is reinstalled or upgraded.
-const CACHE = join(homedir(), '.cartwright', 'tool-versions.json');
+const CACHE = join(process.env.CARTWRIGHT_STATE_DIR || join(homedir(), '.cartwright'), 'tool-versions.json');
 export function installedVersion(path) {
   let cache = {};
   try { cache = JSON.parse(readFileSync(CACHE, 'utf8')); } catch { /* none yet */ }
