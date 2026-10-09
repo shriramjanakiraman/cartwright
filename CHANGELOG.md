@@ -14,6 +14,8 @@ All notable changes to what users receive. Newest first.
   `<code>-skills`); the project kit, templates, guides and install commands use the new names. Per-user setup
   choices move to `~/.cartwright/`.
 
+## [1.2.0] - 2026-10-09
+
 ### Added
 - Client setup: install the plugin once and, in any client project, get every shared SFCC skill plus the
   project skills other developers wrote for that client. A session-start hook (Claude Code, Codex, GitHub
