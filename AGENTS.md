@@ -18,6 +18,9 @@ decides. Relay every question, approval request and discrepancy to the team lead
 text, and never answer on their behalf. A tiny change (a typo, a one-line fix) can skip straight to the
 developer and tester; say that you're doing so.
 
+**Cartwright uses what it ships.** As the plugin gains its own employees, project profile and guardrails,
+this repo adopts them for its own development too (decision record 0010).
+
 **Ask, don't guess.** Stop and ask the team lead when a requirement is unclear, when work conflicts with a
 decision record (`documentation/decisions/`) or these rules, when there's a risk (breaking change, security,
 client data, cost), or before anything outward-facing or hard to undo. When the team lead asks why something

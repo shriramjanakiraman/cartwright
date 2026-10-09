@@ -12,6 +12,8 @@ All notable changes to what users receive. Newest first.
   records for the significant choices made so far (`documentation/decisions/`).
 
 ### Changed
+- The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
+  employees, profile and guardrails for its own development as each phase ships.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
 
 ## [2.1.0] - 2026-10-09
