@@ -10,7 +10,7 @@
 //
 // Usage (in CI): node scripts/duplicate-review.mjs <findings.json>
 // Env: GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, HEAD_SHA, GITHUB_STEP_SUMMARY (optional)
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const MARKER = 'duplicate-check:';
@@ -89,6 +89,9 @@ async function main() {
   summary(threads.length ? `All ${threads.length} duplicate comment(s) are resolved.` : 'No likely repeats of existing skills.');
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Run as a command (not imported)? Compare real paths: the script may be started through a symlinked path,
+// such as macOS's /var → /private/var or a symlinked home folder, and then the plain paths differ.
+const isMain = (() => { try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+if (isMain) {
   main().catch((e) => { console.error(`duplicate-review: ${e.message}`); process.exit(2); });
 }

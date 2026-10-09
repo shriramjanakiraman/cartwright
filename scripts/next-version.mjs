@@ -11,7 +11,7 @@
 // Prints the version and exits 0; exits 3 when there's nothing to release; exits 4 when the owner must
 // decide (the reason is printed to stderr).
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT } from './lib.mjs';
@@ -60,7 +60,10 @@ export function nextVersion(ref, dir = ROOT) {
   return { ...c, base, version: c.bump === 'patch' || c.bump === 'minor' ? bump(base, c.bump) : null };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Run as a command (not imported)? Compare real paths: the script may be started through a symlinked path,
+// such as macOS's /var → /private/var or a symlinked home folder, and then the plain paths differ.
+const isMain = (() => { try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+if (isMain) {
   const arg = (f) => { const i = process.argv.indexOf(f); return i > 0 ? process.argv[i + 1] : ''; };
   const r = nextVersion(arg('--ref'), arg('--overlay') ? resolve(arg('--overlay')) : ROOT);
   if (r.bump === 'none') { console.error(`next-version: nothing to release: ${r.reason}`); process.exit(3); }
