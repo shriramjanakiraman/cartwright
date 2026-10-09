@@ -4,8 +4,6 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
-## [2.1.0] - 2026-10-09
-
 ### Added
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
   `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
@@ -15,6 +13,8 @@ All notable changes to what users receive. Newest first.
 
 ### Changed
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
+
+## [2.1.0] - 2026-10-09
 
 ### Added
 - A test framework with three levels (`npm run test:release -- --level quick|minor|major`), the
