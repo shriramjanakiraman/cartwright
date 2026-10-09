@@ -3,7 +3,7 @@
   "sources": {
     "b2c-developer-tooling": {
       "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
-      "ref": "b2c-agent-plugins@1.11.0",
+      "ref": "b2c-agent-plugins@1.12.0",
       "license": "Apache-2.0",
       "skills": {
         "b2c": [
@@ -54,6 +54,7 @@
         ],
         "b2c-ops": [
           "b2c-checkout-triage",
+          "b2c-edge-traffic-triage",
           "b2c-job-health",
           "b2c-order-failure-triage",
           "b2c-production-triage"
