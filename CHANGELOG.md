@@ -14,6 +14,11 @@ All notable changes to what users receive. Newest first.
   `<code>-skills`); the project kit, templates, guides and install commands use the new names. Per-user setup
   choices move to `~/.cartwright/`.
 
+### Fixed
+- `npm run branch` accepts a version in a branch name, so `bugfix/sync-1.2.0` (the name AGENTS.md gives for
+  resolving a post-release sync conflict) no longer fails with "name must be lowercase words joined by
+  hyphens".
+
 ## [1.2.0] - 2026-10-09
 
 ### Added

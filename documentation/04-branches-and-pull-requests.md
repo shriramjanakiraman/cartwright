@@ -14,7 +14,8 @@ Overlay repos use exactly the same model.
 | `hotfix/<name>` | corrects something already released that is actively harming users; agree it with the owner first | `main` | `main` |
 | `release/<x.y.z>` | releases `develop`; normally cut automatically ([Releases](06-releases.md)) | `develop` | `main` |
 
-Names are lowercase words joined by hyphens: `feature/sfra-unit-tests`, `bugfix/scrub-false-positive`.
+Names are lowercase words joined by hyphens: `feature/sfra-unit-tests`, `bugfix/scrub-false-positive`. A
+version keeps its dots: `bugfix/sync-1.2.0`.
 The only other pull request allowed is the automatic `main → develop` sync after a release.
 
 ## Everyday flow

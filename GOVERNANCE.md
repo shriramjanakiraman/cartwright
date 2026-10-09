@@ -33,7 +33,8 @@ skill, a script fix or a Salesforce update, arrives through a reviewed pull requ
 | `release/<x.y.z>` | Cutting a release: set the version and CHANGELOG, nothing else | `develop` | `main` |
 | `hotfix/<name>` | An urgent fix to what's already released | `main` | `main` |
 
-Names are lowercase with hyphens, for example `feature/sfra-unit-tests` or `bugfix/scrub-false-positive`.
+Names are lowercase with hyphens, for example `feature/sfra-unit-tests` or `bugfix/scrub-false-positive`; a
+version keeps its dots, as in `bugfix/sync-1.2.0`.
 Start one with `npm run branch -- <type> <name>`, which picks the right base. AI agents classify the change
 themselves using the rules in `AGENTS.md` and say which type they chose and why. Before starting a branch
 they check the open pull requests and add to a related one when it's safe to, rather than opening another.
