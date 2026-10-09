@@ -4,6 +4,8 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-09
+
 ### Added
 - A test framework with three levels (`npm run test:release -- --level quick|minor|major`), the
   `release-tester` agent that runs it and investigates failures (`.claude/agents/release-tester.md`), and a
