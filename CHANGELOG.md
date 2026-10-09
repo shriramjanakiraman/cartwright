@@ -4,6 +4,10 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- A temporary registry entry for the made-up test client "Zephyr Trading" (`zzt`), so the live test can find
+  its overlay from a fresh install. It will be removed after the test.
+
 ## [2.0.0] - 2026-10-09
 
 A major release: the library is renamed **Cartwright**, so the plugin and install commands change. Uninstall
