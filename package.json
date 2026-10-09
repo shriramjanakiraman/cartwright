@@ -25,6 +25,7 @@
     "branch": "sh scripts/start-branch.sh",
     "release": "node scripts/cut-release.mjs",
     "registry": "node scripts/registry.mjs",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "e2e": "node scripts/e2e.mjs"
   }
 }

@@ -89,7 +89,8 @@ git host (GitHub, GitLab, Bitbucket, self-hosted). Once it's merged, everyone wh
 plugins with no setup of their own. Setup also lists the commands to install both plugins on the
 developer's own machine straight away.
 
-VS Code doesn't yet act on workspace plugin settings
+GitHub Copilot CLI installs the declared plugins when an interactive session starts in the project (after
+the folder is trusted); a headless `copilot -p` run doesn't. VS Code doesn't yet act on workspace plugin settings
 ([microsoft/vscode#327404](https://github.com/microsoft/vscode/issues/327404)); VS Code users install the two
 plugins once with *Install Plugin From Source*.
 

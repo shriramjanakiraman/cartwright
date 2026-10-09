@@ -4,6 +4,12 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- End-to-end test (`npm run e2e`, `documentation/14-end-to-end-test.md`): on a simulated bare machine it
+  checks packaging (Claude Code's validator, matching manifests), running tools without installing,
+  the whole client-setup chain, that every plugin source in the project kit resolves for Claude Code,
+  Copilot and Codex, and optionally a real pull request in the test client repo.
+
 ## [2.0.0] - 2026-10-09
 
 A major release: the library is renamed **Cartwright**, so the plugin and install commands change. Uninstall
