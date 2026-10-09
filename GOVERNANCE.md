@@ -2,6 +2,9 @@
 
 ## Ownership
 
+The owner is also the **team lead** of the AI development team that builds Cartwright: they bring the
+requirements and approve at every gate (`documentation/15-how-we-work.md`).
+
 | Area | Owner | Approves |
 |---|---|---|
 | Core repo (`skills/`, scripts, standards) | @shriramjanakiraman | Every pull request |

@@ -38,6 +38,8 @@ Client-specific skills live in separate private **overlay** repos, one per engag
 | [Promoting a skill to core](10-promoting-to-core.md) | want to move a project skill into the shared library |
 | [Automation reference](11-automation-reference.md) | need every workflow, script and GitHub limit in one place |
 | [Client setup](12-client-setup.md) | want a client project to get its project skills automatically, or a new client registered |
+| [How we work](15-how-we-work.md) | want to know how the AI team (analyst, architect, developer, tester) and the team lead work together |
+| [Decision records](decisions/README.md) | ask "why did we do it this way?" |
 | [End-to-end test](14-end-to-end-test.md) | want to check what a developer gets from a build or release, on a bare machine |
 | [Run tools without installing](13-tools-without-install.md) | are on a machine without the B2C CLI, spec-kit or graphify, or write a skill that uses them |
 
