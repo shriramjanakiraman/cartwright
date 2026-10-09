@@ -3,7 +3,7 @@
 // every bundled official skill, and optionally a project overlay.
 //
 // Usage: node scripts/find-skill.mjs "checkout payment failures"
-//        node scripts/find-skill.mjs "deploy cartridges" --overlay ../<code>-agent-skills
+//        node scripts/find-skill.mjs "deploy cartridges" --overlay ../<code>-cartwright
 //        node scripts/find-skill.mjs "import set" --json
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

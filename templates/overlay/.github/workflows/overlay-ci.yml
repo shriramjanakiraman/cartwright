@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: shriramjanakiraman/agent-skills
+          repository: shriramjanakiraman/cartwright
           path: .core
           token: ${{ secrets.CORE_REPO_TOKEN }}   # read-only token for the private core repo
       - uses: actions/setup-node@v4

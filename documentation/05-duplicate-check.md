@@ -32,7 +32,7 @@ Try it before you push:
 
 ```bash
 node scripts/similar-skills.mjs core/<name>.md
-node scripts/similar-skills.mjs --overlay ../<code>-agent-skills skills/<code>-<name>.md
+node scripts/similar-skills.mjs --overlay ../<code>-cartwright skills/<code>-<name>.md
 ```
 
 ## What happens on a pull request

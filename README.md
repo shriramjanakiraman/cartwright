@@ -1,6 +1,6 @@
-# agent-skills
+# Cartwright
 
-One shared library of **reusable, agent-agnostic skills** for delivery teams. It works with Claude Code,
+Cartwright is one shared library of **reusable, agent-agnostic skills** for delivery teams. It works with Claude Code,
 Codex, Copilot, Cursor, Windsurf, OpenCode and any other agent that reads skill files.
 
 **New here?** The [documentation](documentation/README.md) has a guide for each feature: installing,
@@ -48,26 +48,26 @@ Whichever route you use, you receive the same set: our core skills plus every bu
 **Claude Code** (one install; also registers the B2C MCP server; updates through the plugin manager):
 
 ```bash
-claude plugin marketplace add shriramjanakiraman/agent-skills
-claude plugin install agent-skills@agent-skills
-claude plugin marketplace update agent-skills     # pick up a new release
+claude plugin marketplace add shriramjanakiraman/cartwright
+claude plugin install cartwright@cartwright
+claude plugin marketplace update cartwright     # pick up a new release
 ```
 
 **Codex** (the same plugin, with its skills and the B2C MCP server; updates when a release raises the version):
 
 ```bash
-codex plugin marketplace add shriramjanakiraman/agent-skills
-codex plugin add agent-skills@agent-skills
+codex plugin marketplace add shriramjanakiraman/cartwright
+codex plugin add cartwright@cartwright
 ```
 
-Or in the Codex app: open a clone of this repo as a workspace, restart Codex, and install **Agent Skills**
+Or in the Codex app: open a clone of this repo as a workspace, restart Codex, and install **Cartwright**
 from the plugin directory.
 
 **Any other agent** (clone once, then link; re-run after every pull):
 
 ```bash
-git clone https://github.com/shriramjanakiraman/agent-skills.git
-cd agent-skills
+git clone https://github.com/shriramjanakiraman/cartwright.git
+cd cartwright
 npm run link -- --agent cursor          # or codex, vscode, windsurf, opencode, agentforce-vibes, manual
 npm run link -- --agent codex --scope project --project-dir ../my-repo
 ```
@@ -101,7 +101,7 @@ in a shared repo would be readable by everyone with access to it. Each engagemen
 overlay repo**, started from `templates/overlay/`, which builds into its own small plugin.
 
 ```
-client project repo  ── .claude/settings.json enables ──▶  agent-skills (core)  +  <code>-skills (overlay)
+client project repo  ── .claude/settings.json enables ──▶  cartwright (core)  +  <code>-skills (overlay)
                                                             everyone                 engagement team only
 ```
 
@@ -128,9 +128,9 @@ client project repo  ── .claude/settings.json enables ──▶  agent-skill
 Run the core checks against an overlay from this repo:
 
 ```bash
-node scripts/validate.mjs --overlay ../<code>-agent-skills
-node scripts/build-overlay.mjs ../<code>-agent-skills
-node scripts/cut-release.mjs --overlay ../<code>-agent-skills   # release it by hand
+node scripts/validate.mjs --overlay ../<code>-cartwright
+node scripts/build-overlay.mjs ../<code>-cartwright
+node scripts/cut-release.mjs --overlay ../<code>-cartwright   # release it by hand
 ```
 
 **How a change reaches the team:** a pull request into the overlay's `develop`, then a release into its

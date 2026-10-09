@@ -5,7 +5,7 @@ of the shared core library. Only this engagement's team can read this repo, so o
 
 ## Set up a new overlay
 
-1. Create a **private** repo `<project-code>-agent-skills`; give only the engagement team access.
+1. Create a **private** repo `<project-code>-cartwright`; give only the engagement team access.
 2. Copy this folder into it, hidden files included (`.github/`, `.githooks/`, `.scrub/`, `.gitignore`).
    Replace `<project-code>` everywhere with a short lowercase code such as `prja` (never the client's
    name), and fill in `overlay.json`:
@@ -18,11 +18,11 @@ of the shared core library. Only this engagement's team can read this repo, so o
 4. Create `.scrub/denylist.txt` with this client's names and identifiers (see below).
 5. Add a repo secret `CORE_REPO_TOKEN`: a read-only token for the core repo. CI and the release workflows
    use it to run the core scripts.
-6. Clone the core repo next to this one (`../agent-skills`); the commands below run its scripts.
+6. Clone the core repo next to this one (`../cartwright`); the commands below run its scripts.
 7. **Register this overlay** so the core plugin's client setup can find it from any name of the client.
    The core repo stores the names only in encrypted form. From the core repo:
    ```bash
-   npm run registry -- add --from-overlay ../<project-code>-agent-skills
+   npm run registry -- add --from-overlay ../<project-code>-cartwright
    npm run registry -- lookup "<one of the aliases>"     # check it's found
    ```
    Commit `registry/overlays.json` there and open a pull request into its `develop`.
@@ -40,7 +40,7 @@ no other names are accepted. After creating the repo:
 ```bash
 git checkout -b develop && git push -u origin develop
 git config core.hooksPath .githooks          # local guard against direct pushes
-sh ../agent-skills/scripts/protect-branches.sh <owner>/<project-code>-agent-skills --overlay   # if the plan allows
+sh ../cartwright/scripts/protect-branches.sh <owner>/<project-code>-cartwright --overlay   # if the plan allows
 ```
 
 ## Add a skill
@@ -59,8 +59,8 @@ Agents follow `AGENTS.md` here (Claude Code reads it through `CLAUDE.md`) and th
    active skill that still has template text; drafts are reviewed but not shipped.
 5. Build and check from the core repo, then open a pull request here:
    ```bash
-   node ../agent-skills/scripts/validate.mjs --overlay .
-   node ../agent-skills/scripts/build-overlay.mjs .
+   node ../cartwright/scripts/validate.mjs --overlay .
+   node ../cartwright/scripts/build-overlay.mjs .
    ```
    Work on a `feature/<name>` branch from `develop`, add a line under *Unreleased* in `CHANGELOG.md`, and
    open the pull request into `develop`. `duplicate-check` compares it with this overlay's, core's and the
@@ -114,8 +114,8 @@ Until VS Code fixes workspace plugin recommendations (microsoft/vscode#327404), 
 with *Chat: Install Plugin From Source* (the core repo, then this one). Agents without plugins link at
 project scope from a clone kept on `main`:
 ```bash
-node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
-node ../agent-skills/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from .
+node ../cartwright/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project>
+node ../cartwright/scripts/link.mjs --agent <agent> --scope project --project-dir ../<client-project> --from .
 ```
 
 ## The client denylist

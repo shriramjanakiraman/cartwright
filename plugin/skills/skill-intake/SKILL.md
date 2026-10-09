@@ -1,8 +1,8 @@
 ---
 name: skill-intake
-description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared agent-skills library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
+description: "Turn an idea, a workflow you just did, notes, or an existing project skill into a properly classified, scrubbed and submitted skill for the shared cartwright library, with the agent doing the work and the developer answering a few questions. Use when a developer says things like \"make this a skill\", \"save this as a skill\", \"I want to add a skill\", \"contribute this to the skills repo\", \"promote this project skill\", or \"improve the X skill\". Not for using an existing skill."
 owner: shriramjanakiraman
-version: 0.4.3
+version: 0.4.4
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:gh, tool:node]
@@ -37,10 +37,10 @@ Everything follows the library's CONTRIBUTING.md; this skill is the guided path 
 
 ### Step 0 — Find the library and check it's ready
 
-1. Locate the agent-skills repo (the shared library; its README names the GitHub repo). In order:
-   - if the current directory is it (`package.json` has `"name": "agent-skills"`), use it;
+1. Locate the Cartwright repo (the shared library; its README names the GitHub repo). In order:
+   - if the current directory is it (`package.json` has `"name": "cartwright"`), use it;
    - otherwise ask the developer where their clone is, and confirm with `git -C <path> remote get-url origin`;
-   - if they have none, offer to clone it with `gh repo clone <owner>/agent-skills`.
+   - if they have none, offer to clone it with `gh repo clone <owner>/cartwright`.
 2. Make sure it's current: `sh scripts/check-updates.sh`. If it's behind, `git pull` first.
 3. Check `node --version` (20+) and `gh auth status` (needed only for the pull request at the end).
    If something is missing, say what and how to fix it; don't stop the rest of the flow for `gh`.
@@ -86,7 +86,7 @@ Infer the answer from what you've captured, then confirm it with the developer i
 | Client names, environments, business rules or integrations | **The client's overlay repo**, private to that engagement |
 | A reusable pattern wrapped in client specifics | **Split**: generic part to core, client part to the overlay, the overlay skill depending on the core one |
 
-For client work, ask which engagement and find its overlay repo (named `<project-code>-agent-skills`).
+For client work, ask which engagement and find its overlay repo (named `<project-code>-cartwright`).
 If none exists yet, explain that one is needed and point to `templates/overlay/README.md` in the library.
 Don't create a GitHub repo without the developer's explicit go-ahead.
 

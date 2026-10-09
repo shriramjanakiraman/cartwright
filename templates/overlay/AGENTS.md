@@ -5,8 +5,8 @@ to every change you make here, whoever asks for it.
 
 This is the private skills repo for one engagement, **<project-code>**. Only that engagement's team can read
 it. Client names, environments and business rules are fine here; secrets, credentials and tokens never are.
-It ships as its own small plugin on top of the shared core library, `shriramjanakiraman/agent-skills`.
-Everything below assumes the core repo is cloned next to this one, at `../agent-skills`; its scripts do
+It ships as its own small plugin on top of the shared core library, `shriramjanakiraman/cartwright`.
+Everything below assumes the core repo is cloned next to this one, at `../cartwright`; its scripts do
 the validating, building and releasing.
 
 ## Never change `main` or `develop` directly
@@ -39,7 +39,7 @@ git fetch origin && git checkout -b feature/<name> origin/develop     # hotfix: 
 
 ## Adding or changing a skill
 
-Follow the core library's `skill-intake` skill (`../agent-skills/core/skill-intake.md`). In short:
+Follow the core library's `skill-intake` skill (`../cartwright/core/skill-intake.md`). In short:
 
 1. New skill, from the core repo: `node scripts/new-skill.mjs --name <project-code>-<name> --description "Project <project-code> only: …" --overlay ../<this-repo>`.
    Changing one: edit `skills/<project-code>-<name>.md`, bump its own `version` (patch for fixes, minor for

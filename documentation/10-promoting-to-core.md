@@ -28,7 +28,7 @@ In this repo, on a `feature/<name>` branch:
 - Scrub it against the client, as well as the normal scan:
   ```bash
   node scripts/scrub-scan.mjs core/<name>.md
-  node scripts/scrub-scan.mjs --denylist ../<code>-agent-skills/.scrub/denylist.txt core/<name>.md
+  node scripts/scrub-scan.mjs --denylist ../<code>-cartwright/.scrub/denylist.txt core/<name>.md
   ```
 - Open the pull request into `develop` with a CHANGELOG line. The project lead confirms the scrub; the core
   owner approves. The [duplicate check](05-duplicate-check.md) compares it with core and the official skills

@@ -59,8 +59,8 @@ direct push or a merge with red checks. The guards above signal and alert instea
 GitHub Pro or an organisation, run once:
 
 ```bash
-sh scripts/protect-branches.sh shriramjanakiraman/agent-skills
-sh scripts/protect-branches.sh <owner>/<code>-agent-skills --overlay     # each overlay
+sh scripts/protect-branches.sh shriramjanakiraman/cartwright
+sh scripts/protect-branches.sh <owner>/<code>-cartwright --overlay     # each overlay
 ```
 
 That blocks direct pushes, force pushes and deletion of `main` and `develop`, requires `check`,

@@ -22,7 +22,7 @@ import { lookup } from './registry-core.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
-const STATE = join(homedir(), '.agent-skills', 'projects.json');
+const STATE = join(homedir(), '.cartwright', 'projects.json');
 const ASK_AGAIN_DAYS = 7;
 const args = process.argv.slice(2);
 const opt = (f) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : undefined; };
@@ -40,10 +40,10 @@ function registry() {
   }
   return { entries: [] };
 }
-// The agent-skills repo itself, or an overlay repo: never offer client setup there.
+// The Cartwright repo itself (or a clone from before the rename), or an overlay repo: never offer setup there.
 function isLibraryRepo(root) {
   if (existsSync(join(root, 'overlay.json'))) return true;
-  try { return JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name === 'agent-skills'; } catch { return false; }
+  try { return ['cartwright', 'agent-skills'].includes(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name); } catch { return false; }
 }
 
 const dir = resolve(opt('--dir') || process.cwd());
@@ -56,7 +56,7 @@ if (cmd === 'hook') {
     if (!root || isLibraryRepo(root) || readKit(root)) process.exit(0);
     const s = loadState()[root];
     if (s && (s.choice !== 'later' || Date.now() - s.at < ASK_AGAIN_DAYS * 864e5)) process.exit(0);
-    console.log(`[agent-skills] This project (${root}) isn't set up for client project skills yet.
+    console.log(`[cartwright] This project (${root}) isn't set up for client project skills yet.
 In your first reply, before anything else, ask the user once, in one short line: whether this project is for a
 client, and offer to connect it to that client's project skills (answers: "set up", "not now", "no client").
 - "set up": follow the client-setup skill. Its helper is: node "${SELF}"
@@ -109,11 +109,11 @@ if (cmd === 'install') {
   if (!code || !overlay) { console.error('setup: install needs --code and --overlay'); process.exit(2); }
   const { marketplace, plugin } = names(code);
   out({
-    'claude-code': [`claude plugin marketplace add ${CORE_REPO}`, 'claude plugin install agent-skills@agent-skills',
+    'claude-code': [`claude plugin marketplace add ${CORE_REPO}`, 'claude plugin install cartwright@cartwright',
       `claude plugin marketplace add ${overlay}`, `claude plugin install ${plugin}@${marketplace}`],
-    codex: [`codex plugin marketplace add ${CORE_REPO}`, 'codex plugin add agent-skills@agent-skills',
+    codex: [`codex plugin marketplace add ${CORE_REPO}`, 'codex plugin add cartwright@cartwright',
       `codex plugin marketplace add ${overlay}`, `codex plugin add ${plugin}@${marketplace}`],
-    'copilot-cli': [`copilot plugin marketplace add ${CORE_REPO}`, 'copilot plugin install agent-skills@agent-skills',
+    'copilot-cli': [`copilot plugin marketplace add ${CORE_REPO}`, 'copilot plugin install cartwright@cartwright',
       `copilot plugin marketplace add ${overlay}`, `copilot plugin install ${plugin}@${marketplace}`],
     vscode: [`Command Palette → "Chat: Install Plugin From Source" → ${CORE_REPO}`, `… then again with ${overlay}`],
   });

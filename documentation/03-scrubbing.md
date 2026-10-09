@@ -15,7 +15,7 @@ a new commit.
 ```bash
 node scripts/scrub-scan.mjs                       # the whole repo
 node scripts/scrub-scan.mjs core/<name>.md        # specific files
-node scripts/scrub-scan.mjs --denylist ../<code>-agent-skills/.scrub/denylist.txt core/<name>.md
+node scripts/scrub-scan.mjs --denylist ../<code>-cartwright/.scrub/denylist.txt core/<name>.md
 node scripts/scrub-scan.mjs --secrets-only <files>  # overlays: client names allowed, secrets never
 ```
 

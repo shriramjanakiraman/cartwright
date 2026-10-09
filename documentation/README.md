@@ -13,11 +13,11 @@ own skills (`core/`), every official Salesforce B2C skill (mirrored in `upstream
 Client-specific skills live in separate private **overlay** repos, one per engagement.
 
 ```
-                 ┌──────────────── agent-skills (this repo) ────────────────┐
+                 ┌───────────────── cartwright (this repo) ─────────────────┐
  Salesforce  ──▶ │  upstream/  official skills, mirrored daily, read-only   │
  publishers      │  core/      our skills, added through pull requests      │ ──▶ plugin / link ──▶ every developer
                  └───────────────────────────────────────────────────────────┘
-                 ┌──────── <code>-agent-skills (one per engagement) ────────┐
+                 ┌───────── <code>-cartwright (one per engagement) ─────────┐
                  │  skills/    client-specific skills, private to the team  │ ──▶ plugin / link ──▶ that team, in
                  └───────────────────────────────────────────────────────────┘                     that client project
 ```

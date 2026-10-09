@@ -33,13 +33,13 @@ if (clash.length) { console.error(`build: core skill name(s) clash with official
 const out = new Map(); // relative path -> Buffer | string
 
 out.set('.claude-plugin/marketplace.json', JSON.stringify({
-  name: 'agent-skills',
+  name: 'cartwright',
   owner: { name: pkg.author },
-  plugins: [{ name: 'agent-skills', description: pkg.description, version: pkg.version, source: './plugin' }],
+  plugins: [{ name: 'cartwright', description: pkg.description, version: pkg.version, source: './plugin' }],
 }, null, 2) + '\n');
 
 out.set('plugin/.claude-plugin/plugin.json', JSON.stringify({
-  name: 'agent-skills', version: pkg.version, description: pkg.description, author: { name: pkg.author },
+  name: 'cartwright', version: pkg.version, description: pkg.description, author: { name: pkg.author },
 }, null, 2) + '\n');
 
 // MCP servers the plugin registers, pinned to the versions in the lock.
@@ -58,7 +58,7 @@ out.set('plugin/tools/registry.json', readFileSync(join(ROOT, 'registry', 'overl
 // It never fails a session: no node, no plugin found, or an error all end silently.
 const HOOK = 'for d in "$CLAUDE_PLUGIN_ROOT" "$PLUGIN_ROOT" "$CODEX_PLUGIN_ROOT" "$COPILOT_PLUGIN_ROOT"; do '
   + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; '
-  + 'f=$(find "$HOME/.codex/plugins/cache" "$HOME/.copilot" "$HOME/.claude/plugins" -path "*agent-skills*/tools/setup.mjs" 2>/dev/null | tail -n 1); '
+  + 'f=$(find "$HOME/.codex/plugins/cache" "$HOME/.copilot" "$HOME/.claude/plugins" -path "*cartwright*/tools/setup.mjs" 2>/dev/null | tail -n 1); '
   + '[ -n "$f" ] && exec node "$f" hook; exit 0';
 out.set('plugin/hooks/hooks.json', JSON.stringify({
   hooks: { SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }] },
@@ -68,8 +68,8 @@ out.set('plugin/hooks/hooks.json', JSON.stringify({
 // skills in skills/, and MCP servers in mcp.json at the root (its locations can't be overridden).
 out.set('plugin/plugin.json', JSON.stringify({
   $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
-  name: 'agent-skills', version: pkg.version, description: pkg.description, author: { name: pkg.author },
-  repository: 'https://github.com/shriramjanakiraman/agent-skills',
+  name: 'cartwright', version: pkg.version, description: pkg.description, author: { name: pkg.author },
+  repository: 'https://github.com/shriramjanakiraman/cartwright',
   keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
 }, null, 2) + '\n');
 if (Object.keys(servers).length) out.set('plugin/mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
@@ -77,22 +77,22 @@ if (Object.keys(servers).length) out.set('plugin/mcp.json', JSON.stringify({ mcp
 // Codex reads its own manifests but the same skills/ folder and .mcp.json. The version is what makes
 // Codex notice an update, so it follows package.json like the Claude Code plugin does.
 out.set('.agents/plugins/marketplace.json', JSON.stringify({
-  name: 'agent-skills',
-  interface: { displayName: 'Agent Skills' },
+  name: 'cartwright',
+  interface: { displayName: 'Cartwright' },
   plugins: [{
-    name: 'agent-skills', description: pkg.description,
+    name: 'cartwright', description: pkg.description,
     source: { source: 'local', path: './plugin' },
     policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
     category: 'Developer Tools',
   }],
 }, null, 2) + '\n');
 out.set('plugin/.codex-plugin/plugin.json', JSON.stringify({
-  name: 'agent-skills', version: pkg.version, description: pkg.description, author: { name: pkg.author },
+  name: 'cartwright', version: pkg.version, description: pkg.description, author: { name: pkg.author },
   keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
   skills: './skills/',
   ...(Object.keys(servers).length ? { mcpServers: './.mcp.json' } : {}),
   interface: {
-    displayName: 'Agent Skills',
+    displayName: 'Cartwright',
     shortDescription: 'Our B2C Commerce skills plus every official Salesforce skill and the B2C MCP server.',
     longDescription: pkg.description,
     developerName: pkg.author,

@@ -39,7 +39,7 @@ See [Getting started](01-getting-started.md).
 
 ## Overlays
 
-Each overlay builds into its own small plugin with `node scripts/build-overlay.mjs ../<code>-agent-skills`
+Each overlay builds into its own small plugin with `node scripts/build-overlay.mjs ../<code>-cartwright`
 (from this repo). It writes the overlay's `plugin/` (with Claude Code, Codex and Copilot manifests), both
 marketplaces, `INDEX.md`, and `client-project/`: the kit a lead commits into the client project so the
 team gets core and the overlay automatically. The plugin's version comes from the overlay's `overlay.json`, set by its
