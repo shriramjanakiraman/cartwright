@@ -95,6 +95,7 @@ step('the Copilot manifest declares the hooks and skills, and the hooks file has
   const pre = hooks.PreToolUse?.[0];
   assert(pre && /\bBash\b.*\bEdit\b.*\bapply_patch\b/.test(pre.matcher) && /tools\/guard\.mjs" pre-tool-use/.test(pre.hooks?.[0]?.command || ''), `${a.hooks} has no PreToolUse guard hook`);
   assert(a.skills && existsSync(join(PLUGIN, a.skills, 'client-setup', 'SKILL.md')), `skills ${a.skills ? `"${a.skills}" isn't the skills folder` : 'not declared'}`);
+  assert(existsSync(join(PLUGIN, a.skills, 'project-profile', 'SKILL.md')), 'the project-profile skill the setup offer points to isn\'t shipped');
   assert(!a.mcpServers || existsSync(join(PLUGIN, a.mcpServers)), `mcpServers "${a.mcpServers}" not found`);
   return `hooks ${a.hooks}, skills ${a.skills}${a.mcpServers ? `, MCP ${a.mcpServers}` : ''}`;
 });
