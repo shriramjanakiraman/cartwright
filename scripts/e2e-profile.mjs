@@ -272,6 +272,7 @@ step('drift (A10): a new lockfile is reported (npm → pnpm)', () => {
 step('refresh (A11): diff lists exactly the changed facts; refresh writes only those, and leaves the settings alone', () => {
   const { dir } = project('python');
   ok(dir, ['write', '--store', 'folder']);
+  rmSync(join(dir, '.cartwright', 'README.md'));
   commitAll(dir, 'profile');
   const settingsBefore = read(join(dir, '.cartwright', 'settings.json'));
   const before = readJson(join(dir, '.cartwright', 'profile.json'));
@@ -286,9 +287,19 @@ step('refresh (A11): diff lists exactly the changed facts; refresh writes only t
   after.facts.commands.test = before.facts.commands.test;
   after.facts.otherScripts = before.facts.otherScripts;
   assert(JSON.stringify(after) === JSON.stringify(before), 'refresh changed more than the listed facts');
-  assert(read(join(dir, '.cartwright', 'settings.json')) === settingsBefore, 'settings changed');
+  assert(read(join(dir, '.cartwright', 'settings.json')) === settingsBefore && !existsSync(join(dir, '.cartwright', 'README.md')), 'settings or other folder files changed');
   assert(git(dir, 'log', '--oneline').trim().split('\n').length === 2, 'refresh committed');
-  return `${keys.join(', ')}; nothing committed`;
+  // AGENTS.md mode: only the profile block changes; the settings block keeps its exact bytes, even hand-formatted.
+  const a = project('python').dir;
+  ok(a, ['write', '--store', 'agents-md']);
+  const settingsBlock = (t) => t.slice(t.indexOf('```json cartwright-settings'), t.indexOf('<!-- cartwright:end'));
+  writeFileSync(join(a, 'AGENTS.md'), read(join(a, 'AGENTS.md')).replace('"rules": []', '"rules":   []'));
+  const handEdited = settingsBlock(read(join(a, 'AGENTS.md')));
+  put(a, 'Makefile', `${read(join(a, 'Makefile'))}\ntest:\n\tuv run pytest -q\n`);
+  assert(ok(a, ['refresh']).facts.join() === keys.join(), 'agents-md refresh listed other facts');
+  const now = read(join(a, 'AGENTS.md'));
+  assert(settingsBlock(now) === handEdited && now.includes('"run": "make test"'), 'settings block rewritten, or profile not refreshed');
+  return `${keys.join(', ')}; nothing committed; settings untouched in both modes`;
 });
 
 // --- B16, B17, B20: settings content, the personal file, the storage choices -------------------------------
@@ -392,6 +403,7 @@ step('storage (B21): AGENTS.md mode adds one marked section, keeps every other b
   const u = project('unknown-stack').dir;
   ok(u, ['write', '--store', 'agents-md']);
   assert(read(join(u, 'AGENTS.md')).startsWith('<!-- cartwright:begin') && !existsSync(join(u, '.cartwright')), 'AGENTS.md not created with only the section');
+  assert(profile(u, ['check']).status === 0 && ok(u, ['show']).profile.conventions.rulesFiles.value[0].path === 'AGENTS.md', 'the profile is stale right after creating AGENTS.md');
   // Markers missing a partner: write refuses and changes nothing; the settings count as broken.
   writeFileSync(join(u, 'AGENTS.md'), read(join(u, 'AGENTS.md')).replace('<!-- cartwright:end -->', ''));
   const broken = read(join(u, 'AGENTS.md'));

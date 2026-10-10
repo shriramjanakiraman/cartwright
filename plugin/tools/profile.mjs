@@ -329,7 +329,12 @@ function cli(argv) {
     const v = validateSettings(settings);
     if (!v.ok) usage(`those settings aren't valid: ${v.errors.join('; ')}`);
     let changed;
-    try { changed = save(root, store, { profile, settings, summary: summaryLines(profile) }); } catch (e) { stop(e.message); }
+    try {
+      changed = save(root, store, { profile, settings, summary: summaryLines(profile) });
+      // Creating AGENTS.md changes the profile itself (it's a rules file now): detect again so it isn't stale at once.
+      const again = store === 'agents-md' ? detect(root) : profile;
+      if (compare(profile, again).length) changed = [...new Set([...changed, ...save(root, store, { profile: again, settings, summary: summaryLines(again) })])];
+    } catch (e) { stop(e.message); }
     out({ store, changed, otherStores: found(root).filter((m) => m !== store) });
     return;
   }
