@@ -166,10 +166,10 @@ const WRAPPERS = {
   time: { values: ['-f', '-o'] }, nice: { values: ['-n', '--adjustment'] }, ionice: { values: ['-c', '-n', '-p'] },
   sudo: { values: ['-u', '-g', '-h', '-p', '-C', '-D', '-r', '-t', '-U', '--user', '--group'] }, doas: { values: ['-u', '-C'] },
   timeout: { values: ['-s', '--signal', '-k', '--kill-after'], positional: 1 }, stdbuf: { values: ['-i', '-o', '-e'] },
-  npx: { values: ['-p', '--package', '-c', '--call'] }, bunx: { values: ['-p', '--package'] },
+  npx: { values: ['-p', '--package', '-c', '--call'] }, bunx: { values: ['-p', '--package'] }, coproc: { values: [] },
   xargs: { values: ['-I', '-i', '-n', '-P', '-d', '-s', '-L', '-l', '-E', '-e', '-a', '--arg-file', '--delimiter', '--max-args', '--max-procs', '--replace'], xargs: true },
 };
-const SHELLS = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
+const SHELLS = ['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish'];
 export const base = (p) => String(p || '').split('/').pop().toLowerCase();
 
 // Analyse a command line in order: variables set earlier on the line, `cd`, wrappers (env, sudo, xargs, …), and
@@ -204,7 +204,24 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
     let fromXargs = false;
     // Unwrap env, sudo, xargs and friends to reach the real command.
     for (let guard = 0; guard < 8 && argv.length; guard++) {
-      const w = WRAPPERS[base(argv[0].text)];
+      const lead = base(argv[0].text);
+      // watch runs its words through sh -c (unless -x); script runs -c '<cmd>' (Linux) or the words after its log
+      // file (macOS).
+      if (lead === 'watch' || lead === 'script') {
+        const values = lead === 'watch' ? ['-n', '--interval', '-q', '--equexit'] : ['-t', '-T', '-E', '-o', '-I', '-O', '-B'];
+        const ci = lead === 'script' ? argv.findIndex((w) => w.text === '-c' || w.text === '--command') : -1;
+        if (ci > 0) { if (argv[ci + 1]?.text != null) analyse(argv[ci + 1].text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); argv = []; break; }
+        let k = 1;
+        while (k < argv.length && argv[k].text?.startsWith('-')) k += values.includes(argv[k].text) ? 2 : 1;
+        if (lead === 'script') k++;
+        const rest = argv.slice(k);
+        if (lead === 'watch' && !argv.some((w) => w.text === '-x' || w.text === '--exec')) {
+          if (rest.length && rest.every((w) => w.text !== null)) analyse(rest.map((w) => w.text).join(' '), { cwd, env, vars: new Map(local), depth: depth + 1, out });
+          argv = []; break;
+        }
+        argv = rest; continue;
+      }
+      const w = WRAPPERS[lead];
       if (!w) break;
       if (w.xargs) fromXargs = true;
       let k = 1, skip = w.positional || 0;

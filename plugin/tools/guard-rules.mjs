@@ -164,6 +164,14 @@ function expandGit(cmds, ctx, lineAliases = new Map(), linePush = new Map()) {
       g = { ...g, sub: words[0]?.text ?? null, args: [...words.slice(1), ...g.args] };
     }
     if (g) out.push({ ...c, git: g });
+    // git rebase -x/--exec '<cmd>' runs a shell command after each commit: read it like sh -c.
+    if (g?.sub === 'rebase') {
+      for (let k = 0; k < g.args.length; k++) {
+        const t = g.args[k].text;
+        const cmd = t === '-x' || t === '--exec' ? g.args[k + 1]?.text : t?.startsWith('--exec=') ? t.slice(7) : undefined;
+        if (cmd) for (const x of analyse(cmd, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([x], ctx, lineAliases, linePush));
+      }
+    }
   }
   return out;
 }
@@ -597,7 +605,7 @@ const isGit = (c, sub) => c.name === 'git' && c.git?.sub === sub;
 // Does the action touch a rule's family at all? Used when a rule fails: a matched family is denied, others allowed.
 const FAMILY = {
   secrets: (A) => A.cmds.some((c) => isGit(c, 'commit')),
-  'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push')),
+  'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push') || isGit(c, 'subtree') || (c.name === 'gh' && c.argv[1]?.text === 'api')),
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
   'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
@@ -618,7 +626,27 @@ const CHECKS = {
     return null;
   },
   'protected-branches'(A, ctx, s) {
-    for (const c of A.cmds) if (isGit(c, 'push')) { const r = checkPush(c, ctx, s); if (r) return r; }
+    for (const c of A.cmds) {
+      if (isGit(c, 'push')) { const r = checkPush(c, ctx, s); if (r) return r; }
+      // git subtree push [--prefix=<dir>] <repo> <ref>: a push to <ref>.
+      if (isGit(c, 'subtree') && c.git.args[0]?.text === 'push') {
+        const ps = positionals([{ text: 'subtree' }, ...c.git.args.slice(1)], ['-P', '--prefix', '-m', '--message']);
+        const ref = ps[1];
+        if (!ref || ref.text === null) return block('protected-branches', "can't tell where this subtree push goes; name the branch explicitly.");
+        const b = ref.text.replace(/^\+/, '').replace(/^.*:/, '').replace(/^refs\/heads\//, '');
+        const p = branchMatches(s.protectedBranches, b);
+        if (p) return block('protected-branches', `it would push to ${b}, a protected branch here (${s.file}). Push your own branch and open a pull request.`);
+      }
+      // gh api changing a protected branch's ref directly (PATCH, POST, PUT or DELETE on …/git/refs/heads/<branch>).
+      if (c.name === 'gh' && c.argv[1]?.text === 'api') {
+        const a = c.argv;
+        const mi = a.findIndex((w) => w.text === '-X' || w.text === '--method' || w.text?.startsWith('--method='));
+        const method = mi < 0 ? 'GET' : (a[mi].text.includes('=') ? a[mi].text.slice(a[mi].text.indexOf('=') + 1) : a[mi + 1]?.text || '').toUpperCase();
+        const path = positionals(a.slice(1), ['-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--header', '--hostname', '--input', '-q', '--jq', '-t', '--template', '--cache', '-p', '--preview'])[0];
+        const m = path?.text?.match(/(?:^|\/)git\/refs\/heads\/(.+?)\/?$/);
+        if (['PATCH', 'POST', 'PUT', 'DELETE'].includes(method) && m && branchMatches(s.protectedBranches, m[1])) return block('protected-branches', `it would change ${m[1]}, a protected branch here (${s.file}), through the GitHub API. Push your own branch and open a pull request.`);
+      }
+    }
     return null;
   },
   'generated-files'(A, ctx, s) {
