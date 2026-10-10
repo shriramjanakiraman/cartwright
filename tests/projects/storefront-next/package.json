@@ -1,0 +1,38 @@
+{
+  "name": "sample-storefront",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "storefrontNext": {
+    "templateRelease": "1.0.0",
+    "templateVersion": "1.0.0",
+    "minSdkVersion": "1.0.0"
+  },
+  "scripts": {
+    "dev": "sfnext dev",
+    "build": "pnpm cartridge:generate && react-router build",
+    "start": "sfnext preview",
+    "test": "vitest run",
+    "lint": "oxlint --deny-warnings && biome format .",
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "cartridge:generate": "sfnext generate-cartridge",
+    "cartridge:deploy": "sfnext deploy-cartridge",
+    "push": "sfnext push --project-directory ."
+  },
+  "dependencies": {
+    "@salesforce/storefront-next-runtime": "1.0.0",
+    "react": "19.1.0",
+    "react-router": "7.18.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.0.0",
+    "@salesforce/storefront-next-dev": "1.0.0",
+    "oxlint": "1.0.0",
+    "tailwindcss": "4.1.0",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vitest": "3.2.4"
+  }
+}

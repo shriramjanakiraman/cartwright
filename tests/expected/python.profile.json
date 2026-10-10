@@ -1,0 +1,143 @@
+{
+  "cartwright": "profile",
+  "conventions": {
+    "adrs": {
+      "path": "docs/decisions",
+      "status": "found"
+    },
+    "prTemplate": {
+      "path": ".gitlab/merge_request_templates",
+      "status": "found"
+    },
+    "rulesFiles": {
+      "status": "found",
+      "value": [
+        {
+          "path": "CLAUDE.md"
+        }
+      ]
+    },
+    "specKit": {
+      "path": ".specify",
+      "status": "found"
+    },
+    "tracker": {
+      "source": ".gitlab/issue_templates",
+      "status": "found",
+      "value": "gitlab-issues"
+    }
+  },
+  "facts": {
+    "commands": {
+      "build": {
+        "status": "not found"
+      },
+      "lint": {
+        "how": "configured",
+        "run": "uv run ruff check .",
+        "source": "pyproject.toml#tool.ruff",
+        "status": "found"
+      },
+      "test": {
+        "how": "configured",
+        "run": "uv run pytest",
+        "source": "pyproject.toml#tool.pytest.ini_options",
+        "status": "found"
+      }
+    },
+    "frameworks": {
+      "status": "found",
+      "value": [
+        {
+          "name": "fastapi",
+          "source": "pyproject.toml#project.dependencies",
+          "version": ">=0.115"
+        },
+        {
+          "name": "pydantic",
+          "source": "pyproject.toml#project.dependencies",
+          "version": ">=2.9"
+        },
+        {
+          "name": "pytest",
+          "source": "pyproject.toml#dependency-groups.dev",
+          "version": ">=8.3"
+        },
+        {
+          "name": "ruff",
+          "source": "pyproject.toml#dependency-groups.dev",
+          "version": ">=0.7"
+        }
+      ]
+    },
+    "languages": {
+      "status": "found",
+      "value": [
+        {
+          "source": "pyproject.toml",
+          "value": "Python"
+        }
+      ]
+    },
+    "layout": {
+      "source": "src/, tests/",
+      "status": "found",
+      "value": {
+        "packages": [
+          "sample_pricing"
+        ],
+        "sourceDirs": [
+          "src"
+        ],
+        "testDirs": [
+          "tests"
+        ]
+      }
+    },
+    "node": {
+      "status": "not found"
+    },
+    "otherScripts": {
+      "source": "Makefile",
+      "status": "found",
+      "value": [
+        "fmt",
+        "serve"
+      ]
+    },
+    "packageManager": {
+      "source": "uv.lock",
+      "status": "found",
+      "value": "uv"
+    },
+    "platform": {
+      "status": "not found"
+    },
+    "protectedBranchCandidates": {
+      "source": "git: refs/remotes/origin/HEAD, refs/remotes/origin/develop",
+      "status": "found",
+      "value": [
+        "develop",
+        "main"
+      ]
+    },
+    "python": {
+      "source": ".python-version",
+      "status": "found",
+      "value": "3.12.7"
+    },
+    "remoteHost": {
+      "source": "git: remote origin",
+      "status": "found",
+      "value": "local"
+    }
+  },
+  "guidance": {
+    "avoidSkills": [],
+    "preferSkills": []
+  },
+  "suggestions": {
+    "generated": []
+  },
+  "version": 1
+}

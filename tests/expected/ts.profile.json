@@ -1,0 +1,153 @@
+{
+  "cartwright": "profile",
+  "conventions": {
+    "adrs": {
+      "path": "docs/adr",
+      "status": "found"
+    },
+    "prTemplate": {
+      "path": ".github/pull_request_template.md",
+      "status": "found"
+    },
+    "rulesFiles": {
+      "status": "found",
+      "value": [
+        {
+          "path": "AGENTS.md"
+        },
+        {
+          "path": ".cursor/rules"
+        }
+      ]
+    },
+    "specKit": {
+      "status": "not found"
+    },
+    "tracker": {
+      "source": ".github/ISSUE_TEMPLATE",
+      "status": "found",
+      "value": "github-issues"
+    }
+  },
+  "facts": {
+    "commands": {
+      "build": {
+        "defined": "tsc -p tsconfig.json",
+        "how": "defined",
+        "run": "pnpm build",
+        "source": "package.json#scripts.build",
+        "status": "found"
+      },
+      "lint": {
+        "defined": "eslint .",
+        "how": "defined",
+        "run": "pnpm lint",
+        "source": "package.json#scripts.lint",
+        "status": "found"
+      },
+      "test": {
+        "defined": "vitest run",
+        "how": "defined",
+        "run": "pnpm test",
+        "source": "package.json#scripts.test",
+        "status": "found"
+      }
+    },
+    "frameworks": {
+      "status": "found",
+      "value": [
+        {
+          "name": "eslint",
+          "source": "package.json#devDependencies",
+          "version": "9.14.0"
+        },
+        {
+          "name": "fastify",
+          "source": "package.json#dependencies",
+          "version": "4.28.1"
+        },
+        {
+          "name": "typescript",
+          "source": "package.json#devDependencies",
+          "version": "5.6.3"
+        },
+        {
+          "name": "vitest",
+          "source": "package.json#devDependencies",
+          "version": "2.1.4"
+        }
+      ]
+    },
+    "languages": {
+      "status": "found",
+      "value": [
+        {
+          "source": "tsconfig.json",
+          "value": "TypeScript"
+        }
+      ]
+    },
+    "layout": {
+      "source": "src/, tests/",
+      "status": "found",
+      "value": {
+        "sourceDirs": [
+          "src"
+        ],
+        "testDirs": [
+          "tests"
+        ]
+      }
+    },
+    "node": {
+      "source": ".nvmrc",
+      "status": "found",
+      "value": "20.18.0"
+    },
+    "otherScripts": {
+      "source": "package.json#scripts",
+      "status": "found",
+      "value": [
+        "dev",
+        "generate:api"
+      ]
+    },
+    "packageManager": {
+      "source": "pnpm-lock.yaml",
+      "status": "found",
+      "value": "pnpm"
+    },
+    "platform": {
+      "status": "not found"
+    },
+    "protectedBranchCandidates": {
+      "source": "git: refs/remotes/origin/HEAD, refs/remotes/origin/develop",
+      "status": "found",
+      "value": [
+        "develop",
+        "main"
+      ]
+    },
+    "python": {
+      "status": "not found"
+    },
+    "remoteHost": {
+      "source": "git: remote origin",
+      "status": "found",
+      "value": "local"
+    }
+  },
+  "guidance": {
+    "avoidSkills": [],
+    "preferSkills": []
+  },
+  "suggestions": {
+    "generated": [
+      {
+        "path": "src/generated/api.ts",
+        "source": "git grep: a \"generated, do not edit\" header"
+      }
+    ]
+  },
+  "version": 1
+}

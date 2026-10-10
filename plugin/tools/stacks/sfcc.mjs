@@ -18,7 +18,7 @@ export default {
     const layout = cartridges.length ? { cartridges: { value: cartridges, source: 'cartridges/' } } : {};
 
     // Storefront Next wins over SFRA: its generated base cartridge is layout, never SFRA evidence.
-    const sfnext = dep('@salesforce/storefront-next-dev') ? `package.json#${dep('@salesforce/storefront-next-dev')}` : pkg.storefrontNext !== undefined ? 'package.json#storefrontNext' : null;
+    const sfnext = dep('@salesforce/storefront-next-dev') ? `package.json#${dep('@salesforce/storefront-next-dev')}.@salesforce/storefront-next-dev` : pkg.storefrontNext !== undefined ? 'package.json#storefrontNext' : null;
     if (sfnext) {
       const generated = [];
       if (cartridges.includes('app_storefrontnext_base') && typeof scripts['cartridge:generate'] === 'string') {
@@ -30,7 +30,7 @@ export default {
     if (!cartridges.length) return null;
     const base = typeof pkg.paths?.base === 'string' && pkg.paths.base.includes('app_storefront_base') ? 'package.json#paths.base' : null;
     const controllers = cartridges.find((c) => ctx.exists(`cartridges/${c}/cartridge/controllers`));
-    const sfra = base || (dep('sgmf-scripts') && `package.json#${dep('sgmf-scripts')}`)
+    const sfra = base || (dep('sgmf-scripts') && `package.json#${dep('sgmf-scripts')}.sgmf-scripts`)
       || (cartridges.includes('app_storefront_base') && 'cartridges/app_storefront_base')
       || (controllers && `cartridges/${controllers}/cartridge/controllers`);
     if (!sfra) return null;
