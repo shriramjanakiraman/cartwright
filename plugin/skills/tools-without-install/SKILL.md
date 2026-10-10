@@ -2,7 +2,7 @@
 name: tools-without-install
 description: "Run the B2C CLI (b2c), spec-kit (specify) and graphify without installing them, at the versions the team has tested. Use when a skill or the developer says to run b2c, specify or graphify and the command isn't installed (\"command not found\"), when working on a machine that has none of these tools, when the session-start notice lists tools as not installed, or before suggesting a global install of any of them. Also checks the prerequisites (Node, uv) and explains what each tool would run as."
 owner: shriramjanakiraman
-version: 0.1.0
+version: 0.2.0
 status: active
 applies-to: [any]
 depends-on: [tool:node]
@@ -32,6 +32,22 @@ The helper's full path is in the session-start notice. Otherwise it's `tools/run
 (two folders up from this skill's own `SKILL.md`), or `scripts/run.mjs` in a clone of the Cartwright library.
 
 ### Step 0 — Fast check
+
+If the project has a Cartwright profile, take its facts from there instead of opening `.nvmrc`, `package.json` or
+`pyproject.toml` yourself:
+
+```bash
+node <profile.mjs> show      # profile.mjs sits next to run.mjs
+```
+
+- **The pins:** `facts.node` and `facts.python` give the pin (`kind: "pinned"`) or the range (`kind: "range"`) the
+  project asks for, with its source.
+- **The tools that matter:** `facts.platform` says whether it's a Salesforce B2C Commerce project, where the B2C
+  CLI matters. `conventions.specKit` says whether spec-kit is set up, which needs uv. Without spec-kit or graphify
+  in use, uv isn't needed.
+- **Not found** means the profile doesn't know; say so rather than guessing.
+
+Then check the tools:
 
 ```bash
 node <run.mjs> --check

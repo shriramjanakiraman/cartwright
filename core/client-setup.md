@@ -2,12 +2,12 @@
 name: client-setup
 description: "Connect a client project to the shared SFCC skills and that client's own project skills, so every developer who opens it gets both automatically. Use when the session-start notice says this project isn't set up, or when a developer says \"set up this project's skills\", \"connect this repo to the client skills\", \"which client skills do we have\", \"I can't see the project skills\" or \"onboard me to this client project\". Finds the client's existing project skills from any spelling or abbreviation of its name, checks access, adds the small project kit after asking, or guides creating project skills for a new client."
 owner: shriramjanakiraman
-version: 0.1.1
+version: 0.2.0
 status: active
 applies-to: [any]
 depends-on: [tool:git, tool:node]
 agents-tested: [claude-code]
-last-reviewed: 2026-10-06
+last-reviewed: 2026-10-10
 ---
 
 # client-setup
@@ -18,8 +18,8 @@ Copilot (CLI and VS Code) and any agent that can run a command.
 
 ## When to use
 
-- The session-start notice from the Cartwright plugin says this project isn't set up, and the developer
-  answered "set up".
+- The project-profile skill hands on here because the project is for a client, or the session-start notice asks
+  whether a profiled project is for a client and the developer answered "set up".
 - A developer asks to set up, connect or check the project skills for the repo they're in, or says they
   can't see their client's skills.
 - **Skip** when the developer is working in the Cartwright library or in a project skills repo itself,
@@ -47,7 +47,12 @@ node <helper> status
 - `isGitRepo: false`: ask the developer to open the client project's repo folder, then start again.
 - `kit` is set: the project is already connected to project `kit.code`. Go to Step 4 to check access, then
   stop.
-- `remembered.choice` is `no-client`: the developer said there's no client; stop unless they now say there is.
+- `remembered.choice` is `no-client` (or `remembered.noClient` is true): the developer said there's no client;
+  stop unless they now say there is.
+- `profile` is set: use what the project's profile already knows instead of asking or detecting it again.
+  - `profile.clientProject` is `false`: the team recorded that it isn't for a client; stop unless they now say it
+    is.
+  - Keep `profile.remoteHost`, `profile.prTemplate` and `profile.defaultBranch` for Step 3's pull request.
 
 ### Step 1 — Which client?
 
@@ -94,9 +99,14 @@ git commit -m "Connect this project to the shared agent skills and the <code> pr
 git push -u origin chore/cartwright-setup
 ```
 
-Open the request with the host's own tool if it's installed (`gh pr create` for GitHub, `glab mr create` for
-GitLab); otherwise give the developer the link git printed after the push. Use the branch naming and review
-rules of the **client's** repo if they differ; ask if unsure.
+If the project-profile skill already made `chore/cartwright-setup` for the profile, add the kit files to that branch
+and the same pull request instead of a new one.
+
+Open the request with the host's own tool if it's installed: `gh pr create` for GitHub, `glab mr create` for
+GitLab, taken from `profile.remoteHost` when the project has a profile. Otherwise give the developer the link git
+printed after the push. When the profile lists a PR template (`profile.prTemplate`), fill it in for the body, and
+target `profile.defaultBranch`. Use the branch naming and review rules of the **client's** repo if they differ; ask
+if unsure.
 
 ### Step 4 — Make it work on this machine now
 
