@@ -34,10 +34,15 @@ node <plugin>/tools/run.mjs b2c sandbox list
 | graphify | `graphify` | `uvx`, PyPI package `graphifyy` | pinned as `graphify` |
 
 - **An installed copy at the pinned version or newer is used as is.** One that's **older** than the pin is
-  skipped: the pinned version runs on demand instead, with a one-line note and the command to update the
-  installed copy. So nobody silently runs an outdated tool.
-- `CARTWRIGHT_USE_PINNED=1` always runs the pinned version; `CARTWRIGHT_PREFER_INSTALLED=1` always runs the
-  installed copy, even an older one (for machines that may only run pre-approved installs).
+  normally skipped: the pinned version runs on demand instead, with a one-line note and the command to
+  update the installed copy. If `npx` (B2C CLI) or `uvx` (spec-kit, graphify) is missing, the older installed
+  copy runs even without `CARTWRIGHT_PREFER_INSTALLED`; `--plan`, `--check` and the run's stderr explain
+  that the runner is missing and cannot fetch the pin.
+- **Unknown or unparseable installed versions count as not older**, so those installed copies are used
+  too. This does not verify that they meet the pin; `--check` reports their version as `unknown`.
+- `CARTWRIGHT_PREFER_INSTALLED=1` requests the installed copy, even an older one (for machines that may
+  only run pre-approved installs). `CARTWRIGHT_USE_PINNED=1` takes precedence: it always requests the
+  pinned version and reports it unavailable if its runner is missing, rather than using an installed copy.
 - **The first run downloads** (around 20 seconds per tool on a normal connection); later runs start in a
   second or two from the cache.
 
@@ -56,7 +61,8 @@ next weekly release ─▶ everyone's plugin updates ─▶ the next run fetches
 
 - **Nothing to do on developer machines.** The new pinned version is fetched on first use after the plugin
   updates; old cached versions are simply not used any more.
-- **Installed copies** that fall behind are skipped (see above), and `--check` lists the command to update them.
+- **Installed copies** that fall behind are normally skipped, subject to the exceptions above, and
+  `--check` lists the command to update them.
 - **A broken release** shows up as a ❌ in the upstream pull request before anything is merged. To stay on
   the previous version, don't merge, or pin back in a small follow-up pull request.
 - How the version is checked: `--check` asks each installed tool for `--version` once and caches the answer
