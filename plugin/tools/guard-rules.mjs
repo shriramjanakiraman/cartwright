@@ -492,6 +492,65 @@ function guardrailRemoved(t, ctx) {
 }
 const confirm = (what, how) => ({ decision: 'confirm', rule: 'guardrail-files', what, how });
 
+// G5: guardrail paths changed through git or permissions. The guardrail paths: the .cartwright/ folder (when it
+// exists) and, in AGENTS.md mode, AGENTS.md. Returns what a command would change, or null.
+const PERMISSION_COMMANDS = { chmod: 1, chown: 1, chgrp: 1, chflags: 1, setfacl: 0, xattr: 0 };
+function guardrailByGitOrPermissions(c, ctx, sec) {
+  const root = ctx.root(), cw = join(root, '.cartwright');
+  const paths = [...(ctx.exists(cw) ? [cw] : []), ...(sec ? [sec.path] : [])];
+  if (!paths.length) return null;
+  const label = (p) => (p === cw ? 'the .cartwright/ folder' : `the Cartwright section of ${relative(root, p)}`);
+  // A path names a guardrail path exactly or inside it ("explicit"), or is a folder above one ("above").
+  const hit = (p) => { for (const g of paths) { if (p && (p === g || inside(p, g))) return { g, explicit: true }; if (p && inside(g, p)) return { g, explicit: false }; } return null; };
+  const at = (w, cwd) => place(w, cwd, ctx).path;
+  // Would the command destroy content in the guardrail paths that isn't committed? One git status, on those paths only.
+  const dirty = (cwd, kinds) => {
+    const out = ctx.git(cwd, 'status', '--porcelain', '--ignored', '--untracked-files=all', '--', ...paths);
+    if (out === null) return true;
+    return out.split('\n').filter(Boolean).some((l) => kinds.includes(l.startsWith('??') ? 'untracked' : l.startsWith('!!') ? 'ignored' : 'tracked'));
+  };
+  if (c.name in PERMISSION_COMMANDS) {
+    const ps = positionals(c.argv, ['--reference', '-f', '-h', '-n', '-m', '-x', '-w', '-d']).slice(c.argv.some((w) => w.text?.startsWith('--reference')) ? 0 : PERMISSION_COMMANDS[c.name]);
+    const recursive = hasFlag(c.argv, /^(-[a-zA-Z]*R[a-zA-Z]*|--recursive)$/);
+    for (const w of ps) { const h = hit(at(w, c.cwd)); if (h && (h.explicit || recursive)) return `${label(h.g)} (${c.name} changes who can read or change it)`; }
+    return null;
+  }
+  if (c.name !== 'git' || !c.git) return null;
+  const g = c.git, a = g.args, cwd = g.cwd;
+  if (!cwd) return null;
+  const has = (re) => a.some((w) => w.text && re.test(w.text));
+  const afterDashes = () => { const i = a.findIndex((w) => w.text === '--'); return i < 0 ? null : a.slice(i + 1); };
+  if (g.sub === 'rm' || g.sub === 'mv') {
+    const ps = positionals([{ text: g.sub }, ...a], []);
+    for (const w of g.sub === 'mv' ? ps.slice(0, -1) : ps) { const h = hit(at(w, cwd)); if (h && (h.explicit || g.sub === 'mv' || has(/^-[a-zA-Z]*r/))) return `${label(h.g)} (git ${g.sub})`; }
+    return null;
+  }
+  if (g.sub === 'restore' || (g.sub === 'checkout' && afterDashes())) {
+    // Putting back an older version of the settings can loosen them, so it's a change, not a restore.
+    if (g.sub === 'restore' && has(/^(-S|--staged)$/) && !has(/^(-W|--worktree)$/)) return null;
+    const ps = g.sub === 'checkout' ? afterDashes() : positionals([{ text: 'restore' }, ...a], ['-s', '--source']);
+    for (const w of ps) {
+      const h = hit(at(w, cwd));
+      if (h?.explicit) return `${label(h.g)} (git ${g.sub} puts back another version)`;
+      if (h && dirty(cwd, ['tracked'])) return `${label(h.g)} (git ${g.sub} would discard its uncommitted changes)`;
+    }
+    return null;
+  }
+  // Sweeping commands: only when they'd destroy guardrail content that isn't committed.
+  if (g.sub === 'stash' && !['list', 'show', 'branch', 'create', 'store'].includes(a[0]?.text)) {
+    const kinds = ['tracked', ...(has(/^(-u|--include-untracked|-a|--all)$/) ? ['untracked'] : []), ...(has(/^(-a|--all)$/) ? ['ignored'] : [])];
+    return dirty(cwd, kinds) ? `${paths.map(label).join(' and ')} (git stash would put away its uncommitted changes)` : null;
+  }
+  if (g.sub === 'clean' && has(/^(-[a-zA-Z]*f|--force)/)) {
+    const kinds = has(/^-[a-zA-Z]*X/) ? ['ignored'] : has(/^-[a-zA-Z]*x/) ? ['untracked', 'ignored'] : ['untracked'];
+    return dirty(cwd, kinds) ? `${paths.map(label).join(' and ')} (git clean would delete files in it that aren't committed)` : null;
+  }
+  if ((g.sub === 'reset' && has(/^--hard$/)) || (g.sub === 'checkout' && has(/^(-f|--force)$/))) {
+    return dirty(cwd, ['tracked']) ? `${paths.map(label).join(' and ')} (git ${g.sub} would discard its uncommitted changes)` : null;
+  }
+  return null;
+}
+
 // The AGENTS.md section, when this project keeps its settings there: { path, text, start, end } or null.
 function agentsSection(ctx) {
   const a = ctx.agentsSection();
@@ -541,7 +600,7 @@ const FAMILY = {
   'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push')),
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
-  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot)$/.test(c.name) || /profile\.mjs/.test(c.text) || isGit(c, 'clean') || isGit(c, 'apply')),
+  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
   'project-rules': () => true,
 };
 
@@ -649,6 +708,8 @@ const CHECKS = {
         if (sec && t.path === sec.path) return confirm(`the Cartwright section of ${relative(root, sec.path)} (a shell write to it counts as changing the section)`, 'shell');
       }
       if (sec) for (const t of gone) if (removes(t, sec.path)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'shell');
+      const viaGit = guardrailByGitOrPermissions(c, ctx, sec);
+      if (viaGit) return confirm(viaGit, 'shell');
     }
     return null;
   },
