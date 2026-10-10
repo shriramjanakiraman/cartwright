@@ -22,14 +22,14 @@ export const VALUE_SECRET_RULES = [
   ...SECRET_RULES,
   ['password in a URL', /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:[^\s@/]+@/i],
   ['bearer token', /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/i],
-  ['basic authorization', /Authorization:\s*Basic\s+[A-Za-z0-9+/=]{8,}/i],
+  ['basic authorization', /Authorization:\s*Basic\s+[A-Za-z0-9+/=]{8,}|\bBasic\s+(?=[A-Za-z0-9+/=]*[0-9+/=])[A-Za-z0-9+/=]{12,}/i],
   ['secret assignment', new RegExp(`(?:^|[\\s;&|("'])-{0,2}${NAME}=(?:"[^"\\s$]{6,}"|'[^'\\s]{6,}'|[^\\s"'$<{%][^\\s"';&|]{5,})`, 'i')],
   ['secret option', /(?:^|\s)--?(?:[A-Za-z0-9]+-)*(?:token|password|passwd|pass|secret|api-?key|access-key|secret-key|auth-token)\s+(?!-)[^\s$<{%]{6,}/i],
   ['database password option', /\b(mysql|mysqldump|mysqladmin)\b[^|;&]*\s-p[^\s-]\S*/],
   ['password option', /\b(docker\s+login|sshpass)\b[^|;&]*\s-p\s*(?!-)[^\s$]{4,}|\bredis-cli\b[^|;&]*\s-a\s+(?!-)[^\s$]{4,}/],
   ['user and password', /\bcurl\b[^|;&]*\s(?:-u|--user)\s*(?!-)[^\s:$]+:[^\s$]{4,}/],
   ['AWS secret key', /aws_secret_access_key\s*[=:]\s*["']?[A-Za-z0-9/+=]{20,}/i],
-  ['webhook or DSN', /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{10,}|https?:\/\/[0-9a-f]{20,}(?::[0-9a-f]+)?@[^\s/]+\/\d+/i],
+  ['webhook or DSN', /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{10,}|https?:\/\/[0-9a-f]{16,}(?::[0-9a-f]+)?@[^\s/]+/i],
 ];
 
 // Files that hold credentials by convention, as globs on the file name. Tools that study a project never open them.
