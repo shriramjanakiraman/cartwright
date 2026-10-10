@@ -30,7 +30,13 @@ was done or disagrees, answer from the records, and say so when there isn't one.
 
 Every change goes on its own branch and arrives through a pull request. Never push to `main` or
 `develop`, never merge a pull request unless the owner explicitly tells you to, and never invent a branch
-name outside the four types below. The pre-push hook and CI refuse anything else.
+name outside the four types below. The pre-push hook and CI refuse anything else, and with the Cartwright plugin
+installed, its guardrails block an agent's push to `main` or `develop` here (`.cartwright/settings.json`).
+
+`.cartwright/` holds this repo's own profile and guardrail settings. They're guarded: an agent can't change them
+without the owner, and a change goes through a pull request like any other. Generated output (`plugin/`,
+`INDEX.md`, the marketplace files, `upstream/`) is guarded too: run `npm run build` or `npm run sync-upstream`
+instead of editing it. If a guardrail blocks you, say so and stop; don't try another way.
 
 ## Check the open pull requests first
 

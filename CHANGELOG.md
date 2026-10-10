@@ -27,7 +27,9 @@ All notable changes to what users receive. Newest first.
   project's own rules. Changing the guardrail settings needs the person. Each block says why and what to do
   instead, and there's no bypass. `tools/guard.mjs explain "<command>"` says what would be blocked and why. The
   guard test runs every block through each agent's payload shape at every test level and in CI
-  (`npm run e2e:guard`). Not on Windows.
+  (`npm run e2e:guard`). Not on Windows. Codex users approve the new hook once, in `/hooks`.
+- Starter guardrail settings in the overlay template (`templates/overlay/.cartwright/`): agents can't push to
+  `main` or `develop`, or hand-edit the overlay's build output. Existing overlays can copy the folder in.
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
   `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
   process in `documentation/15-how-we-work.md` (gates for the brief and significant designs, ask instead of
@@ -44,6 +46,11 @@ All notable changes to what users receive. Newest first.
 - The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
   employees, profile and guardrails for its own development as each phase ships.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
+- Test levels (decision record 0013): patch releases now run the `minor` level too, which drives Claude Code,
+  Copilot CLI and Codex at the same time through the grounding and guardrail scenarios. Codex runs through npx in
+  a throwaway home with its hooks' trust pre-seeded from hashes Codex itself reports
+  (`scripts/codex-trust.mjs`), and `quick` checks those hashes still match the hooks. `major` adds the long setup
+  conversations, including the first run. `npm run test:agents -- --dry-run` prepares every scenario at no cost.
 
 ### Fixed
 - The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
