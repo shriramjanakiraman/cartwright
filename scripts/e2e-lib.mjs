@@ -4,8 +4,9 @@
 //
 // Concurrency: a suite whose steps are independent (each builds its own folders) can ask for `concurrency`. Its steps
 // are then only declared as the script runs; report() starts that many copies of the script, each running a share of
-// the steps in its own work folder, and prints the results in the declared order. Without it, each step runs at once,
-// as declared (e2e.mjs relies on that order).
+// the steps in its own work folder, and prints the results in the declared order. A step declared with { alone: true }
+// (a timing measurement) runs afterwards, in the main process, with nothing else running. Without concurrency, each
+// step runs at once, as declared (e2e.mjs relies on that order).
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { availableParallelism, homedir, tmpdir } from 'node:os';
@@ -45,8 +46,8 @@ export function harness(prefix, { concurrency = 1, base } = {}) {
     try { const detail = fn() || ''; return { name, ok: true, skipped: /^skipped\b/.test(detail), detail }; }
     catch (e) { return { name, ok: false, detail: String(e.message || e).split('\n').slice(0, 3).join(' ') }; }
   };
-  function step(name, fn) {
-    if (deferred) declared.push({ name, fn }); else results.push(run(name, fn));
+  function step(name, fn, { alone = false } = {}) {
+    if (deferred) declared.push({ name, fn, alone }); else results.push(run(name, fn));
   }
   const print = (title, list, keep) => {
     console.log(`## ${title}\n`);
@@ -62,7 +63,7 @@ export function harness(prefix, { concurrency = 1, base } = {}) {
     let list = results;
     if (SHARD) {
       const [i, n] = SHARD.split('/').map(Number);
-      const mine = declared.map((d, k) => [k, d]).filter(([k]) => k % n === i).map(([k, d]) => ({ k, ...run(d.name, d.fn) }));
+      const mine = declared.map((d, k) => [k, d]).filter(([k, d]) => !d.alone && k % n === i).map(([k, d]) => ({ k, ...run(d.name, d.fn) }));
       process.stdout.write(`${MARK}${JSON.stringify(mine)}\n`);
       if (!keep) rmSync(WORK, { recursive: true, force: true });
       return 0;
@@ -78,10 +79,11 @@ export function harness(prefix, { concurrency = 1, base } = {}) {
           const line = out.split('\n').find((l) => l.startsWith(MARK));
           if (line) return done(JSON.parse(line.slice(MARK.length)));
           // The child failed before reporting: its steps fail with what it said.
-          done(declared.map((d, k) => [k, d]).filter(([k]) => k % n === i).map(([k, d]) => ({ k, name: d.name, ok: false, detail: `the test process stopped (exit ${code}): ${err.trim().split('\n').slice(-2).join(' ').slice(0, 300)}` })));
+          done(declared.map((d, k) => [k, d]).filter(([k, d]) => !d.alone && k % n === i).map(([k, d]) => ({ k, name: d.name, ok: false, detail: `the test process stopped (exit ${code}): ${err.trim().split('\n').slice(-2).join(' ').slice(0, 300)}` })));
         });
       })));
-      list = shares.flat().sort((a, b) => a.k - b.k);
+      const alone = declared.map((d, k) => [k, d]).filter(([, d]) => d.alone).map(([k, d]) => ({ k, ...run(d.name, d.fn) }));
+      list = [...shares.flat(), ...alone].sort((a, b) => a.k - b.k);
     }
     const code = print(title, list, keep);
     if (!keep) rmSync(WORK, { recursive: true, force: true });
