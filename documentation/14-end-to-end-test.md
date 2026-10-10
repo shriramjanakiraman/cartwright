@@ -12,8 +12,8 @@ GH_TOKEN=$(gh auth token) npm run test:release -- --level major     # major rele
 | Level | Checks | Bare-machine test | Real agents |
 |---|---|---|---|
 | quick | ✅ | without tool downloads | none |
-| minor | ✅ | full | Claude Code: tools without installing; Copilot: fresh install |
-| major | ✅ | full, plus a real draft PR in the test client | Claude Code: tools, client not found, client found (kit and a real PR); Copilot: fresh install and the teammate path. Plus a list of checks to do by hand (Codex, Claude Code's trust prompt, VS Code, Windows) |
+| minor | ✅ | full | Claude Code: tools without installing; Copilot: fresh install and its session-start hook |
+| major | ✅ | full, plus a real draft PR in the test client | Claude Code: tools, client not found, client found (kit and a real PR); Copilot: fresh install, its session-start hook and the teammate path. Plus a list of checks to do by hand (Codex, Claude Code's trust prompt, VS Code, Windows) |
 
 It builds the plugin and tests that build; `--report <file>` saves the report, `--keep` keeps work folders
 and transcripts. Agents are retried once: a pass on retry is reported as ⚠️ flaky, a reliability problem
@@ -36,7 +36,7 @@ GH_TOKEN=$(gh auth token) npm run e2e -- --plugin ./plugin --pr       # plus a r
 
 | Area | What it checks |
 |---|---|
-| Packaging | Claude Code's own validator accepts the marketplace and plugin (set `CLAUDE_BIN` if `claude` isn't on the PATH); every agent manifest names the same plugin and version |
+| Packaging | Claude Code's own validator accepts the marketplace and plugin (set `CLAUDE_BIN` if `claude` isn't on the PATH); every agent manifest names the same plugin and version; the Copilot manifest (`plugin/plugin.json`) declares the hooks and skills, without which Copilot runs no session-start hook |
 | Tools without installing | the session-start note names the missing tools; `--check` without uv; the B2C CLI runs at the pinned version; with uv, `--smoke` runs every pinned tool |
 | Client setup | the setup offer in a client project; an unknown client isn't found; a registered alias is; access to the overlay and core repos; the kit is added once and recognised; the offer stops; "no client" is remembered |
 | The kit's pointers | every marketplace in the Claude Code and Copilot settings resolves and offers the enabled plugin; every Codex `git-subdir` source holds a Codex plugin of that name |
@@ -56,6 +56,7 @@ did (skills and commands used, changes made, answers given), not just what they 
 | `claude-setup-unknown` | Claude Code | in the client project it opens with the setup question, looks up the unknown client, finds nothing, records "not now", and leaves the repo alone |
 | `claude-setup-found` | Claude Code | it finds the client from its alias, checks access, adds the kit, and opens a pull request with exactly the five kit files (closed afterwards) |
 | `copilot-install` | Copilot CLI | a fresh install from the marketplace succeeds with the expected skills |
+| `copilot-session-start` | Copilot CLI | installed from the marketplace, in a fresh git folder on a bare PATH, `copilot -p` quotes the `[cartwright]` session-start context (the missing-tools note or the setup offer) |
 | `copilot-teammate` | Copilot CLI | in a clone that has the kit, an interactive start installs both plugins, and a question is answered with the project skill |
 
 To drive agents by hand the same way:
@@ -65,6 +66,9 @@ To drive agents by hand the same way:
   questions.
 - **GitHub Copilot CLI:** `COPILOT_HOME=<empty folder> copilot -p "<prompt>"` gives a fresh, isolated
   configuration; `copilot plugin marketplace add` / `install` there tests a real install.
+- Copilot runs a plugin's hooks only when the root `plugin.json` is in Copilot's own format and declares
+  `hooks`; it then reads the Claude Code format `hooks/hooks.json`. Plugin hooks run in headless `copilot -p`
+  too. VS Code isn't driven here: check its session start by hand.
 
 Things learnt from the live test:
 

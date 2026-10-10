@@ -12,7 +12,7 @@ Skills are written in `core/` and mirrored in `upstream/`, but users never insta
 | `plugin/licenses/` | each upstream publisher's licence (attribution required by Apache-2.0) |
 | `.claude-plugin/marketplace.json` | lets the repo install as a Claude Code plugin marketplace |
 | `plugin/.claude-plugin/plugin.json` | the Claude Code plugin manifest (name, version) |
-| `plugin/plugin.json`, `plugin/mcp.json` | the Agent Plugins 1.0 manifest and MCP file that GitHub Copilot CLI and VS Code read |
+| `plugin/plugin.json`, `plugin/mcp.json` | the manifest and MCP file that GitHub Copilot CLI and VS Code read, in Copilot's own format: it declares `skills`, `hooks` (the same `hooks/hooks.json` Claude Code runs) and `mcpServers` |
 | `plugin/.codex-plugin/plugin.json` | the Codex plugin manifest: points at the same `skills/` and `.mcp.json`, plus what the Codex plugin directory shows |
 | `.agents/plugins/marketplace.json` | lets the repo install as a Codex plugin marketplace |
 | `INDEX.md` | the human catalogue: every skill, its source, version and status |
@@ -32,6 +32,12 @@ npm run build:check    # fail if the committed output is stale (CI and the pre-c
   `main` must always be the released state and stays the default branch.
 - **Codex** installs the same plugin through `.agents/plugins/marketplace.json`. Both manifests carry
   `package.json`'s version, so one release updates both.
+- **GitHub Copilot CLI and VS Code** install it from the same marketplace and read `plugin/plugin.json`. It
+  must stay in Copilot's own format (no `$schema`) and name its parts: in the Agent Plugins 1.0 format
+  (with `$schema`) Copilot loads the skills but no hooks, so the session-start hook never ran (fixed after
+  2.1.0). `npm run e2e` checks the manifest, and the `copilot-session-start` agent scenario checks that
+  Copilot really runs the hook. VS Code is checked by hand: after a change to this manifest, install the
+  plugin in VS Code and confirm a new chat in a fresh git folder gets the `[cartwright]` context.
 - **Other agents** get the same `plugin/skills/` folders through `npm run link`, one symbolic link per
   skill, so official skills keep their `references/` and `scripts/` working.
 

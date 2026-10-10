@@ -99,7 +99,17 @@ step('every agent manifest names the same plugin and version', () => {
   assert(c.name === x.name && x.name === a.name, `names differ: ${c.name} / ${x.name} / ${a.name}`);
   assert(c.version === x.version && x.version === a.version, `versions differ: ${c.version} / ${x.version} / ${a.version}`);
   assert(existsSync(join(PLUGIN, x.skills || './skills/')), 'Codex skills folder missing');
-  return `${c.name} ${c.version} (Claude Code, Codex, Agent Plugins 1.0)`;
+  return `${c.name} ${c.version} (Claude Code, Codex, Copilot)`;
+});
+
+step('the Copilot manifest declares the hooks and skills (else Copilot runs no session-start hook)', () => {
+  const a = JSON.parse(readFileSync(join(PLUGIN, 'plugin.json'), 'utf8'));
+  assert(!a.$schema, 'plugin.json is in Agent Plugins 1.0 form ($schema): Copilot loads no hooks from it');
+  assert(a.hooks && existsSync(join(PLUGIN, a.hooks)), `hooks ${a.hooks ? `"${a.hooks}" not found` : 'not declared'}`);
+  assert(JSON.parse(readFileSync(join(PLUGIN, a.hooks), 'utf8')).hooks?.SessionStart, `${a.hooks} has no SessionStart hook`);
+  assert(a.skills && existsSync(join(PLUGIN, a.skills, 'client-setup', 'SKILL.md')), `skills ${a.skills ? `"${a.skills}" isn't the skills folder` : 'not declared'}`);
+  assert(!a.mcpServers || existsSync(join(PLUGIN, a.mcpServers)), `mcpServers "${a.mcpServers}" not found`);
+  return `hooks ${a.hooks}, skills ${a.skills}${a.mcpServers ? `, MCP ${a.mcpServers}` : ''}`;
 });
 
 // --- tools without installing -------------------------------------------------------------------------
