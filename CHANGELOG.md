@@ -16,6 +16,11 @@ All notable changes to what users receive. Newest first.
   only. Stack detection is one module per stack (Node/TypeScript, Python, SFCC). There's a new deterministic
   profile test at every test level (`npm run e2e:profile`), a guide
   (`documentation/16-project-profile-and-guardrails.md`) and proposed decision records 0011–0013.
+- Session-start grounding: in a profiled project, each session starts with the project's facts and their sources,
+  the rule that the project's own rules files win, and the guardrails in force. It also says when the profile is
+  out of date (the drift check runs in-process, time-boxed), when the guardrail settings are broken, and when the
+  guardrails can't run in this agent. A new `project-profile` skill runs setup, refresh and settings changes.
+  The person approves the exact write command, and the profile and client kit go in one pull request.
 - Hard-block guardrails in Claude Code, Codex and GitHub Copilot, from a new PreToolUse hook. Committing secrets
   and deleting or overwriting things outside the project are blocked in every project. Pushing to protected
   branches and hand-editing generated files are blocked once a project has guardrail settings, along with the
@@ -30,6 +35,12 @@ All notable changes to what users receive. Newest first.
   records for the significant choices made so far (`documentation/decisions/`).
 
 ### Changed
+- The first session in a project asks one combined line: study the project and save a profile, and connect a
+  client's project skills if it's for a client ("set up", "not now" or "never here"). It replaces the separate
+  client question; earlier "not now" and "no client" answers are kept, and "never here" stops asking in that
+  project.
+- `client-setup` (0.2.0) and `tools-without-install` (0.2.0) take what they need from the project's profile
+  instead of asking or opening the project's files.
 - The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
   employees, profile and guardrails for its own development as each phase ships.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.

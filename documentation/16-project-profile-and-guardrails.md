@@ -7,9 +7,9 @@ each with the file it came from. It also keeps the team's **guardrail settings**
 [0011](decisions/0011-project-profile-and-settings.md) (profile and settings) and
 [0012](decisions/0012-guardrails-in-agent-hooks.md) (guardrails), both *Proposed*.
 
-> **Status (phase 1, issue #43):** the profiler, the three files and their storage, and the hard blocks are in
-> place. The first-run offer and session-start grounding are being built in the same phase, and this guide grows
-> with them.
+> **Status (phase 1, issue #43):** the profiler, the three files and their storage, the first-run offer, grounding
+> and drift at session start, and the hard blocks are in place. Dogfooding, the overlay template's settings and the
+> real-agent scenarios come next in the same phase.
 
 ## The profiler
 
@@ -183,6 +183,66 @@ file's content. `write` won't overwrite a broken file: fix or move it by hand.
 
 `show` lists the settings that apply to you (`settings.effective`) and any loosening it ignored
 (`settings.loosening`).
+
+## First run: the setup offer
+
+In a project that isn't set up, the session-start hook tells the agent to open its first reply with one line:
+
+> Cartwright can study this project (read-only) and save a profile so I use its real commands and rules, and connect
+> it to a client's project skills if it's for a client. Reply set up, not now, or never here.
+
+- **"set up"** starts the `project-profile` skill:
+  1. it studies the project and shows what it found, with sources;
+  2. it asks where to keep the profile and confirms the protected branches, the generated files (with their
+     regenerate commands), the locations, and whether the project is for a client;
+  3. it shows the exact `profile.mjs write` command. Writing is a guardrail change, so the person approves it in the
+     agent's prompt, or runs it themselves;
+  4. for a client, it hands on to `client-setup` (lookup, access, kit);
+  5. it offers one pull request, with the project's PR template.
+- **"not now"** asks again after 7 days.
+- **"never here"** never asks again in that project, and changes nothing in it.
+
+If the client is already known (the kit is there, the settings say `clientProject: false`, or "no client" was
+answered), the line leaves out the client part. A profiled project with no client recorded is asked only *"Is this
+project for a client?"*. The library and overlay repos are never offered setup. The full table is in
+[Client setup](12-client-setup.md).
+
+## Grounding and drift at session start
+
+Wherever a profile exists, in any of the three storage choices, each session starts with a short summary the agent
+uses instead of guessing:
+
+```
+[cartwright] Project profile (.cartwright/profile.json). Use these facts instead of guessing. If AGENTS.md, CLAUDE.md
+or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.
+- Platform: Salesforce B2C Commerce, SFRA (package.json#paths.base). Prefer b2c-controllers, b2c-forms, b2c-isml; don't use sfnext-* skills
+- Languages: JavaScript (package.json), ISML (…) · Node 18.19.0 (.nvmrc) · Python not found · package manager npm (package-lock.json)
+- Build: npm run build (package.json#scripts.build) · Test: npm test (package.json#scripts.test) · Lint: not found
+- Layout: cartridges app_sample, int_sample_payments (cartridges/)
+- Rules files: AGENTS.md · PR template: .github/pull_request_template.md · Decision records: not found · Tracker: not found
+- Guardrails: protected develop, main; generated cartridges/*/cartridge/static/default/js/** (regenerate: npm run compile:js). …
+Full profile: node "<plugin>/tools/profile.mjs" show --json
+```
+
+- **Drift.** The hook re-detects the facts in-process (it never starts `profile.mjs check`). The check is
+  time-boxed to 120 ms and skipped silently if it takes longer. When a fact changed since the profile was saved,
+  the summary marks it `[out of date]`, and the agent is asked to mention it once in the session and offer a
+  refresh. It's mentioned again in later sessions until the profile is refreshed (`project-profile` skill:
+  `profile.mjs diff`, then `refresh` after a yes).
+- **Guardrail health.** The hook also says, once:
+  - when the settings are broken ("… can't be used: … Built-in protections are on and the project's own rules are
+    paused");
+  - when the personal file tries to loosen team rules;
+  - when the profile is stored in more than one place;
+  - when the guardrails can't run in this agent: on Windows, without node on the hooks' PATH, or when the guard
+    can't be found.
+- **The plugin-root cache.** The hook records its plugin folder in `<state>/plugin-root`, rewritten only when it
+  changes, so the guard hook can find the plugin in an agent that sets no plugin-root variable.
+- **For other skills.** `setup.mjs status` includes `profile`: where it's stored, the settings' state, the host
+  (`remoteHost`), the PR template, whether it's for a client, and the default branch. `client-setup` and
+  `tools-without-install` use it instead of asking or opening the project's files.
+- **Budget.** The whole session start stays at about a quarter of a second and makes no network access. The
+  profile test measures what the hook adds to starting Node.
 
 ## Hard blocks (guardrails)
 
@@ -375,7 +435,10 @@ turns the fixtures in `tests/projects/` into git repos with a local remote, comp
 - the settings content;
 - the personal file;
 - all three storage modes, `AGENTS.md` line-ending edge cases, and markers merely mentioned in prose;
-- broken settings, including unreadable files and folders.
+- broken settings, including unreadable files and folders;
+- the session start, through the real hook entry: the offer table and its replies (B12–B14), grounding in every
+  storage mode, drift found in-process, guardrail health, the plugin-root cache, Copilot's JSON, `status.profile`,
+  and the time the hook adds (E45).
 
 After an intended detection change, run `node scripts/e2e-profile.mjs --update-goldens` and review the diff of
 `tests/expected/`. The fixtures are SFRA, Storefront Next, TypeScript/pnpm, Python and an unknown stack, all
