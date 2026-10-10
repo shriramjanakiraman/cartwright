@@ -46,9 +46,18 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
   it checks existence or lists folders (at most 2,000 entries, never inside `node_modules`, `.git` or build
   output). A symlink is followed only if it stays inside the project, and symlinked folders are never entered.
   Lockfiles are checked for existence, never opened.
-- **Never opens credential files:** `.env*`, `dw.json`, `*.pem`, `*.key`, `id_rsa*`, `*.p12`, `*.pfx`, `.npmrc`,
-  `.netrc`, `credentials*`. Any value that looks like a secret (the same patterns as `npm run scrub`, in
-  `secret-rules.mjs`) is saved as `<hidden: looked like a secret>`.
+- **Never opens credential files:** `.env*`, `dw.json`, `*.pem`, `*.key`, `id_rsa*`, `id_dsa*`, `id_ecdsa*`,
+  `id_ed25519*`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
+  `secrets.*`, `*.tfvars`. It doesn't search them for headers either, and never suggests them as generated
+  files.
+- **Hides secret-looking values.** Any value that looks like a secret is saved as
+  `<hidden: looked like a secret>`. The patterns (in `secret-rules.mjs`) are those of `npm run scrub` plus
+  broader ones for copied values: passwords in URLs, Bearer tokens, `KEY=`/`TOKEN=`/`SECRET=`/`PASSWORD=`
+  assignments, `mysql -p…`, and `sk_live_`, `npm_` and `AIza` keys.
+- **Exact names.** A file counts only under its exact name, taken from its folder's listing. On a
+  case-insensitive disk `claude.md` isn't `CLAUDE.md`, so a project profiles the same way on macOS and Linux.
+- **Pins must look like versions.** A Node or Python pin that doesn't look like one is "not found". An
+  `engines` or `requires-python` range is recorded as `kind: "range"`, and a pin as `kind: "pinned"`.
 - **Writes nothing while studying.** git runs with `GIT_OPTIONAL_LOCKS=0`, so not even `.git` changes.
 - **Reproducible.** Sorted keys, no timestamps, no absolute paths, no plugin version. The same project always
   gives the same bytes, so upgrading the plugin never rewrites a profile on its own.
@@ -65,7 +74,8 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
 
 Each command has `run` (how the package manager runs it, for example `pnpm test`), `defined` (the script as the
 project wrote it) and `how`: `defined`, or `configured` when it comes from tool configuration such as
-`[tool.pytest.ini_options]`.
+`[tool.pytest.ini_options]`. When the package manager isn't found, a script is recorded with `defined` and no
+`run`: Cartwright doesn't assume npm. A generated-file suggestion then has no regenerate command.
 
 ### Stacks
 
@@ -97,6 +107,10 @@ Setup asks. Cartwright looks them up in this order, and the first one found wins
 | `.cartwright/` (default) | `.cartwright/profile.json`, `settings.json`, plus a `README.md` for reviewers | `.cartwright/personal.json`, ignored by `.cartwright/.gitignore` | the folder only; the project's own `.gitignore` is untouched |
 | `AGENTS.md` section | one section between `<!-- cartwright:begin … -->` and `<!-- cartwright:end -->`, with a short summary and two fenced blocks (`json cartwright-profile`, `json cartwright-settings`) | on this machine | only that section. Nothing outside the markers changes, including line endings |
 | This machine only | `<state>/projects/<key>/` | the same folder | none; teammates' clones are unprofiled |
+
+In `AGENTS.md`, a marker counts only as a whole line outside code fences, so a file that merely mentions
+the markers isn't Cartwright storage. A folder or `AGENTS.md` that exists but can't be read counts as found,
+with broken settings (stricter, and loud), never as "unprofiled".
 
 `<state>` is `$CARTWRIGHT_STATE_DIR` or `~/.cartwright`. `<key>` is the first 16 hex characters of the sha256 of
 the project's real path, and the folder's `root` file names the project for people.
@@ -159,19 +173,21 @@ file's content. `write` won't overwrite a broken file: fix or move it by hand.
 
 ## Tests
 
-`npm run e2e:profile` (part of every `npm run test:release` level) runs against a copy of the built plugin. It
+`npm run e2e:profile` (part of every `npm run test:release` level, and of CI on every pull request) runs against
+a copy of the built plugin. It
 turns the fixtures in `tests/projects/` into git repos with a local remote, compares each profile with
 `tests/expected/`, and checks the following:
 
 - "not found";
-- that no secret value appears anywhere;
-- read-only study (file times and the git index unchanged);
+- that no secret value appears anywhere, in the shapes people paste into scripts;
+- read-only study (every file and `.git` byte for byte, also on a profiled project with a stale index);
+- reads that stay inside the project (symlinks), exact file names, and version-shaped pins;
 - reproducible writes;
 - drift and refresh;
 - the settings content;
 - the personal file;
-- all three storage modes;
-- broken settings.
+- all three storage modes, `AGENTS.md` line-ending edge cases, and markers merely mentioned in prose;
+- broken settings, including unreadable files and folders.
 
 After an intended detection change, run `node scripts/e2e-profile.mjs --update-goldens` and review the diff of
 `tests/expected/`. The fixtures are SFRA, Storefront Next, TypeScript/pnpm, Python and an unknown stack, all

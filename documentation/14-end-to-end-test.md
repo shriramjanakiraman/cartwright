@@ -27,7 +27,7 @@ Trading `zzt`, with its private overlay and client repos) are in `tests/fixtures
 agents. It turns the made-up projects in `tests/projects/` (Storefront Next, TypeScript/pnpm, Python and an
 unknown stack) into git repos with a local remote and compares each profile with `tests/expected/`. It also
 checks secrets, read-only study, reproducible writes, drift and refresh, the settings, the personal file,
-the three storage modes and broken settings. See
+the three storage modes and broken settings. CI runs it on every pull request too (Linux). See
 [Project profile and guardrails](16-project-profile-and-guardrails.md#tests).
 
 ## The bare-machine test

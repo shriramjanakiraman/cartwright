@@ -6,7 +6,7 @@ Every workflow and script in one place, and the GitHub behaviours they're built 
 
 | Workflow | Runs on | Runs from | What it does |
 |---|---|---|---|
-| `ci` | pull requests; pushes to `main`, `develop` | the pull request / branch | validate, scrub, official mirror check, build check, gitleaks secret scan (job `check`) |
+| `ci` | pull requests; pushes to `main`, `develop` | the pull request / branch | validate, scrub, official mirror check, build check, the profile test, gitleaks secret scan (job `check`) |
 | `branch-name` | pull requests into `main`, `develop` | the pull request | allowed branch types and targets |
 | `duplicate-check` | pull requests opened or updated | the pull request | possible repeats: comment, request changes, pass when resolved (job `duplicates`) |
 | `duplicate-recheck` | replies to review comments; comments on a pull request | the pull request; **`main`** for pull request comments | re-runs `duplicate-check` |
