@@ -15,7 +15,8 @@ Skills are written in `core/` and mirrored in `upstream/`, but users never insta
 | `plugin/plugin.json`, `plugin/mcp.json` | the manifest and MCP file that GitHub Copilot CLI and VS Code read, in Copilot's own format: it declares `skills`, `hooks` (the same `hooks/hooks.json` Claude Code runs) and `mcpServers` |
 | `plugin/.codex-plugin/plugin.json` | the Codex plugin manifest: points at the same `skills/` and `.mcp.json`, plus what the Codex plugin directory shows |
 | `.agents/plugins/marketplace.json` | lets the repo install as a Codex plugin marketplace |
-| `plugin/tools/` | the helpers the plugin runs with only Node and git: client setup (`setup.mjs`, `kit.mjs`, `registry-core.mjs`, `registry.json`), tools without installing (`run.mjs`, `versions.json`), and the project profiler (`profile.mjs`, `stacks/`, `store.mjs`, `settings.mjs`, `secret-rules.mjs`; see [the guide](16-project-profile-and-guardrails.md)) |
+| `plugin/tools/` | the helpers the plugin runs with only Node and git: client setup (`setup.mjs`, `kit.mjs`, `registry-core.mjs`, `registry.json`), tools without installing (`run.mjs`, `versions.json`), the project profiler (`profile.mjs`, `stacks/`, `store.mjs`, `settings.mjs`, `secret-rules.mjs`) and the guard (`guard.mjs`, `guard-rules.mjs`, `guard-shell.mjs`; see [the guide](16-project-profile-and-guardrails.md)) |
+| `plugin/hooks/hooks.json` | the hooks all three agents run: SessionStart (the setup offer and tools note) and PreToolUse (the guardrails). Each entry's command, matcher and timeout are fixed, because Codex trusts hooks by a hash of the entry; new hooks are appended |
 | `INDEX.md` | the human catalogue: every skill, its source, version and status |
 
 Draft and deprecated core skills are left out of the plugin but still listed in `INDEX.md`.

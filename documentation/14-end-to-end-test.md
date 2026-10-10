@@ -11,9 +11,9 @@ GH_TOKEN=$(gh auth token) npm run test:release -- --level major     # major rele
 
 | Level | Checks | Bare-machine test | Real agents |
 |---|---|---|---|
-| quick | ✅ + the profile test | without tool downloads | none |
-| minor | ✅ + the profile test | full | Claude Code: tools without installing; Copilot: fresh install and its session-start hook |
-| major | ✅ + the profile test | full, plus a real draft PR in the test client | Claude Code: tools, client not found, client found (kit and a real PR); Copilot: fresh install, its session-start hook and the teammate path. Plus a list of checks to do by hand (Codex, Claude Code's trust prompt, VS Code, Windows) |
+| quick | ✅ + the profile and guard tests | without tool downloads | none |
+| minor | ✅ + the profile and guard tests | full | Claude Code: tools without installing; Copilot: fresh install and its session-start hook |
+| major | ✅ + the profile and guard tests | full, plus a real draft PR in the test client | Claude Code: tools, client not found, client found (kit and a real PR); Copilot: fresh install, its session-start hook and the teammate path. Plus a list of checks to do by hand (Codex, Claude Code's trust prompt, VS Code, Windows) |
 
 It builds the plugin and tests that build; `--report <file>` saves the report, `--keep` keeps work folders
 and transcripts. Agents are retried once: a pass on retry is reported as ⚠️ flaky, a reliability problem
@@ -24,10 +24,25 @@ Trading `zzt`, with its private overlay and client repos) are in `tests/fixtures
 ## The profile test
 
 `npm run e2e:profile` checks the project profiler against a copy of the built plugin, offline and with no
-agents. It turns the made-up projects in `tests/projects/` (Storefront Next, TypeScript/pnpm, Python and an
+agents. It turns the made-up projects in `tests/projects/` (SFRA, Storefront Next, TypeScript/pnpm, Python and an
 unknown stack) into git repos with a local remote and compares each profile with `tests/expected/`. It also
 checks secrets, read-only study, reproducible writes, drift and refresh, the settings, the personal file,
 the three storage modes and broken settings. CI runs it on every pull request too (Linux). See
+[Project profile and guardrails](16-project-profile-and-guardrails.md#tests).
+
+## The guard test
+
+`npm run e2e:guard` checks the hard blocks against a copy of the built plugin, offline and with no agents. Each
+case in `tests/guard-cases.json` runs in its own copy of a fixture project with a local remote, in the payload
+shapes of Claude Code, Copilot and Codex:
+- a subset goes through the real hook entry (the `sh` trampoline);
+- the rest call the guard in-process.
+
+Allowed pushes and commits are then run. It also covers the trampoline without node, the cached plugin root,
+malformed payloads, and p50/p95 timing against the budget, measured alone after the other steps.
+`test-release` runs it after the profile and bare-machine tests, which run at the same time. The steps of the
+profile and guard tests run concurrently, in about half the machine's CPUs (`CARTWRIGHT_E2E_CONCURRENCY` sets
+the number). See
 [Project profile and guardrails](16-project-profile-and-guardrails.md#tests).
 
 ## The bare-machine test

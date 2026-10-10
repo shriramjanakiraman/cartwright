@@ -7,9 +7,9 @@ each with the file it came from. It also keeps the team's **guardrail settings**
 [0011](decisions/0011-project-profile-and-settings.md) (profile and settings) and
 [0012](decisions/0012-guardrails-in-agent-hooks.md) (guardrails), both *Proposed*.
 
-> **Status (phase 1, issue #43):** the profiler, the three files and their storage are in place. The
-> first-run offer, session-start grounding and the hard blocks are being built in the same phase, and this
-> guide grows with them.
+> **Status (phase 1, issue #43):** the profiler, the three files and their storage, and the hard blocks are in
+> place. The first-run offer and session-start grounding are being built in the same phase, and this guide grows
+> with them.
 
 ## The profiler
 
@@ -184,6 +184,142 @@ file's content. `write` won't overwrite a broken file: fix or move it by hand.
 `show` lists the settings that apply to you (`settings.effective`) and any loosening it ignored
 (`settings.loosening`).
 
+## Hard blocks (guardrails)
+
+Before Claude Code, Codex or GitHub Copilot runs a tool that can change something (`Bash`, `Edit`, `Write`,
+`MultiEdit`, `NotebookEdit`, `apply_patch`, `exec_command`, `create`), the plugin's PreToolUse hook asks
+`tools/guard.mjs`. The guard reads the tool call, decides, and either lets it run or stops it **before it runs**,
+with a message that names the rule and says what to do instead. Read-only tools never start it. Decision record:
+[0012](decisions/0012-guardrails-in-agent-hooks.md).
+
+| Rule | Where it applies | What it stops |
+|---|---|---|
+| `secrets` | every project | a `git commit` that would record a token or credential |
+| `destructive-outside-project` | every project | deleting or overwriting something outside the project, the temporary folder and Cartwright's cache |
+| `protected-branches` | once the project has guardrail settings | a `git push` to a protected branch |
+| `generated-files` | once the project has guardrail settings | hand-editing a file on the confirmed generated list |
+| the project's own `rules` | while the settings are valid | whatever the team listed |
+| `guardrail-files` | always; can't be switched off | changing the guardrail settings without the person |
+
+The team can switch the first four off in the settings (`guardrails.<rule>: false`), through a pull request.
+The personal file can only switch them on.
+
+**No bypass.** There's no allow-once token, environment variable or inline marker. Every block ends with:
+"Don't try another way; if it really must happen, tell the person they can run it themselves."
+
+### `protected-branches`
+
+Every form of push is judged by where it would go:
+- `git push origin main`, `HEAD:main`, `+main`, `--force` and `--force-with-lease`;
+- deleting (`:main`, `--delete main`);
+- a bare `git push`, which goes where `@{push}` says (the upstream and `push.default`);
+- `--all` and `--mirror`.
+
+The branches are the settings' `protectedBranches` (globs such as `release/*` work), plus the personal file's.
+Tags and other branches go through. A destination hidden in a variable or a command is blocked ("can't tell where
+this push goes"), except `$(git branch --show-current)`.
+
+> Cartwright blocked this (protected-branches): it would push to main, a protected branch here
+> (.cartwright/settings.json). Push your own branch (git push -u origin <branch>) and open a pull request. Don't
+> try another way; if it really must happen, tell the person they can run it themselves.
+
+### `secrets`
+
+At `git commit`, the guard looks at what would be committed:
+- the staged changes;
+- with `-a` or pathspecs, the matching tracked changes;
+- files added earlier on the same line (`git add . && git commit …`).
+
+It scans the added lines with the same patterns as `npm run scrub`: private keys, GitHub, AWS and Slack tokens,
+JWTs, quoted secret assignments, and `sk_live_`/`sk_test_`/`npm_`/`AIza`/`glpat-` keys. It also blocks committing
+files named like credentials (`.env`, `*.pem`, `*.key`, `id_rsa`…; `.env.example` is fine). Lockfiles, binary
+files and the team's `secrets.allow` paths are skipped. The message names the file and line, never the value.
+
+> Cartwright blocked this (secrets): src/config.ts:3 looks like a GitHub token. The value isn't shown. Remove it
+> (use an environment variable or the project's secret store), unstage it, and commit again. If it's a deliberate
+> test fake, the team can allow that path in the settings through a pull request. …
+
+### `generated-files`
+
+Edits through the agent's tools (`Edit`, `Write`, Copilot's `create`, Codex's `apply_patch`), and shell writes onto
+a generated path, are blocked. The shell writes include:
+- redirections (`>`, `>>`, here-documents);
+- `tee`;
+- `sed -i`, `perl -pi` and `awk -i inplace`;
+- the destination of `cp`, `mv`, `install`, `ln` and `rsync`;
+- `truncate` and `dd of=`;
+- `git apply` and `patch`.
+
+Commands inside `sh -c`, `eval` and `$(…)` count too. Reading, `git checkout -- <file>`, `git restore`, deleting,
+and running the regenerate command aren't blocked.
+
+> Cartwright blocked this (generated-files): src/generated/api.ts is generated (.cartwright/settings.json:
+> src/generated/**). Don't edit it by hand: change its source and run pnpm generate:api. …
+
+### `destructive-outside-project`
+
+The guard blocks deleting (`rm`, `rmdir`, `unlink`, `shred`, `find … -delete`, `rsync --delete`, `mv` away) and
+overwriting an **existing** path (redirection, `cp`, `tee`, `sed -i`, an edit) outside the allowed places:
+- the project;
+- the temporary folder (`$TMPDIR`, `$TMP`, `$TEMP`, `/tmp`, `/var/tmp`);
+- Cartwright's cache (the state folder and the agent's plugin data folder);
+- the team's `locations.allowed`.
+
+These places are worked out on each call, on each machine. A `locations.protected` entry is blocked even inside the
+project. Creating a new file and appending lose no data, so they aren't blocked. A target that depends on an
+unknown variable is blocked ("can't tell where this delete points; use an explicit path").
+
+> Cartwright blocked this (destructive-outside-project): it would delete ~/precious, which is outside this
+> project, the temporary folder and Cartwright's cache. Work inside the project, or ask the person to run it
+> themselves. If the team works there routinely, they can add it to locations.allowed in the settings through a
+> pull request. …
+
+### `guardrail-files`
+
+Changing the guardrail settings needs the person's approval at that moment. That covers:
+- `.cartwright/settings.json` or `profile.json`, and deleting or moving `.cartwright/`;
+- the Cartwright section of `AGENTS.md` (an edit inside it, or any shell write to `AGENTS.md`);
+- the machine-mode files;
+- running `profile.mjs write` or `refresh`;
+- disabling or uninstalling the plugin, or switching its hooks off in an agent's settings file.
+
+The personal file isn't covered: it's the developer's own, and it can only tighten.
+
+The person's yes can't be read from the chat, so the guard uses the agent's own approval prompt where that's
+verified to work for a hook. It isn't yet verified for any agent; until it is, the change is blocked, and the
+message gives the person the command to run themselves:
+
+> Cartwright blocked this (guardrail-files): it changes the project's profile and guardrail settings, and only the
+> person can approve changes to the guardrail settings. Show them the change and give them this command to run in
+> their own terminal: node "<plugin>/tools/profile.mjs" write --store folder --protected main --generated none. …
+
+### Broken settings, and the personal file
+
+- **Broken settings.** With unreadable or invalid settings, every block still applies, with the fallback lists
+  from [Broken settings fail safe](#broken-settings-fail-safe), and each message adds what's wrong and how to fix
+  it.
+- **The personal file.** When it tried to switch a rule off, the block says "your personal file tries to switch
+  this off; the personal file can only add or tighten rules".
+
+### Why was this blocked?
+
+`node "<plugin>/tools/guard.mjs" explain "<command>"` shows the decision for a shell command in the current
+project, with the rule and message, without running it. `guard.mjs status` shows which rules are on here and the
+settings they use.
+
+### Limits
+
+These are guardrails, not a complete boundary, as the agent vendors themselves say of hooks.
+
+- **Command matching.** It can't see writes made inside a script or an interpreter (`node -e`, `python -c`,
+  `npm run x` that pushes), or a command assembled at run time (`sh -c "$CMD"`). Phase 3's auditor closes the
+  loop.
+- **Windows.** The hooks run through `sh`, so there are no hard blocks on Windows. The guard does nothing there
+  and says so.
+- **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
+  Approving once covers updates, because the hook entries never change.
+- **Speed.** About 0.1–0.3 s per guarded tool call (Node starting), measured by the guard test.
+
 ## Tests
 
 `npm run e2e:profile` (part of every `npm run test:release` level, and of CI on every pull request) runs against
@@ -205,3 +341,14 @@ turns the fixtures in `tests/projects/` into git repos with a local remote, comp
 After an intended detection change, run `node scripts/e2e-profile.mjs --update-goldens` and review the diff of
 `tests/expected/`. The fixtures are SFRA, Storefront Next, TypeScript/pnpm, Python and an unknown stack, all
 made up.
+
+`npm run e2e:guard` (every level, and CI) runs the cases in `tests/guard-cases.json` against a copy of the built
+plugin. That's every block, its allowed counterpart, broken settings, the personal file and a project with its own
+git hook, in the payload shapes of Claude Code, Copilot and Codex. Each case runs in its own copy of a fixture
+project with a local remote:
+- a subset goes through the real hook entry and the `sh` trampoline;
+- the rest call the guard in-process.
+
+Allowed pushes and commits are then run, and denied ones must leave the remote unchanged and log exactly one
+decision. HOME is a symlink and the temporary folder is moved, to prove that locations are worked out at run
+time. The suite also measures p50 and p95 against the budget. To add a case, add an entry to the table.

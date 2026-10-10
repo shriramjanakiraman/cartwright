@@ -16,6 +16,13 @@ All notable changes to what users receive. Newest first.
   only. Stack detection is one module per stack (Node/TypeScript, Python, SFCC). There's a new deterministic
   profile test at every test level (`npm run e2e:profile`), a guide
   (`documentation/16-project-profile-and-guardrails.md`) and proposed decision records 0011–0013.
+- Hard-block guardrails in Claude Code, Codex and GitHub Copilot, from a new PreToolUse hook. Committing secrets
+  and deleting or overwriting things outside the project are blocked in every project. Pushing to protected
+  branches and hand-editing generated files are blocked once a project has guardrail settings, along with the
+  project's own rules. Changing the guardrail settings needs the person. Each block says why and what to do
+  instead, and there's no bypass. `tools/guard.mjs explain "<command>"` says what would be blocked and why. The
+  guard test runs every block through each agent's payload shape at every test level and in CI
+  (`npm run e2e:guard`). Not on Windows.
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
   `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
   process in `documentation/15-how-we-work.md` (gates for the brief and significant designs, ask instead of
