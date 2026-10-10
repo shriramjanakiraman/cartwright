@@ -8,7 +8,7 @@
 // Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens]
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, harness, json, sh } from './e2e-lib.mjs';
@@ -475,6 +475,21 @@ step('storage (B21): AGENTS.md mode adds one marked section, keeps every other b
   assert(profile(u, ['write', '--store', 'agents-md', ...LISTS]).status === 1 && read(join(u, 'AGENTS.md')) === broken, 'wrote over unpaired markers');
   assert(ok(u, ['show']).settings.status === 'broken', 'unpaired markers not treated as broken settings');
   return 'section appended after one blank line; CRLF text around it untouched; idempotent; created when missing';
+});
+
+step('storage (B21): a symlinked AGENTS.md stays a symlink, and a link leading outside the project is refused', () => {
+  const { dir } = project('ts', (d) => { writeFileSync(join(d, 'CLAUDE.md'), read(join(d, 'AGENTS.md'))); rmSync(join(d, 'AGENTS.md')); symlinkSync('CLAUDE.md', join(d, 'AGENTS.md')); });
+  ok(dir, ['write', '--store', 'agents-md', ...LISTS]);
+  assert(lstatSync(join(dir, 'AGENTS.md')).isSymbolicLink(), 'AGENTS.md was replaced by a plain file');
+  assert(read(join(dir, 'CLAUDE.md')).includes('<!-- cartwright:begin'), 'the section did not land in CLAUDE.md');
+  const status = git(dir, 'status', '--porcelain').trim();
+  assert(status === 'M CLAUDE.md', `git status: ${status}`);
+  const out = project('ts').dir;
+  writeFileSync(join(out, '..', 'outside-agents.md'), '# outside\n');
+  rmSync(join(out, 'AGENTS.md')); symlinkSync('../outside-agents.md', join(out, 'AGENTS.md'));
+  const r = profile(out, ['write', '--store', 'agents-md', ...LISTS]);
+  assert(r.status === 1 && /symlink to a file outside the project/.test(r.stderr) && read(join(out, '..', 'outside-agents.md')) === '# outside\n', `exit ${r.status}: ${r.stderr.trim()}`);
+  return 'AGENTS.md → CLAUDE.md kept, section in CLAUDE.md, git status M CLAUDE.md; outside link refused';
 });
 
 step('storage (B22): machine mode changes nothing in the repo, and another clone is unprofiled', () => {

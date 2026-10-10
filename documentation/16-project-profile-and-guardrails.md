@@ -46,6 +46,7 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
   it checks existence or lists folders (at most 2,000 entries, never inside `node_modules`, `.git` or build
   output). A symlink is followed only if it stays inside the project, and symlinked folders are never entered.
   Lockfiles are checked for existence, never opened.
+  A cartridge that is a symlinked folder isn't listed, because symlinked folders are never entered.
 - **Never opens credential files:** `.env*`, `dw.json`, `*.pem`, `*.key`, `id_rsa*`, `id_dsa*`, `id_ecdsa*`,
   `id_ed25519*`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
   `secrets.*`, `*.tfvars`. It doesn't search them for headers either, and never suggests them as generated
@@ -109,7 +110,8 @@ Setup asks. Cartwright looks them up in this order, and the first one found wins
 | This machine only | `<state>/projects/<key>/` | the same folder | none; teammates' clones are unprofiled |
 
 In `AGENTS.md`, a marker counts only as a whole line outside code fences, so a file that merely mentions
-the markers isn't Cartwright storage. A folder or `AGENTS.md` that exists but can't be read counts as found,
+the markers isn't Cartwright storage. A symlinked `AGENTS.md` (for example to `CLAUDE.md`) stays a symlink: the
+section is written into the file it points at, and a link that leads outside the project is refused. A folder or `AGENTS.md` that exists but can't be read counts as found,
 with broken settings (stricter, and loud), never as "unprofiled".
 
 `<state>` is `$CARTWRIGHT_STATE_DIR` or `~/.cartwright`. `<key>` is the first 16 hex characters of the sha256 of

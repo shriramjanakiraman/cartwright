@@ -7,9 +7,9 @@
 // <state> is $CARTWRIGHT_STATE_DIR or ~/.cartwright; <key> is the first 16 hex characters of the sha256 of the
 // project root's real path. Shipped in the plugin as tools/store.mjs. No dependencies.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 
 export const MODES = ['folder', 'agents-md', 'machine'];
 export const FOLDER = '.cartwright';
@@ -166,13 +166,23 @@ If the project's rules files (\`AGENTS.md\`, \`CLAUDE.md\` and similar) disagree
 export function save(root, mode, { profile, settings, summary = [] }) {
   if (!MODES.includes(mode)) throw new Error(`unknown storage "${mode}"`);
   const changed = [];
+  const real = realpathSync(root);
   const put = (path, text, label) => {
     if (readText(path) === text) return;
-    mkdirSync(dirname(path), { recursive: true });
+    // A symlinked file (AGENTS.md → CLAUDE.md) stays a symlink: write to the file it points at. In the repo modes,
+    // a link that leads outside the project is refused rather than followed.
+    let dest = path;
+    try {
+      if (lstatSync(path).isSymbolicLink()) {
+        try { dest = realpathSync(path); } catch { dest = resolve(dirname(path), readlinkSync(path)); }
+        if (mode !== 'machine' && dest !== real && !dest.startsWith(real + sep)) throw new Error(`${label} is a symlink to a file outside the project (${dest}). Cartwright won't write through it: replace the link with a file, or choose --store machine.`);
+      }
+    } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    mkdirSync(dirname(dest), { recursive: true });
     // Write a temporary file next to it, then rename: a reader never sees half a file.
-    const tmp = `${path}.cartwright-${process.pid}.tmp`;
+    const tmp = `${dest}.cartwright-${process.pid}.tmp`;
     writeFileSync(tmp, text);
-    renameSync(tmp, path);
+    try { renameSync(tmp, dest); } catch (e) { try { unlinkSync(tmp); } catch { /* already gone */ } throw e; }
     changed.push(label);
   };
   if (mode === 'folder') {
