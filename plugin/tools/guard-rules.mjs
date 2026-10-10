@@ -107,64 +107,113 @@ const GIT_BUILTINS = new Set(('add am annotate apply archive bisect blame branch
   + 'stash status submodule switch symbolic-ref tag update-index update-ref var verify-commit version whatchanged worktree write-tree').split(' '));
 const GIT_GLOBAL_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix', '--exec-path'];
 
-// git's global options and subcommand: { sub, args, cwd, workTree, aliases }. Aliases given on the command line
-// (-c alias.<x>=<v>, --config-env=alias.<x>=<ENV>) are collected, because they beat the configured ones.
+// Git configuration keys that change where a push goes or what a git command runs. If an invocation changes one of
+// them and the value can't be known, a push can't be judged ("can't tell where this push goes").
+const PUSH_KEYS = /^(alias\..+|remote\..+\.(push|mirror|url|pushurl)|push\.default|remote\.pushdefault|branch\..+\.(merge|remote|pushremote)|include\.path|includeif\..+)$/i;
+const configPair = (kv) => { const i = kv.indexOf('='); return i < 0 ? [kv.toLowerCase(), 'true'] : [kv.slice(0, i).toLowerCase(), kv.slice(i + 1)]; };
+const sectionKey = (k) => k.replace(/^(alias\.|remote\.|branch\.|includeif\.)/i, (m) => m.toLowerCase());
+
+// git's global options and subcommand: { sub, args, cwd, workTree, config }. config holds every configuration change
+// the invocation makes ([key, value], value null when unknown): -c k=v, --config-env=k=VAR, GIT_CONFIG_PARAMETERS
+// and GIT_CONFIG_COUNT/KEY_n/VALUE_n in the command's environment (a leading assignment or env NAME=value).
 function gitCall(cmd, env = {}) {
-  const a = cmd.argv, aliases = new Map(), pushSpecs = new Map();
+  const a = cmd.argv, config = [];
+  const look = (name) => (cmd.env?.has?.(name) ? cmd.env.get(name) : env[name]);
+  const params = cmd.env?.has?.('GIT_CONFIG_PARAMETERS') ? cmd.env.get('GIT_CONFIG_PARAMETERS') : undefined;
+  if (params === null) config.push(['*', null]);
+  else if (params) for (const m of params.matchAll(/'([^']*)'(?:='([^']*)')?/g)) config.push(m[2] !== undefined ? [m[1].toLowerCase(), m[2]] : configPair(m[1]));
+  if (cmd.env?.has?.('GIT_CONFIG_COUNT')) {
+    const n = Number(look('GIT_CONFIG_COUNT'));
+    if (!Number.isInteger(n) || n < 0) config.push(['*', null]);
+    for (let i = 0; i < (Number.isInteger(n) ? Math.min(n, 64) : 0); i++) {
+      const key = look(`GIT_CONFIG_KEY_${i}`), val = look(`GIT_CONFIG_VALUE_${i}`);
+      config.push(key ? [key.toLowerCase(), val ?? null] : ['*', null]);
+    }
+  }
   let k = 1, cwd = cmd.cwd, workTree = null;
   while (k < a.length && a[k].text !== null && a[k].text.startsWith('-')) {
     const t = a[k].text, [flag, val] = t.includes('=') ? [t.slice(0, t.indexOf('=')), t.slice(t.indexOf('=') + 1)] : [t, null];
-    const value = val ?? (GIT_GLOBAL_VALUE.includes(flag) ? a[++k]?.text ?? null : null);
+    const raw = GIT_GLOBAL_VALUE.includes(flag) ? (val !== null ? { text: val } : a[++k]) : null;
+    const value = raw ? raw.text : val;
     if (flag === '-C') cwd = value === null ? null : cwd || isAbsolute(value) ? resolve(cwd || '/', value) : null;
     if (flag === '--work-tree') workTree = value === null ? null : cwd ? resolve(cwd, value) : isAbsolute(value) ? value : null;
-    const m = value && (flag === '-c' || flag === '--config-env') && value.match(/^(alias|remote\.[^=]+)\.([^.=]+)=(.*)$/i);
-    const v = m && (flag === '-c' ? m[3] : env[m[3]] ?? null);
-    if (m && m[1].toLowerCase() === 'alias') aliases.set(m[2], v);
-    else if (m && m[2].toLowerCase() === 'push') pushSpecs.set(m[1].slice(7), [...(pushSpecs.get(m[1].slice(7)) || []), v]);
+    if (flag === '-c') config.push(value === null ? ['*', null] : configPair(value));
+    if (flag === '--config-env') {
+      if (value === null) config.push(['*', null]);
+      else { const i = value.indexOf('='); config.push([value.slice(0, i).toLowerCase(), i < 0 ? null : look(value.slice(i + 1)) ?? null]); }
+    }
     k++;
   }
-  return { sub: a[k]?.text ?? null, args: a.slice(k + 1), cwd, workTree, aliases, pushSpecs, unknownSub: k < a.length && a[k].text === null };
+  return { sub: a[k]?.text ?? null, args: a.slice(k + 1), cwd, workTree, config, unknownSub: k < a.length && a[k].text === null };
 }
 
-// `git config [--local|--global|…] [set|--add] alias.<x> <value>` earlier on the same line: [name, value] or null.
-function aliasSet(g) {
-  if (g.sub !== 'config') return null;
-  const words = g.args.filter((w) => !(w.text && w.text.startsWith('-'))).map((w) => w.text);
-  if (words[0] === 'set') words.shift();
-  const m = words[0]?.match(/^alias\.(.+)$/i);
-  return m && words.length >= 2 ? [m[1], words[1]] : null;
+// Configuration a git command changes for later commands on the line: [key, value] pairs (value null when unknown).
+//   git config [--local|--global|…] [set] <key> <value>
+//   git branch --set-upstream-to=<remote>/<branch> [branch] (or -u)
+//   git remote add [--mirror[=push]] <name> <url>; git remote set-url [--push] <name> <url>
+function lineConfigChanges(g, ctx) {
+  const words = g.args.filter((w) => !(w.text && w.text.startsWith('-')));
+  if (g.sub === 'config') {
+    const w = words.map((x) => x.text);
+    if (w[0] === 'set') w.shift();
+    return w[0] && w.length >= 2 ? [[w[0].toLowerCase(), w[1]]] : [];
+  }
+  if (g.sub === 'branch') {
+    const i = g.args.findIndex((x) => x.text === '-u' || x.text === '--set-upstream-to' || x.text?.startsWith('--set-upstream-to='));
+    if (i < 0) return [];
+    const t = g.args[i].text, up = t.includes('=') ? t.slice(t.indexOf('=') + 1) : g.args[i + 1]?.text ?? null;
+    const named = words.find((x) => x !== g.args[i + 1]);
+    const b = named ? named.text : g.cwd ? ctx.currentBranch(g.cwd) : null;
+    if (up === null || b === null) return [['branch.*', null]];
+    const slash = up.indexOf('/');
+    return [[`branch.${b}.remote`, slash < 0 ? '.' : up.slice(0, slash)], [`branch.${b}.merge`, `refs/heads/${slash < 0 ? up : up.slice(slash + 1)}`]];
+  }
+  if (g.sub === 'remote' && ['add', 'set-url'].includes(words[0]?.text)) {
+    const [name, url] = [words[1]?.text ?? null, words[2]?.text ?? null];
+    if (name === null) return [['remote.*', null]];
+    const mirror = g.args.find((x) => x.text?.startsWith('--mirror'));
+    const out = [[`remote.${name}.${words[0].text === 'set-url' && g.args.some((x) => x.text === '--push') ? 'pushurl' : 'url'}`, url]];
+    if (mirror && words[0].text === 'add' && mirror.text !== '--mirror=fetch') out.push([`remote.${name}.mirror`, 'true']);
+    return out;
+  }
+  return [];
 }
-// `git config remote.<r>.push <refspec>` earlier on the same line: [remote, refspec] or null.
-function pushSet(g) {
-  if (g.sub !== 'config') return null;
-  const words = g.args.filter((w) => !(w.text && w.text.startsWith('-'))).map((w) => w.text);
-  if (words[0] === 'set') words.shift();
-  const m = words[0]?.match(/^remote\.(.+)\.push$/i);
-  return m && words.length >= 2 ? [m[1], words[1]] : null;
-}
+
 
 // Expand git aliases in place: a plain alias becomes its words; a "!" alias becomes the shell commands it runs.
 // An alias given with -c, or set with `git config` earlier on the same line, wins over the configured one.
-function expandGit(cmds, ctx, lineAliases = new Map(), linePush = new Map()) {
+// The configuration that applies to one git invocation: changes made earlier on the line, then its own (which win).
+// Sets g.eff (key → value, null when unknown), g.unresolved (a push-affecting change that can't be known),
+// g.configArgs (the known changes as -c options, for asking git where a push goes) and g.pushSpecs.
+function effectiveConfig(g, lineConfig) {
+  const eff = new Map(lineConfig);
+  for (const [k, v] of g.config) eff.set(k === '*' ? '*' : sectionKey(k), v);
+  g.eff = eff;
+  g.unresolved = [...eff].some(([k, v]) => k === '*' || k === 'branch.*' || k === 'remote.*' || /^include(if)?\./i.test(k) || (v === null && PUSH_KEYS.test(k)));
+  g.configArgs = [...eff].filter(([k, v]) => v !== null && k !== '*' && PUSH_KEYS.test(k) && !/^alias\./.test(k) && !/^include/.test(k)).flatMap(([k, v]) => ['-c', `${k}=${v}`]);
+  g.pushSpecs = new Map();
+  for (const [k, v] of [...lineConfig, ...g.config]) { const m = k.match(/^remote\.(.+)\.push$/i); if (m) g.pushSpecs.set(m[1], [...(g.pushSpecs.get(m[1]) || []), v]); }
+  return g;
+}
+
+function expandGit(cmds, ctx, lineConfig = new Map()) {
   const out = [];
   for (let c of cmds) {
     if (c.name !== 'git') { out.push(c); continue; }
     // Under xargs, git gets more arguments from stdin: one unknown word stands for them, so a push can't name its
     // destination and a commit can't name its files.
     if (c.fromXargs) c = { ...c, argv: [...c.argv, { text: null, dynamic: true, glob: false, current: false }] };
-    let g = gitCall(c, ctx.env), depth = 0;
-    const set = aliasSet(g);
-    if (set) lineAliases.set(set[0], set[1]);
-    const ps = pushSet(g);
-    if (ps) linePush.set(ps[0], [...(linePush.get(ps[0]) || []), ps[1]]);
-    // Push refspecs set on the command line or earlier on the line count like configured ones.
-    for (const [r, v] of linePush) if (!g.pushSpecs.has(r)) g.pushSpecs.set(r, v);
+    let g = effectiveConfig(gitCall(c, ctx.env), lineConfig), depth = 0;
+    for (const [k, v] of lineConfigChanges(g, ctx)) lineConfig.set(k === 'branch.*' || k === 'remote.*' ? k : sectionKey(k), v);
     while (g.sub && !GIT_BUILTINS.has(g.sub) && depth++ < 5) {
-      const alias = g.aliases.has(g.sub) ? g.aliases.get(g.sub) : lineAliases.has(g.sub) ? lineAliases.get(g.sub) : g.cwd ? ctx.gitAlias(g.cwd, g.sub) : null;
+      const key = `alias.${g.sub.toLowerCase()}`;
+      const alias = g.eff.has(key) ? g.eff.get(key) : g.cwd ? ctx.gitAlias(g.cwd, g.sub) : null;
+      // An alias whose value can't be known: what runs can't be known either.
+      if (alias === null && g.eff.has(key)) { g.unresolved = true; break; }
       if (!alias) break;
       if (alias.startsWith('!')) {
         const rest = g.args.map((w) => (w.text === null ? '"$UNKNOWN"' : `'${w.text.replace(/'/g, "'\\''")}'`)).join(' ');
-        for (const x of analyse(`${alias.slice(1)} ${rest}`, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([{ ...x, fromAlias: g.sub }], ctx, lineAliases, linePush));
+        for (const x of analyse(`${alias.slice(1)} ${rest}`, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([{ ...x, fromAlias: g.sub }], ctx, lineConfig));
         g = null;
         break;
       }
@@ -175,14 +224,14 @@ function expandGit(cmds, ctx, lineAliases = new Map(), linePush = new Map()) {
     // git submodule foreach '<cmd>' runs a shell command in each submodule: read it like sh -c.
     if (g?.sub === 'submodule' && g.args.some((w) => w.text === 'foreach')) {
       const cmd = g.args.at(-1)?.text;
-      if (cmd) for (const x of analyse(cmd, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([x], ctx, lineAliases, linePush));
+      if (cmd) for (const x of analyse(cmd, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([x], ctx, lineConfig));
     }
     // git rebase -x/--exec '<cmd>' runs a shell command after each commit: read it like sh -c.
     if (g?.sub === 'rebase') {
       for (let k = 0; k < g.args.length; k++) {
         const t = g.args[k].text;
         const cmd = t === '-x' || t === '--exec' ? g.args[k + 1]?.text : t?.startsWith('--exec=') ? t.slice(7) : undefined;
-        if (cmd) for (const x of analyse(cmd, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([x], ctx, lineAliases, linePush));
+        if (cmd) for (const x of analyse(cmd, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([x], ctx, lineConfig));
       }
     }
   }
@@ -204,12 +253,16 @@ const DEV = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
 // through it: a write onto it (through), a trailing "/" or "/.", or a glob under it (design 5.3). A plain "rm link"
 // judges the link's own name. { path, glob, text } with path null when it can't be known. A glob is judged on its
 // fixed leading folder, followed through.
-function place(word, cwd, ctx, through = false) {
+function place(word, cwd, ctx, through = false, links = null) {
   if (!word || word.text === null) return { path: null, raw: word };
   let t = word.text, thru = through || /\/\.?$/.test(t), tail = null;
   if (word.glob) { const cut = t.search(/[*?[]/); const head = t.slice(0, cut).replace(/[^/]*$/, ''); tail = t.slice(head.length); t = head || '.'; thru = true; }
   if (!isAbsolute(t) && !cwd) return { path: null, raw: word };
-  const abs = isAbsolute(t) ? t : resolve(cwd, t);
+  let abs = isAbsolute(t) ? t : resolve(cwd, t);
+  // Through a symlink made earlier on the same line (ln -s … && rm -rf link/): follow it as the shell would.
+  if (thru && links) for (const [link, target] of links) {
+    if (abs === link || abs.startsWith(link + sep)) { if (target === null) return { path: null, raw: word }; abs = target + abs.slice(link.length); break; }
+  }
   // tail: the glob part after the fixed folder (src/generated/*.ts → *.ts), for matching against generated globs.
   return { path: thru ? ctx.realFull(abs) : ctx.realish(abs), glob: word.glob, text: word.text, tail };
 }
@@ -220,7 +273,7 @@ const word = (text, glob = false) => ({ text, glob, dynamic: false, current: fal
 export function writeTargets(cmd, ctx) {
   const out = [];
   // Writes go through a symlink to the file it points at; moving a file away takes the link itself.
-  const add = (w, kind, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, kind !== 'move-src'), kind });
+  const add = (w, kind, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, kind !== 'move-src', cmd.links), kind });
   for (const r of cmd.redirects) {
     if (!r.target || ['<', '<<', '<<<', '<&', '<>'].includes(r.op)) continue;
     if (r.op === '>&' && /^(\d+|-)$/.test(r.target.text || '')) continue;
@@ -264,7 +317,7 @@ export function writeTargets(cmd, ctx) {
     const srcs = ti > 0 ? ps : ps.slice(0, -1);
     if (!dest || (!srcs.length && n !== 'ln')) return out;
     if (n === 'mv') for (const s of srcs) add(s, 'move-src');
-    const d = place(dest, cmd.cwd, ctx, true);
+    const d = place(dest, cmd.cwd, ctx, true, cmd.links);
     const intoDir = d.path && (ctx.isDir(d.path) || ti > 0 || srcs.length > 1 || dest.text?.endsWith('/'));
     const kind = n === 'mv' ? 'move-dst' : n === 'ln' ? 'link' : 'create-or-overwrite';
     if (intoDir && n !== 'rsync') for (const s of srcs) out.push({ path: s.text === null ? null : join(d.path, basename(s.text)), kind });
@@ -322,7 +375,7 @@ function patchFileTargets(cmd, ctx) {
 // What a shell command deletes: [{ path, recursive }].
 export function deleteTargets(cmd, ctx) {
   const a = cmd.argv, n = cmd.name, out = [];
-  const add = (w, recursive, through = false, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, through), recursive });
+  const add = (w, recursive, through = false, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, through, cmd.links), recursive });
   if (['rm', 'rmdir', 'unlink', 'shred', 'trash', 'rmtrash', 'trash-put'].includes(n)) {
     // trash and friends move things to the trash, which counts as deleting them from where they are.
     const recursive = n === 'rmdir' || n.startsWith('trash') || n === 'rmtrash' || hasFlag(a, /^(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)$/);
@@ -351,41 +404,57 @@ function checkPush(c, ctx, s) {
   const flag = (re) => args.some((w) => w.text && re.test(w.text));
   const ps = positionals([{ text: 'push' }, ...args], VALUE);
   const settingsFile = s.file || 'the project settings';
+  const unclear = (why) => block('protected-branches', `can't tell where this push goes (${why}); push with an explicit remote and branch (git push origin <branch>).`);
   const hit = (branch) => {
     const p = branchMatches(s.protectedBranches, branch);
     return p && block('protected-branches', `it would push to ${branch}, a protected branch here (${settingsFile}${p !== branch ? `: ${p}` : ''}). Push your own branch (git push -u origin <branch>) and open a pull request.`);
   };
-  if (flag(/^--mirror$/)) return block('protected-branches', `a mirror push overwrites every branch on the remote, including the protected ones (${settingsFile}). Push your own branch and open a pull request.`);
-  if (flag(/^--(all|branches)$/)) {
+  // Every protected branch present here, for pushes that take all (or all matching) branches.
+  const allOf = (what) => {
     const local = g.cwd ? ctx.localBranches(g.cwd) : null;
     const p = local === null ? s.protectedBranches[0] : local.find((b) => branchMatches(s.protectedBranches, b));
-    if (p) return block('protected-branches', `pushing all branches would push ${p}, a protected branch here (${settingsFile}). Push your own branch (git push -u origin <branch>) and open a pull request.`);
-    return null;
-  }
+    return p ? block('protected-branches', `${what} would push ${p}, a protected branch here (${settingsFile}). Push your own branch (git push -u origin <branch>) and open a pull request.`) : null;
+  };
+  if (g.unresolved) return unclear('it changes git configuration whose value isn\'t known');
+  // --repo names the remote; then every positional argument is a refspec.
+  const ri = args.findIndex((w) => w.text === '--repo' || w.text?.startsWith('--repo='));
+  const remote = ri >= 0 ? (args[ri].text.includes('=') ? args[ri].text.slice(7) : args[ri + 1]?.text ?? null) : ps[0] ? ps[0].text : 'origin';
+  let refspecs = ri >= 0 ? ps : ps.slice(1);
+  if (remote === null) return unclear('the remote depends on a variable or a command');
+  const conf = (key) => (g.eff.has(key) ? [g.eff.get(key)] : g.cwd ? ctx.gitConfigAll(g.cwd, key) : null)?.at(-1) ?? null;
+  if (flag(/^--mirror$/) || conf(`remote.${remote}.mirror`) === 'true') return block('protected-branches', `a mirror push overwrites every branch on the remote, including the protected ones (${settingsFile}). Push your own branch and open a pull request.`);
+  if (flag(/^--(all|branches)$/)) return allOf('pushing all branches');
   const del = flag(/^(-d|--delete)$/);
-  let refspecs = ps.slice(1);
   if (!refspecs.length && !flag(/^--tags$/)) {
     // A push refspec set for the remote (-c remote.<r>.push, git config earlier on the line, or the repo's config)
     // decides where a push without refspecs goes.
-    const remote = ps[0] ? ps[0].text : 'origin';
-    if (remote === null) return block('protected-branches', "can't tell which remote this push goes to; push with an explicit remote and branch.");
     const specs = g.pushSpecs.get(remote) ?? (g.cwd ? ctx.gitConfigAll(g.cwd, `remote.${remote}.push`) : null);
     if (specs?.length) refspecs = specs.map((v) => (v === null ? { text: null } : word(v)));
   }
   if (!refspecs.length) {
     if (flag(/^--tags$/)) return null;
-    const dest = g.cwd ? ctx.pushDestination(g.cwd) : null;
-    if (!dest) return block('protected-branches', "can't tell where this push goes; push with an explicit branch name (git push origin <branch>).");
+    if (conf('push.default') === 'matching') return allOf('a matching push (push.default=matching)');
+    // Where git itself says a push goes, with this invocation's configuration changes applied.
+    const dest = g.cwd ? ctx.pushDestination(g.cwd, g.configArgs) : null;
+    if (!dest) return unclear('git can\'t say which branch it would update');
     return hit(dest);
   }
   for (const w of refspecs) {
-    if (w.current) { const b = g.cwd ? ctx.currentBranch(g.cwd) : null; const r = b ? hit(b) : block('protected-branches', "can't tell where this push goes; push with an explicit branch name."); if (r) return r; continue; }
-    if (w.text === null) return block('protected-branches', "can't tell where this push goes (it depends on a variable or a command); push with an explicit branch name.");
+    if (w.current) { const b = g.cwd ? ctx.currentBranch(g.cwd) : null; const r = b ? hit(b) : unclear('HEAD isn\'t on a branch'); if (r) return r; continue; }
+    if (w.text === null) return unclear('it depends on a variable or a command');
     let t = w.text.replace(/^\+/, '');
+    if (t === ':') { const r = allOf('the matching refspec ":"'); if (r) return r; continue; }
     let dst = del ? t : t.includes(':') ? t.slice(t.indexOf(':') + 1) || t.slice(0, t.indexOf(':')) : t;
-    if (dst === 'HEAD' || dst === '@') { dst = g.cwd ? ctx.currentBranch(g.cwd) : null; if (!dst) return block('protected-branches', "can't tell which branch HEAD is; push with an explicit branch name."); }
+    if (dst === 'HEAD' || dst === '@') { dst = g.cwd ? ctx.currentBranch(g.cwd) : null; if (!dst) return unclear('HEAD isn\'t on a branch'); }
     if (dst.startsWith('refs/tags/')) continue;
     dst = dst.replace(/^refs\/heads\//, '');
+    // A wildcard refspec (refs/heads/*:refs/heads/*) takes every branch its pattern covers.
+    if (dst.includes('*')) {
+      const re = branchRe(dst);
+      const p = s.protectedBranches.find((b) => re.test(b) || (b.includes('*') && (b.split('*')[0].startsWith(dst.split('*')[0]) || dst.split('*')[0].startsWith(b.split('*')[0]))));
+      if (p) return block('protected-branches', `the wildcard refspec ${w.text} covers ${p}, a protected branch here (${settingsFile}). Push your own branch (git push -u origin <branch>) and open a pull request.`);
+      continue;
+    }
     if (!branchMatches(s.protectedBranches, dst)) continue;
     if (g.cwd && ctx.isTagOnly(g.cwd, dst)) continue;
     const r = hit(dst);
@@ -545,7 +614,8 @@ function guardrailByGitOrPermissions(c, ctx, sec) {
   const afterDashes = () => { const i = a.findIndex((w) => w.text === '--'); return i < 0 ? null : a.slice(i + 1); };
   if (g.sub === 'rm' || g.sub === 'mv') {
     const ps = positionals([{ text: g.sub }, ...a], []);
-    for (const w of g.sub === 'mv' ? ps.slice(0, -1) : ps) { const h = hit(at(w, cwd)); if (h && (h.explicit || g.sub === 'mv' || has(/^-[a-zA-Z]*r/))) return `${label(h.g)} (git ${g.sub})`; }
+    // git mv: the sources and the destination (moving a file onto the settings replaces them).
+    for (const w of ps) { const h = hit(at(w, cwd)); if (h && (h.explicit || g.sub === 'mv' || has(/^-[a-zA-Z]*r/))) return `${label(h.g)} (git ${g.sub})`; }
     return null;
   }
   if (g.sub === 'restore' || (g.sub === 'checkout' && afterDashes())) {
@@ -620,7 +690,7 @@ const isGit = (c, sub) => c.name === 'git' && c.git?.sub === sub;
 // Does the action touch a rule's family at all? Used when a rule fails: a matched family is denied, others allowed.
 const FAMILY = {
   secrets: (A) => A.cmds.some((c) => isGit(c, 'commit')),
-  'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push') || isGit(c, 'subtree') || (c.name === 'gh' && c.argv[1]?.text === 'api')),
+  'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push') || (c.name === 'git' && c.git?.unresolved) || isGit(c, 'subtree') || (c.name === 'gh' && c.argv[1]?.text === 'api')),
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|trash|rmtrash|trash-put|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
   'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || c.name === 'gh' || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
@@ -644,6 +714,8 @@ const CHECKS = {
   'protected-branches'(A, ctx, s) {
     for (const c of A.cmds) {
       if (isGit(c, 'push')) { const r = checkPush(c, ctx, s); if (r) return r; }
+      // Configuration that can't be known, and a subcommand that could be an alias from it: what runs can't be told.
+      if (c.name === 'git' && c.git?.unresolved && c.git.sub !== null && !GIT_BUILTINS.has(c.git.sub)) return block('protected-branches', "can't tell where this push goes or what this git command runs (it changes git configuration whose value isn't known, and its subcommand could be an alias from it). Run plain git commands with explicit branch names.");
       // git subtree push [--prefix=<dir>] <repo> <ref>: a push to <ref>.
       if (isGit(c, 'subtree') && c.git.args[0]?.text === 'push') {
         const ps = positionals([{ text: 'subtree' }, ...c.git.args.slice(1)], ['-P', '--prefix', '-m', '--message']);
@@ -792,6 +864,7 @@ export function decide(action, ctx) {
     if (/\bgit\b[^\n]*\b(push|commit)\b|\b(rm|mv|cp|dd|truncate|shred)\b|>/.test(line) || action.actions.some((a) => a.type === 'edit')) return finish({ decision: 'deny', rule: 'guard', message: couldNot(e) }, s);
     return { decision: 'allow', rule: null, note: `Cartwright couldn't read this command (${e.message}); it was allowed.` };
   }
+  if (A.cmds.some((c) => c.unknownHereDoc)) return finish({ decision: 'deny', rule: 'guard', message: "Cartwright blocked this: the here-document fed to this shell uses a variable whose value isn't known, so what it runs can't be checked. Run the commands directly." }, s);
   if (A.cmds.some((c) => c.tooDeep)) return finish({ decision: 'deny', rule: 'guard', message: "Cartwright blocked this: it's nested too deeply to check (more than six levels of sh -c, eval or command substitution). Run the inner command directly." }, s);
   let confirmed = null;
   for (const rule of ORDER) {

@@ -9,6 +9,8 @@
 // command, so it's dropped whole.
 const RESERVED = new Set(['if', 'then', 'else', 'elif', 'fi', 'do', 'done', 'while', 'until', 'in', 'esac', 'function', '{', '}', '!', '[[', ']]']);
 const HEADERS = new Set(['for', 'select', 'case']);
+import { dirname, resolve as resolvePath } from 'node:path';
+
 const OUT_OPS = ['&>>', '&>', '>>', '>|', '>&', '<<<', '<<-', '<<', '<>', '<&', '>', '<'];
 const CTL_OPS = ['&&', '||', '|&', ';;', '|', '&', ';', '(', ')'];
 const PLAIN_END = /[\s'"\\$`<>&|;()]/;
@@ -28,9 +30,26 @@ function closeParen(src, i) {
   return src.length + 1;
 }
 
+// Backslash escapes as bash's $'…', echo -e and printf %b decode them (\n \t \\ \' \" \xHH \NNN \0NNN \e …).
+export function decodeEscapes(s) {
+  const named = { n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' };
+  return String(s).replace(/\\(x[0-9A-Fa-f]{1,2}|0?[0-7]{1,3}|u[0-9A-Fa-f]{1,4}|.)/g, (m, e) => {
+    if (e[0] === 'x' && e.length > 1) return String.fromCharCode(parseInt(e.slice(1), 16));
+    if (e[0] === 'u' && e.length > 1) return String.fromCharCode(parseInt(e.slice(1), 16));
+    if (/^[0-7]+$/.test(e)) return String.fromCharCode(parseInt(e, 8));
+    return named[e] ?? m;
+  });
+}
+
 // One $… expansion starting at src[i]: a segment and the index after it.
 function dollar(src, i) {
   const n = src[i + 1];
+  // $'…' (ANSI-C quoting): a literal with backslash escapes decoded.
+  if (n === "'") {
+    let j = i + 2;
+    while (j < src.length && src[j] !== "'") j += src[j] === '\\' ? 2 : 1;
+    return [{ lit: decodeEscapes(src.slice(i + 2, j)), q: true }, Math.min(j + 1, src.length)];
+  }
   if (src.startsWith('$((', i)) { const j = closeParen(src, i + 2); return [{ dyn: 'arithmetic' }, Math.min(src.length, j + 1)]; }
   if (n === '(') { const j = closeParen(src, i + 2); return [{ cmd: src.slice(i + 2, j - 1) }, Math.min(j, src.length)]; }
   if (n === '{') {
@@ -96,7 +115,8 @@ export function lex(src) {
       if (op === '<<' || op === '<<-') {
         while (src[i] === ' ' || src[i] === '\t') i++;
         let j = i; while (j < src.length && !/[\s;&|<>()]/.test(src[j])) j++;
-        const tok = { t: 'h', op, delim: src.slice(i, j).replace(/['"\\]/g, ''), body: '' };
+        const raw = src.slice(i, j);
+        const tok = { t: 'h', op, delim: raw.replace(/['"\\]/g, ''), quoted: /['"\\]/.test(raw), body: '' };
         toks.push(tok); heredocs.push(tok); i = j;
         continue;
       }
@@ -123,9 +143,11 @@ export function parse(src) {
     if (tk.t === 'op') { end(); if (tk.op === '|' || tk.op === '|&') cur.piped = true; continue; }
     if (tk.t === 'h') { cur.redirects.push({ op: '<<', body: tk }); continue; }
     if (tk.t === 'r') { const target = toks[k + 1]?.t === 'w' ? toks[++k].segs : null; cur.redirects.push({ op: tk.op, fd: tk.fd, target }); continue; }
-    if (cur.header) continue;
     const first = tk.segs[0];
     const word = tk.segs.length === 1 && first.lit !== undefined && !first.q ? first.lit : null;
+    // A standalone { or } opens or closes a group (function p { …; }, coproc p { …; }): it ends the command before it.
+    if (word === '{' || word === '}') { end(); continue; }
+    if (cur.header) continue;
     if (!cur.words.length && !cur.assigns.length && word !== null) {
       if (RESERVED.has(word)) continue;
       if (HEADERS.has(word)) { cur.header = true; continue; }
@@ -180,13 +202,19 @@ export const base = (p) => String(p || '').split('/').pop().toLowerCase();
 function printed(cmd) {
   if (!cmd || !['echo', 'printf'].includes(cmd.name) || cmd.argv.some((a) => a.text === null)) return null;
   const a = cmd.argv.slice(1).map((w) => w.text);
-  if (cmd.name === 'echo') { while (/^-[neE]+$/.test(a[0] || '')) a.shift(); return a.join(' ').replace(/\\n/g, '\n'); }
+  if (cmd.name === 'echo') {
+    let escapes = false;
+    while (/^-[neE]+$/.test(a[0] || '')) { if (a[0].includes('e')) escapes = true; a.shift(); }
+    const text = a.join(' ');
+    return escapes ? decodeEscapes(text) : text.replace(/\\n/g, '\n');
+  }
+  // printf decodes escapes in its format, and in arguments printed with %b.
   let i = 1;
-  return (a[0] || '').replace(/%%|%[sbd]|\\n/g, (m) => (m === '%%' ? '%' : m === '\\n' ? '\n' : a[i++] ?? ''));
+  return decodeEscapes(a[0] || '').replace(/%%|%[sbdq]/g, (m) => (m === '%%' ? '%' : m === '%b' ? decodeEscapes(a[i++] ?? '') : a[i++] ?? ''));
 }
 
 export const MAX_DEPTH = 6;
-export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }) {
+export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [], links = new Map() }) {
   // Deeper than this (sh -c inside sh -c …) isn't read: a marker makes the guard deny it as too deep to check.
   if (depth > MAX_DEPTH) { out.push({ name: '', argv: [], redirects: [], cwd, env: vars, tooDeep: true, nested: true, text: '' }); return out; }
   let prev = null;
@@ -198,7 +226,7 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
     }
     // Commands inside substitutions run first, in the same folder.
     for (const segs of [...c.words, ...c.assigns.map((a) => a.segs), ...c.redirects.map((r) => r.target || [])]) {
-      for (const s of segs) if (s.cmd !== undefined && !(segs.length === 1 && CURRENT_BRANCH.some((re) => re.test(s.cmd)))) analyse(s.cmd, { cwd, env, vars: new Map(vars), depth: depth + 1, out });
+      for (const s of segs) if (s.cmd !== undefined && !(segs.length === 1 && CURRENT_BRANCH.some((re) => re.test(s.cmd)))) analyse(s.cmd, { cwd, env, vars: new Map(vars), depth: depth + 1, out, links });
     }
     let argv = c.words.map((w) => evalWord(w, local, env));
     const redirects = c.redirects.map((r) => ({ op: r.op, fd: r.fd, target: r.target ? evalWord(r.target, local, env) : null, body: r.body ? r.body.body : null }));
@@ -211,13 +239,13 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
       if (lead === 'watch' || lead === 'script') {
         const values = lead === 'watch' ? ['-n', '--interval', '-q', '--equexit'] : ['-t', '-T', '-E', '-o', '-I', '-O', '-B'];
         const ci = lead === 'script' ? argv.findIndex((w) => w.text === '-c' || w.text === '--command') : -1;
-        if (ci > 0) { if (argv[ci + 1]?.text != null) analyse(argv[ci + 1].text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); argv = []; break; }
+        if (ci > 0) { if (argv[ci + 1]?.text != null) analyse(argv[ci + 1].text, { cwd, env, vars: new Map(local), depth: depth + 1, out, links }); argv = []; break; }
         let k = 1;
         while (k < argv.length && argv[k].text?.startsWith('-')) k += values.includes(argv[k].text) ? 2 : 1;
         if (lead === 'script') k++;
         const rest = argv.slice(k);
         if (lead === 'watch' && !argv.some((w) => w.text === '-x' || w.text === '--exec')) {
-          if (rest.length && rest.every((w) => w.text !== null)) analyse(rest.map((w) => w.text).join(' '), { cwd, env, vars: new Map(local), depth: depth + 1, out });
+          if (rest.length && rest.every((w) => w.text !== null)) analyse(rest.map((w) => w.text).join(' '), { cwd, env, vars: new Map(local), depth: depth + 1, out, links });
           argv = []; break;
         }
         argv = rest; continue;
@@ -231,7 +259,9 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
         if (t === '--') { k++; break; }
         if (t && w.values.includes(t)) { k += 2; continue; }
         if (t && t.startsWith('-') && t.length > 1) { k++; continue; }
-        if (w.assigns && t && /^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { k++; continue; }
+        // env NAME=value: part of the command's environment (git reads GIT_CONFIG_* from there).
+        if (w.assigns && t && /^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { local.set(t.slice(0, t.indexOf('=')), t.slice(t.indexOf('=') + 1)); k++; continue; }
+        if (w.assigns && t === null && /^[A-Za-z_][A-Za-z0-9_]*=/.test(argv[k].raw?.[0]?.lit || '')) { const r = argv[k].raw[0].lit; local.set(r.slice(0, r.indexOf('=')), null); k++; continue; }
         if (skip) { skip--; k++; continue; }
         break;
       }
@@ -240,7 +270,7 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
     if (!argv.length && !redirects.length) { prev = null; continue; }
     const name = argv.length ? base(argv[0].text) : '';
     const text = argv.map((a) => (a.text === null ? '$?' : a.text)).join(' ');
-    const cmd = { name, argv, redirects, cwd, env: local, fromXargs, nested: depth > 0, text, piped: !!c.piped };
+    const cmd = { name, argv, redirects, cwd, env: local, fromXargs, nested: depth > 0, text, piped: !!c.piped, links: new Map(links) };
     const before = c.piped ? prev : null;
     prev = cmd;
     out.push(cmd);
@@ -253,18 +283,32 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
     } else if (name === 'cd') {
       const to = argv[1];
       cwd = !to ? env.HOME || null : to.text === null || to.text === '-' ? null : to.text.startsWith('/') ? to.text : cwd ? `${cwd}/${to.text}` : null;
+    } else if (name === 'ln' && argv.slice(1).some((a) => a.text === '--symbolic' || (a.text && /^-[a-zA-Z]*s/.test(a.text) && !a.text.startsWith('--')))) {
+      // A symlink made here is followed by later commands on the line (ln -s <target> <link>).
+      const ps = positionals(argv, ['-t', '--target-directory', '-S', '--suffix']);
+      if (ps.length >= 2 && ps[1].text !== null && cwd) {
+        const link = resolvePath(cwd, ps[1].text.replace(/\/$/, ''));
+        links.set(link, ps[0].text === null ? null : resolvePath(dirname(link), ps[0].text));
+      }
     } else if (name === 'export') {
       for (const a of argv.slice(1)) { const m = a.text?.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/); if (m) vars.set(m[1], m[2]); }
     } else if (SHELLS.includes(name)) {
       const i = argv.findIndex((a, k) => k > 0 && a.text && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a.text));
       const script = i > 0 ? argv[argv[i + 1]?.text === '--' ? i + 2 : i + 1] : null;
-      if (script) { if (script.text !== null) analyse(script.text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true; }
+      if (script) { if (script.text !== null) analyse(script.text, { cwd, env, vars: new Map(local), depth: depth + 1, out, links }); else cmd.unknownScript = true; }
       // No -c and no script file: the shell runs what it reads. From a here-string, a here-document, or echo or
       // printf with known text, read that.
       else if (i < 0 && !positionals(argv, ['-o', '+o', '-O', '+O']).length) {
-        const fed = redirects.find((r) => r.op === '<<<' || r.op === '<<');
-        const text = fed ? (fed.op === '<<' ? fed.body : fed.target?.text ?? null) : printed(before);
-        if (text !== null && text !== undefined) analyse(text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true;
+        const fed = c.redirects.find((r) => r.op === '<<<' || r.op === '<<');
+        let text = fed ? (fed.op === '<<' ? fed.body.body : evalWord(fed.target || [], local, env).text) : printed(before);
+        // An unquoted here-document's $VAR and ${VAR} are expanded first: known ones are filled in; an unknown one
+        // means the script can't be known.
+        if (fed?.op === '<<' && !fed.body.quoted && text !== null) {
+          let unknown = false;
+          text = text.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (m, a, b) => { const v = local.has(a || b) ? local.get(a || b) : env[a || b]; if (v === undefined || v === null) unknown = true; return v ?? ''; });
+          if (unknown) { cmd.unknownHereDoc = true; text = null; }
+        }
+        if (text !== null && text !== undefined) analyse(text, { cwd, env, vars: new Map(local), depth: depth + 1, out, links }); else cmd.unknownScript = true;
       }
     } else if (name === 'find') {
       // find … -exec <command> {} ; or +: the command runs on what find finds under its start point.
@@ -274,11 +318,11 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
         const words = [];
         for (k++; k < argv.length && ![';', '+'].includes(argv[k].text); k++) words.push(argv[k]);
         const line = words.map((w) => (w.text === '{}' ? `${shQuote(start.replace(/\/$/, ''))}/*` : w.text === null ? '"$UNKNOWN_FIND_ARG"' : shQuote(w.text))).join(' ');
-        if (line) analyse(line, { cwd, env, vars: new Map(local), depth: depth + 1, out });
+        if (line) analyse(line, { cwd, env, vars: new Map(local), depth: depth + 1, out, links });
       }
     } else if (name === 'eval') {
       const parts = argv.slice(1);
-      if (parts.every((a) => a.text !== null)) analyse(parts.map((a) => a.text).join(' '), { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true;
+      if (parts.every((a) => a.text !== null)) analyse(parts.map((a) => a.text).join(' '), { cwd, env, vars: new Map(local), depth: depth + 1, out, links }); else cmd.unknownScript = true;
     }
   }
   return out;

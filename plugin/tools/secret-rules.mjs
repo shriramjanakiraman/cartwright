@@ -29,7 +29,7 @@ export const VALUE_SECRET_RULES = [
   ['password option', /\b(docker\s+login|sshpass)\b[^|;&]*\s-p\s*(?!-)[^\s$]{4,}|\bredis-cli\b[^|;&]*\s-a\s+(?!-)[^\s$]{4,}/],
   ['user and password', /\bcurl\b[^|;&]*\s(?:-u|--user)\s*(?!-)[^\s:$]+:[^\s$]{4,}/],
   ['AWS secret key', /aws_secret_access_key\s*[=:]\s*["']?[A-Za-z0-9/+=]{20,}/i],
-  ['webhook or DSN', /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{10,}|https?:\/\/[0-9a-f]{16,}(?::[0-9a-f]+)?@[^\s/]+/i],
+  ['webhook or DSN', /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{10,}|https?:\/\/(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{12,}(?::[A-Za-z0-9]+)?@[A-Za-z0-9.-]+/i],
 ];
 
 // Files that hold credentials by convention, as globs on the file name. Tools that study a project never open them.

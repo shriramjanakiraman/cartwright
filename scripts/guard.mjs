@@ -137,8 +137,9 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     gitConfigAll: (dir, key) => { const t = git(dir, 'config', '--get-all', key); return t === null ? null : t.split('\n').filter(Boolean); },
     gitTop: (dir) => (git(dir, 'rev-parse', '--show-toplevel') || '').trim() || dir,
     currentBranch: (dir) => (git(dir, 'symbolic-ref', '--short', '-q', 'HEAD') || '').trim() || null,
-    pushDestination: (dir) => {
-      const p = (git(dir, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{push}') || '').trim();
+    // Where git says a bare push goes, with the invocation's configuration changes (-c) applied.
+    pushDestination: (dir, configArgs = []) => {
+      const p = (git(dir, ...configArgs, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{push}') || '').trim();
       return p ? p.slice(p.indexOf('/') + 1) : (git(dir, 'symbolic-ref', '--short', '-q', 'HEAD') || '').trim() || null;
     },
     localBranches: (dir) => { const t = git(dir, 'for-each-ref', '--format=%(refname:short)', 'refs/heads'); return t === null ? null : t.split('\n').filter(Boolean); },
