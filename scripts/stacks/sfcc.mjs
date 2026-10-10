@@ -5,6 +5,8 @@ import { runScript } from './node.mjs';
 export const PLATFORM = 'Salesforce B2C Commerce';
 const SFRA_SKILLS = ['b2c-controllers', 'b2c-forms', 'b2c-isml'];
 const SFNEXT_SKILLS = ['sfnext-*'];
+// The regenerate command, only when the package manager that runs it is known.
+const regen = (pm, script) => (pm ? { regenerate: runScript(pm, script) } : {});
 
 export default {
   id: 'sfcc',
@@ -22,7 +24,7 @@ export default {
     if (sfnext) {
       const generated = [];
       if (cartridges.includes('app_storefrontnext_base') && typeof scripts['cartridge:generate'] === 'string') {
-        generated.push({ path: 'cartridges/app_storefrontnext_base/cartridge/experience/**', regenerate: runScript(pm, 'cartridge:generate'), source: 'package.json#scripts.cartridge:generate' });
+        generated.push({ path: 'cartridges/app_storefrontnext_base/cartridge/experience/**', ...regen(pm, 'cartridge:generate'), source: 'package.json#scripts.cartridge:generate' });
       }
       return { platform: { value: PLATFORM, flavour: 'storefront-next', source: sfnext }, layout, generated, guidance: { preferSkills: SFNEXT_SKILLS, avoidSkills: SFRA_SKILLS } };
     }
@@ -39,7 +41,7 @@ export default {
     const isml = cartridges.find((c) => ctx.exists(`cartridges/${c}/cartridge/templates`));
     if (isml) r.languages.push({ value: 'ISML', source: `cartridges/${isml}/cartridge/templates` });
     for (const [script, dir] of [['compile:js', 'js'], ['compile:scss', 'css']]) {
-      if (typeof scripts[script] === 'string') r.generated.push({ path: `cartridges/*/cartridge/static/default/${dir}/**`, regenerate: runScript(pm, script), source: `package.json#scripts.${script}` });
+      if (typeof scripts[script] === 'string') r.generated.push({ path: `cartridges/*/cartridge/static/default/${dir}/**`, ...regen(pm, script), source: `package.json#scripts.${script}` });
     }
     return r;
   },

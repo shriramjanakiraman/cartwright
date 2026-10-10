@@ -24,7 +24,7 @@ import { isAbsolute, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import STACKS from './stacks/index.mjs';
 import { parseToml } from './stacks/python.mjs';
-import { HIDDEN, isSecretPath, secretKind } from './secret-rules.mjs';
+import { HIDDEN, isSecretPath, SECRET_FILE_GLOBS, secretKind } from './secret-rules.mjs';
 import { buildSettings, DEFAULT_PROTECTED, resolveSettings, validateSettings } from './settings.mjs';
 import { found, load, MODES, save } from './store.mjs';
 
@@ -46,6 +46,9 @@ const GENERATED_HEADER = ['@generated', 'DO NOT EDIT', 'Do not edit by hand', 'A
 const HEADER_LINES = 5;
 const BUILD_OUTPUT = ['dist', 'build', 'out'];
 const NOT_FOUND = { status: 'not found' };
+const LOCKFILES = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'uv.lock', 'poetry.lock', 'Pipfile.lock', 'pdm.lock'];
+// Order by code point, never by locale, so every machine sorts the same way.
+export const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 // --- reading the project: read-only, bounded, and refusing credential files --------------------------------------
 export function makeCtx(root) {
@@ -53,9 +56,14 @@ export function makeCtx(root) {
   // Whether a path, after following symlinks, is still inside the project.
   const real = realpathSync(root);
   const within = (p) => { try { const r = realpathSync(p); return r === real || r.startsWith(real + sep); } catch { return false; } };
-  const isDir = (rel) => { try { return statSync(inside(rel)).isDirectory(); } catch { return false; } };
+  // A name counts only with its exact case, taken from the parent folder's listing: on a case-insensitive disk
+  // (macOS) claude.md must not pass for CLAUDE.md, or the same project would profile differently on Linux.
+  const listings = new Map();
+  const namesIn = (abs) => { if (!listings.has(abs)) { let n = null; try { n = new Set(readdirSync(abs)); } catch { /* unreadable */ } listings.set(abs, n); } return listings.get(abs); };
+  const exact = (rel) => { let d = root; for (const p of normalize(rel).split(/[\\/]/).filter((x) => x && x !== '.')) { if (!namesIn(d)?.has(p)) return false; d = join(d, p); } return true; };
+  const isDir = (rel) => { try { return exact(rel) && statSync(inside(rel)).isDirectory(); } catch { return false; } };
   const ctx = {
-    exists: (rel) => existsSync(inside(rel)),
+    exists: (rel) => exact(rel) && existsSync(inside(rel)),
     isDir,
     // Entries under a folder, repo-relative, folders ending in "/", sorted; bounded in depth and count. A folder that
     // leads outside the project lists nothing, and symlinked folders are listed as entries but never entered.
@@ -80,7 +88,7 @@ export function makeCtx(root) {
     text(rel) {
       const name = rel.split('/').pop();
       if (!READABLE.has(name) || isSecretPath(rel)) return null;
-      try { const p = inside(rel); return !within(p) || statSync(p).size > MAX_BYTES ? null : readFileSync(p, 'utf8'); } catch { return null; }
+      try { const p = inside(rel); return !exact(rel) || !within(p) || statSync(p).size > MAX_BYTES ? null : readFileSync(p, 'utf8'); } catch { return null; }
     },
     json(rel) { try { const t = ctx.text(rel); return t === null ? null : JSON.parse(t); } catch { return null; } },
     toml(rel) { try { const t = ctx.text(rel); return t === null ? null : parseToml(t); } catch { return null; } },
@@ -138,9 +146,7 @@ function conventions(ctx) {
 // (file names only, credential files and lockfiles excluded) and tracked build output.
 function generatedCandidates(ctx, build) {
   const out = [];
-  const exclude = ['.env*', 'dw.json', '*.pem', '*.key', 'id_rsa*', '*.p12', '*.pfx', '.npmrc', '.netrc', 'credentials*',
-    'package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'uv.lock', 'poetry.lock', 'Pipfile.lock', 'pdm.lock']
-    .map((p) => `:(exclude,glob)**/${p}`);
+  const exclude = [...SECRET_FILE_GLOBS, ...LOCKFILES].map((p) => `:(exclude,glob)**/${p}`);
   // -z output: path NUL line NUL text. Only the path and line number are used, and only matches near the top count.
   const grep = ctx.git('grep', '-n', '-z', '-I', '-F', ...GENERATED_HEADER.flatMap((h) => ['-e', h]), '--', '.', ...exclude);
   const headers = new Set();
@@ -148,7 +154,7 @@ function generatedCandidates(ctx, build) {
   for (const path of [...headers].sort().slice(0, 50)) out.push({ path, source: 'git grep: a "generated, do not edit" header' });
   const tracked = (ctx.git('ls-files', '--', ...BUILD_OUTPUT) || '').split('\n').filter(Boolean);
   for (const d of BUILD_OUTPUT) {
-    if (tracked.some((f) => f.startsWith(`${d}/`))) out.push({ path: `${d}/**`, ...(build ? { regenerate: build.run } : {}), source: `git: tracked files in ${d}/` });
+    if (tracked.some((f) => f.startsWith(`${d}/`))) out.push({ path: `${d}/**`, ...(build?.run ? { regenerate: build.run } : {}), source: `git: tracked files in ${d}/` });
   }
   return out;
 }
@@ -195,7 +201,7 @@ export function detect(root, { suggestions = true } = {}) {
     packageManager: scalar(f.packageManager),
     commands: Object.fromEntries(['build', 'test', 'lint'].map((k) => [k, scalar(acc.commands[k])])),
     otherScripts: scalar(f.otherScripts),
-    frameworks: acc.frameworks.length ? { status: 'found', value: [...acc.frameworks].sort((a, b) => a.name.localeCompare(b.name)) } : NOT_FOUND,
+    frameworks: acc.frameworks.length ? { status: 'found', value: [...acc.frameworks].sort((a, b) => byCodePoint(a.name, b.name)) } : NOT_FOUND,
     layout: layoutKeys.length ? { status: 'found', value: Object.fromEntries(layoutKeys.map((k) => [k, acc.layout[k].value])), source: [...new Set(layoutKeys.map((k) => acc.layout[k].source))].join(', ') } : NOT_FOUND,
     remoteHost: remoteHost(ctx),
     protectedBranchCandidates: branchCandidates(ctx),
@@ -207,7 +213,7 @@ export function detect(root, { suggestions = true } = {}) {
   if (suggestions) {
     const gen = [...acc.generated];
     for (const g of generatedCandidates(ctx, acc.commands.build)) if (!gen.some((y) => y.path === g.path)) gen.push(g);
-    profile.suggestions = { generated: gen.sort((a, b) => a.path.localeCompare(b.path)) };
+    profile.suggestions = { generated: gen.filter((g) => !isSecretPath(g.path)).sort((a, b) => byCodePoint(a.path, b.path)) };
   }
   return hideSecrets(profile);
 }
@@ -242,13 +248,14 @@ export function compare(saved, fresh, { quick = false } = {}) {
 }
 
 // --- a few plain lines about the profile, for people (the AGENTS.md section) -----------------------------------
+const ver = (x) => `${x.value}${x.kind === 'range' ? ' (a range)' : ''} (${x.source})`;
 const fmt = (x, f) => (x?.status === 'found' ? f(x) : 'not found');
 export function summaryLines(p) {
   const f = p.facts || {}, c = f.commands || {}, cv = p.conventions || {};
-  const cmd = (k) => fmt(c[k], (x) => `${x.run} (${x.source})`);
+  const cmd = (k) => fmt(c[k], (x) => `${x.run || `${x.defined} (package manager not found)`} (${x.source})`);
   return [
     `- Platform: ${fmt(f.platform, (x) => `${x.value}, ${x.flavour} (${x.source})`)}`,
-    `- Languages: ${fmt(f.languages, (x) => x.value.map((l) => l.value).join(', '))} · Node: ${fmt(f.node, (x) => `${x.value} (${x.source})`)} · Python: ${fmt(f.python, (x) => `${x.value} (${x.source})`)}`,
+    `- Languages: ${fmt(f.languages, (x) => x.value.map((l) => l.value).join(', '))} · Node: ${fmt(f.node, ver)} · Python: ${fmt(f.python, ver)}`,
     `- Package manager: ${fmt(f.packageManager, (x) => `${x.value} (${x.source})`)}`,
     `- Build: ${cmd('build')} · Test: ${cmd('test')} · Lint: ${cmd('lint')}`,
     `- Layout: ${fmt(f.layout, (x) => Object.entries(x.value).map(([k, v]) => `${k} ${[].concat(v).join(', ')}`).join('; '))}`,
@@ -331,7 +338,7 @@ function cli(argv) {
     const cp = opt('--client-project');
     if (cp !== undefined && !['yes', 'no'].includes(cp)) usage('--client-project takes yes or no');
     const target = load(root, store);
-    if (target.settings.status === 'broken') stop(`The existing settings (${target.settings.file}) can't be read: ${target.settings.errors.join('; ')}. Fix or move that file by hand, then run write again.`);
+    if (target.settings.status === 'broken') stop(`The existing settings (${target.settings.file}) can't be used: ${target.settings.errors.join('; ')}. Fix or move that file by hand, then run write again.`);
     let base = null;
     for (const s of [target.settings, stored.settings]) {
       if (s.status !== 'ok') continue;

@@ -1,6 +1,8 @@
 // Python: pyproject.toml (read with a minimal TOML reader), uv / poetry / pipenv / pip, the Python pin, pytest and
 // ruff configuration, and Makefile targets (names only).
-import { toolVersion } from './node.mjs';
+import { toolVersion, VERSION_RANGE } from './node.mjs';
+
+const PY_PIN = /^(pypy|cpython-)?\d+(\.\d+){0,2}[0-9A-Za-z.+-]*$/;
 
 const LOCKFILES = [['uv.lock', 'uv'], ['poetry.lock', 'poetry'], ['Pipfile.lock', 'pipenv'], ['pdm.lock', 'pdm']];
 const KNOWN = ['django', 'flask', 'fastapi', 'starlette', 'pydantic', 'sqlalchemy', 'celery', 'httpx', 'requests', 'numpy', 'pandas',
@@ -99,10 +101,12 @@ export default {
     const tool = py.tool || {};
     const r = { languages: [{ value: 'Python', source: marker }], frameworks: [], commands: {}, layout: {} };
 
-    const pin = (ctx.text('.python-version') || '').trim();
-    if (pin) r.python = { value: pin, source: '.python-version' };
-    else if (toolVersion(ctx, ['python'])) r.python = { value: toolVersion(ctx, ['python']), source: '.tool-versions' };
-    else if (typeof py.project?.['requires-python'] === 'string') r.python = { value: py.project['requires-python'], source: 'pyproject.toml#project.requires-python' };
+    const pin = ((ctx.text('.python-version') || '').split(/\r?\n/).map((l) => l.trim()).find(Boolean)) || '';
+    const tv = toolVersion(ctx, ['python']) || '';
+    const range = typeof py.project?.['requires-python'] === 'string' ? py.project['requires-python'].trim() : '';
+    if (PY_PIN.test(pin)) r.python = { value: pin, kind: 'pinned', source: '.python-version' };
+    else if (PY_PIN.test(tv)) r.python = { value: tv, kind: 'pinned', source: '.tool-versions' };
+    else if (range && VERSION_RANGE.test(range.replace(/,/g, ' '))) r.python = { value: range, kind: 'range', source: 'pyproject.toml#project.requires-python' };
 
     const lock = LOCKFILES.find(([f]) => ctx.exists(f));
     if (lock) r.packageManager = { value: lock[1], source: lock[0] };

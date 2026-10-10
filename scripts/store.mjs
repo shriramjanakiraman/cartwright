@@ -7,7 +7,7 @@
 // <state> is $CARTWRIGHT_STATE_DIR or ~/.cartwright; <key> is the first 16 hex characters of the sha256 of the
 // project root's real path. Shipped in the plugin as tools/store.mjs. No dependencies.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -41,20 +41,39 @@ export function parseJson(text) {
 }
 
 const readText = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
+const missing = (e) => e.code === 'ENOENT' || e.code === 'ENOTDIR';
+// A file's text, or { error } when it exists but can't be read (permissions): never mistaken for "not there".
+const readOrError = (p) => { try { return { text: readFileSync(p, 'utf8') }; } catch (e) { return missing(e) ? { text: null } : { error: e.code || 'error' }; } };
 // One stored file as { status: 'none'|'ok'|'broken', data, errors, file }.
 function readJsonFile(path, label) {
-  if (!existsSync(path)) return { status: 'none', file: label };
-  const text = readText(path);
-  if (text === null) return { status: 'broken', errors: ["can't be read"], file: label };
+  const { text, error } = readOrError(path);
+  if (error) return { status: 'broken', errors: [`the file can't be read (${error})`], file: label };
+  if (text === null) return { status: 'none', file: label };
   const r = parseJson(text);
   return r.ok ? { status: 'ok', data: r.data, file: label } : { status: 'broken', errors: [r.error], file: label };
 }
 
-// The AGENTS.md section, split into its parts. { status: 'none' } when there are no markers.
+// The AGENTS.md section, split into its parts. { status: 'none' } when there are no markers. A marker counts
+// only as a whole line outside code fences, so prose or an example that mentions one isn't a section.
+export function findMarkers(text) {
+  let pos = 0, fence = null, b = -1, e = -1, extra = false;
+  for (const line of text.split('\n')) {
+    const start = pos;
+    pos += line.length + 1;
+    const t = line.replace(/\r$/, '').trim();
+    const f = t.match(/^(`{3,}|~{3,})/);
+    if (f) { if (!fence) fence = f[1][0]; else if (f[1][0] === fence) fence = null; continue; }
+    if (fence) continue;
+    const at = start + line.indexOf(t);
+    if (t.startsWith(BEGIN_PREFIX) && t.endsWith('-->')) { if (b < 0) b = at; else if (e < 0) extra = true; }
+    else if (t === END) { if (b < 0 || e >= 0) extra = true; else e = at; }
+  }
+  return { b, e, extra };
+}
 export function readSection(text) {
-  const b = text.indexOf(BEGIN_PREFIX), e = text.indexOf(END);
-  if (b < 0 && e < 0) return { status: 'none' };
-  if (b < 0 || e < 0 || e < b) return { status: 'broken', errors: [`${AGENTS_FILE}: the cartwright:begin and cartwright:end markers must both be there, begin first`] };
+  const { b, e, extra } = findMarkers(text);
+  if (b < 0 && e < 0 && !extra) return { status: 'none' };
+  if (b < 0 || e < 0 || extra) return { status: 'broken', errors: [`${AGENTS_FILE}: the cartwright:begin and cartwright:end markers must each be there once, on lines of their own, begin first`] };
   const end = e + END.length;
   const body = text.slice(b, end);
   const part = (kind) => {
@@ -94,11 +113,13 @@ export function withSection(text, parts) {
 
 const folderPath = (root, f) => join(root, FOLDER, f);
 // Which storage modes hold something for this project, in lookup order.
+// A folder or AGENTS.md that exists but can't be read counts as found (and broken): stricter, and loud.
 export function found(root) {
   const out = [];
-  if (['profile.json', 'settings.json'].some((f) => existsSync(folderPath(root, f)))) out.push('folder');
-  const agents = readText(join(root, AGENTS_FILE));
-  if (agents !== null && readSection(agents).status !== 'none') out.push('agents-md');
+  let folder; try { folder = readdirSync(join(root, FOLDER)); } catch (e) { folder = missing(e) ? [] : null; }
+  if (folder === null || ['profile.json', 'settings.json'].some((f) => folder.includes(f))) out.push('folder');
+  const agents = readOrError(join(root, AGENTS_FILE));
+  if (agents.error || (agents.text !== null && readSection(agents.text).status !== 'none')) out.push('agents-md');
   if (['profile.json', 'settings.json'].some((f) => existsSync(join(machineDir(root), f)))) out.push('machine');
   return out;
 }
@@ -117,7 +138,8 @@ export function load(root, mode) {
   const personal = readJsonFile(personalPath(root, m), personalLabel(root, m));
   if (m === 'folder') return { mode: m, found: all, profile: readJsonFile(folderPath(root, 'profile.json'), `${FOLDER}/profile.json`), settings: readJsonFile(folderPath(root, 'settings.json'), `${FOLDER}/settings.json`), personal };
   if (m === 'machine') return { mode: m, found: all, profile: readJsonFile(join(machineDir(root), 'profile.json'), join(machineDir(root), 'profile.json')), settings: readJsonFile(join(machineDir(root), 'settings.json'), join(machineDir(root), 'settings.json')), personal };
-  const text = readText(join(root, AGENTS_FILE));
+  const { text, error } = readOrError(join(root, AGENTS_FILE));
+  if (error) { const b = { status: 'broken', errors: [`the file can't be read (${error})`], file: AGENTS_FILE }; return { mode: m, found: all, profile: b, settings: b, personal }; }
   const sec = text === null ? { status: 'none' } : readSection(text);
   if (sec.status === 'none') return { mode: m, found: all, profile: none(AGENTS_FILE), settings: none(AGENTS_FILE), personal };
   if (sec.status === 'broken') { const b = { status: 'broken', errors: sec.errors, file: AGENTS_FILE }; return { mode: m, found: all, profile: b, settings: b, personal }; }

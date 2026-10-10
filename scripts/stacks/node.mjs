@@ -11,8 +11,14 @@ const KNOWN = ['next', 'react', 'react-router', '@remix-run/react', 'vue', 'nuxt
 // npm init's placeholder test script: not a real test command.
 const NPM_PLACEHOLDER = /^echo "Error: no test specified" && exit 1$/;
 
-// How a package manager runs one of the project's scripts.
+// What a pin or a range has to look like; anything else (a mistake, or a secret in the wrong file) is "not found".
+export const NODE_PIN = /^v?\d+(\.\d+){0,2}(-[0-9A-Za-z.-]+)?$|^lts\/(\*|[a-z-]+)$|^(node|stable|latest)$/;
+export const VERSION_RANGE = /^[\dvxX*.\s<>=^~|-]+$/;
+const firstLine = (t) => (t || '').split(/\r?\n/).map((l) => l.trim()).find(Boolean) || '';
+
+// How a package manager runs one of the project's scripts; null when the package manager isn't known.
 export function runScript(pm, name) {
+  if (!pm) return null;
   if (pm === 'pnpm' || pm === 'yarn') return `${pm} ${name}`;
   if (pm === 'bun') return `bun run ${name}`;
   return name === 'test' ? 'npm test' : `npm run ${name}`;
@@ -40,22 +46,24 @@ export default {
     else r.languages.push({ value: 'JavaScript', source: 'package.json' });
 
     for (const f of ['.nvmrc', '.node-version']) {
-      const v = (ctx.text(f) || '').trim();
-      if (v) { r.node = { value: v.replace(/^v/, ''), source: f }; break; }
+      const v = firstLine(ctx.text(f));
+      if (NODE_PIN.test(v)) { r.node = { value: v.replace(/^v(?=\d)/, ''), kind: 'pinned', source: f }; break; }
     }
-    if (!r.node && toolVersion(ctx, ['nodejs', 'node'])) r.node = { value: toolVersion(ctx, ['nodejs', 'node']), source: '.tool-versions' };
-    if (!r.node && typeof pkg.engines?.node === 'string') r.node = { value: pkg.engines.node, source: 'package.json#engines.node' };
+    const tv = toolVersion(ctx, ['nodejs', 'node']);
+    if (!r.node && NODE_PIN.test(tv || '')) r.node = { value: tv, kind: 'pinned', source: '.tool-versions' };
+    if (!r.node && typeof pkg.engines?.node === 'string' && VERSION_RANGE.test(pkg.engines.node.trim())) r.node = { value: pkg.engines.node.trim(), kind: 'range', source: 'package.json#engines.node' };
 
     const lock = LOCKFILES.find(([f]) => ctx.exists(f));
     if (lock) r.packageManager = { value: lock[1], source: lock[0] };
     else if (typeof pkg.packageManager === 'string' && /^(npm|pnpm|yarn|bun)@/.test(pkg.packageManager)) r.packageManager = { value: pkg.packageManager.split('@')[0], source: 'package.json#packageManager' };
-    const pm = r.packageManager?.value || 'npm';
+    const pm = r.packageManager?.value;
 
     const scripts = deps('scripts');
     for (const name of ['build', 'test', 'lint']) {
       const body = scripts[name];
       if (typeof body !== 'string' || !body.trim() || (name === 'test' && NPM_PLACEHOLDER.test(body.trim()))) continue;
-      r.commands[name] = { run: runScript(pm, name), defined: body, how: 'defined', source: `package.json#scripts.${name}` };
+      // Without a known package manager, the script is recorded as defined, with no guessed way to run it.
+      r.commands[name] = { ...(pm ? { run: runScript(pm, name) } : {}), defined: body, how: 'defined', source: `package.json#scripts.${name}` };
     }
     const other = Object.keys(scripts).filter((n) => !['build', 'test', 'lint'].includes(n)).sort();
     if (other.length) r.otherScripts = { value: other, source: 'package.json#scripts' };

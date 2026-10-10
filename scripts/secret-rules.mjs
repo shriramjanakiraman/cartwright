@@ -11,13 +11,25 @@ export const SECRET_RULES = [
   ['hard-coded secret', /\b(api[_-]?key|client[_-]?secret|secret|password|passwd|token)\b["']?\s*[:=]\s*["'][^"'<>{}$\s]{8,}["']/i],
 ];
 
-// Files that hold credentials by convention. Tools that study a project never open them.
-export const SECRET_FILES = [
-  /^\.env($|\.)/, /^dw\.json$/, /\.pem$/, /\.key$/, /^id_rsa/, /\.p12$/, /\.pfx$/, /^\.npmrc$/, /^\.netrc$/, /^credentials/,
+// More shapes, for values a tool copies out of a project (a package.json script, a pin): broader than the scrub
+// needs, because hiding a harmless value there costs little and showing a real one costs a lot.
+export const VALUE_SECRET_RULES = [
+  ...SECRET_RULES,
+  ['password in a URL', /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:[^\s@/]+@/i],
+  ['bearer token', /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/i],
+  ['secret assignment', /\b[A-Za-z0-9_-]*(KEY|TOKEN|SECRET|PASS(WORD|WD)?)[A-Za-z0-9_]*=[^\s"'$<{%][^\s"']{5,}/i],
+  ['database password option', /\b(mysql|mysqldump|mysqladmin)\b[^|;&]*\s-p[^\s-]\S*/],
+  ['API key', /\b(sk_live_[A-Za-z0-9]{8,}|npm_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{30,})/],
 ];
 
-// The kind of secret a string looks like ('GitHub token', …), or null.
-export const secretKind = (text) => (SECRET_RULES.find(([, re]) => re.test(String(text))) || [])[0] || null;
+// Files that hold credentials by convention, as globs on the file name. Tools that study a project never open them.
+export const SECRET_FILE_GLOBS = ['.env*', 'dw.json', '*.pem', '*.key', 'id_rsa*', 'id_dsa*', 'id_ecdsa*', 'id_ed25519*',
+  '*.p12', '*.pfx', '*.jks', '*.keystore', '.npmrc', '.netrc', '.pgpass', 'credentials*', 'secrets.*', '*.tfvars'];
+const globRe = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
+export const SECRET_FILES = SECRET_FILE_GLOBS.map(globRe);
+
+// The kind of secret a string looks like ('GitHub token', …), or null. `rules` defaults to the broad value set.
+export const secretKind = (text, rules = VALUE_SECRET_RULES) => (rules.find(([, re]) => re.test(String(text))) || [])[0] || null;
 // Whether a path (any separator) names a credentials file.
 export const isSecretPath = (path) => SECRET_FILES.some((re) => re.test(String(path).split(/[\\/]/).pop()));
 // Shown instead of a value that looked like a secret.
