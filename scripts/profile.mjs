@@ -19,7 +19,7 @@
 //   node profile.mjs check                    JSON: quick drift and settings check (exit 1 if out of date or broken)
 // Options: --dir <path> runs against another project folder. Exit 2 on usage errors.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import STACKS from './stacks/index.mjs';
@@ -51,7 +51,10 @@ const LOCKFILES = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml',
 export const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 // --- reading the project: read-only, bounded, and refusing credential files --------------------------------------
-export function makeCtx(root) {
+// Raised when detection runs past its deadline (the session-start drift check is time-boxed); the caller skips.
+export class DetectDeadline extends Error { constructor() { super('detection ran out of time'); this.deadline = true; } }
+
+export function makeCtx(root, deadline = Infinity) {
   const inside = (rel) => { const n = normalize(rel); if (isAbsolute(n) || n.split(/[\\/]/).includes('..')) throw new Error(`outside the project: ${rel}`); return join(root, n); };
   // Whether a path, after following symlinks, is still inside the project.
   const real = realpathSync(root);
@@ -93,9 +96,14 @@ export function makeCtx(root) {
     },
     json(rel) { try { const t = ctx.text(rel); return t === null ? null : JSON.parse(t); } catch { return null; } },
     toml(rel) { try { const t = ctx.text(rel); return t === null ? null : parseToml(t); } catch { return null; } },
+    // The repository's own config file, when .git is a folder; null otherwise (a worktree or submodule).
+    gitConfig() { try { return lstatSync(join(root, '.git')).isDirectory() ? readFileSync(join(root, '.git', 'config'), 'utf8') : null; } catch { return null; } },
     // git, without taking any lock or writing anything under .git. stdout, or null on failure.
     git(...args) {
-      const r = spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout: 8000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' } });
+      const left = deadline - Date.now();
+      if (left <= 0) throw new DetectDeadline();
+      const r = spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout: Math.min(8000, left), env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' } });
+      if (r.error?.code === 'ETIMEDOUT' && left < 8000) throw new DetectDeadline();
       return r.status === 0 ? r.stdout : null;
     },
     facts: {},
@@ -104,8 +112,23 @@ export function makeCtx(root) {
 }
 
 // --- facts every project has, whatever its stack ----------------------------------------------------------------
+// origin's URL: read from .git/config when .git is a folder (no git process, which keeps the session-start drift
+// check fast), else from git. Only the kind of host is kept.
+function originUrl(ctx) {
+  const config = ctx.gitConfig();
+  if (config === null) return (ctx.git('remote', 'get-url', 'origin') || '').trim();
+  let origin = false;
+  for (const line of config.split(/\r?\n/)) {
+    const h = line.match(/^\s*\[(.+)\]\s*$/);
+    if (h) { origin = /^remote\s+"origin"$/.test(h[1].trim()); continue; }
+    const m = origin && line.match(/^\s*url\s*=\s*(.+?)\s*$/);
+    if (m) return m[1];
+  }
+  return '';
+}
+
 function remoteHost(ctx) {
-  const url = (ctx.git('remote', 'get-url', 'origin') || '').trim();
+  const url = originUrl(ctx);
   if (!url) return NOT_FOUND;
   // Only the kind of host is kept, never the URL: no organisation or client names in the profile.
   const kind = /github\.com[/:]/i.test(url) ? 'github' : /gitlab/i.test(url) ? 'gitlab' : /bitbucket\.org[/:]/i.test(url) ? 'bitbucket'
@@ -171,11 +194,13 @@ function hideSecrets(v) {
 // --- detection --------------------------------------------------------------------------------------------------
 // The profile of a project. With { suggestions: false } (the quick drift check) the generated-file search is
 // skipped, which keeps it cheap; suggestions are never part of drift.
-export function detect(root, { suggestions = true } = {}) {
-  const ctx = makeCtx(root);
+// With { deadline } (a Date.now() value), it throws DetectDeadline instead of finishing late.
+export function detect(root, { suggestions = true, deadline = Infinity } = {}) {
+  const ctx = makeCtx(root, deadline);
   const f = ctx.facts;
   const acc = { languages: [], frameworks: [], commands: {}, layout: {}, generated: [], prefer: [], avoid: [] };
   for (const mod of STACKS) {
+    if (Date.now() > deadline) throw new DetectDeadline();
     const r = mod.detect(ctx);
     if (!r) continue;
     for (const k of ['platform', 'node', 'python', 'packageManager', 'otherScripts']) if (r[k] && !f[k]) f[k] = r[k];
@@ -263,6 +288,32 @@ export function summaryLines(p) {
     `- Rules files: ${fmt(cv.rulesFiles, (x) => x.value.map((r) => r.path).join(', '))} · PR template: ${fmt(cv.prTemplate, (x) => x.path)}`,
     '- A fact marked "not found" isn\'t known: say so, don\'t guess.',
   ];
+}
+
+// The session-start grounding (design section 6): the profile's facts with their sources, the rule that the
+// project's own rules files win, the guardrails in force, and where the full profile is. `stale` holds the keys
+// (as compare() names them) that are out of date. `settings` is the effective settings, or null.
+export function groundingText(p, { file, stale = new Set(), settings = null, profileCmd }) {
+  const f = p.facts || {}, c = f.commands || {}, cv = p.conventions || {}, g = p.guidance || {};
+  const old = (keys, text) => (keys.some((k) => stale.has(k)) ? `${text} [out of date]` : text);
+  const cmd = (k) => old([`facts.commands.${k}`], fmt(c[k], (x) => `${x.run || `${x.defined} (package manager not found)`} (${x.source})`));
+  const platform = fmt(f.platform, (x) => `${x.value}, ${x.flavour === 'sfra' ? 'SFRA' : x.flavour === 'storefront-next' ? 'Storefront Next' : x.flavour} (${x.source})`)
+    + (g.preferSkills?.length ? `. Prefer ${g.preferSkills.join(', ')}` : '') + (g.avoidSkills?.length ? `; don't use ${g.avoidSkills.join(', ')} skills` : '');
+  const lines = [
+    `[cartwright] Project profile (${file}). Use these facts instead of guessing. If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.`,
+    `- Platform: ${old(['facts.platform', 'guidance'], platform)}`,
+    `- Languages: ${old(['facts.languages'], fmt(f.languages, (x) => x.value.map((l) => `${l.value} (${l.source})`).join(', ')))} · Node ${old(['facts.node'], fmt(f.node, ver))} · Python ${old(['facts.python'], fmt(f.python, ver))} · package manager ${old(['facts.packageManager'], fmt(f.packageManager, (x) => `${x.value} (${x.source})`))}`,
+    `- Build: ${cmd('build')} · Test: ${cmd('test')} · Lint: ${cmd('lint')}`,
+    ...(f.otherScripts?.status === 'found' ? [`- Other scripts (${f.otherScripts.source}): ${old(['facts.otherScripts'], f.otherScripts.value.slice(0, 15).join(', ') + (f.otherScripts.value.length > 15 ? ', …' : ''))}`] : []),
+    `- Layout: ${old(['facts.layout'], fmt(f.layout, (x) => `${Object.entries(x.value).map(([k, v]) => `${k} ${[].concat(v).join(', ')}`).join('; ')} (${x.source})`))}`,
+    `- Rules files: ${old(['conventions.rulesFiles'], fmt(cv.rulesFiles, (x) => x.value.map((r) => r.path).join(', ')))} · PR template: ${old(['conventions.prTemplate'], fmt(cv.prTemplate, (x) => x.path))} · Decision records: ${old(['conventions.adrs'], fmt(cv.adrs, (x) => x.path))} · Tracker: ${old(['conventions.tracker'], fmt(cv.tracker, (x) => `${x.value} (${x.source})`))}${cv.specKit?.status === 'found' ? ` · spec-kit: ${cv.specKit.path}` : ''}`,
+  ];
+  if (settings) {
+    const gen = settings.generated.map((x) => `${x.path} (regenerate: ${x.regenerate || 'not recorded'})`);
+    lines.push(`- Guardrails: protected ${settings.protectedBranches.join(', ') || 'none'}; generated ${gen.join(', ') || 'none'}. A blocked action can't be retried another way; tell the person instead.`);
+  }
+  if (profileCmd) lines.push(`Full profile: ${profileCmd} show --json`);
+  return lines.join('\n');
 }
 
 // --- the proposal, and the profile's own checks -----------------------------------------------------------------
