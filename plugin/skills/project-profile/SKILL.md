@@ -141,8 +141,11 @@ Step 4 (it changes only those facts). Then offer a pull request as in Step 5, on
 
 Ask what should change, then build a `write` command with only those options. A list option replaces that list;
 lists not given keep their saved value. The person approves it as in Step 4, and the change goes through a pull
-request, because the settings are the team's. A developer's own extra rules go in `.cartwright/personal.json`
-instead: it can only add or tighten, and it's never committed.
+request, because the settings are the team's. A developer's own extra rules go in their personal file instead:
+`.cartwright/personal.json` when the profile is in `.cartwright/`, or `<state>/projects/<key>/personal.json` when
+it's in `AGENTS.md` or on this machine only. `<state>` is `$CARTWRIGHT_STATE_DIR` or `~/.cartwright`, and the
+right `<key>` folder is the one whose `root` file names this project. It can only add or tighten, and it's never
+committed.
 
 ### Step 8 — Why was this blocked?
 
@@ -157,7 +160,9 @@ themselves if it really must happen. You don't try another way.
 ## How to verify
 
 - `node <setup.mjs> status` shows `profile.store` and `profile.settings: "ok"`.
-- `node <profile.mjs> check` exits 0: the profile is current and the settings are valid.
+- `node <profile.mjs> check` exits 0 with `profiled: true`, `upToDate: true` and `settings: "ok"`. Exit 0 alone
+  isn't enough: an unprofiled project exits 0 too, and so does a profile with no settings (`settings: "none"`, with
+  a note that the protected-branch and generated-file rules are off).
 - A new session starts with the `[cartwright] Project profile` summary.
 
 ## Constraints

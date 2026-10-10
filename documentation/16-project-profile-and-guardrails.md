@@ -8,8 +8,8 @@ each with the file it came from. It also keeps the team's **guardrail settings**
 [0012](decisions/0012-guardrails-in-agent-hooks.md) (guardrails), both *Proposed*.
 
 > **Status (phase 1, issue #43):** the profiler, the three files and their storage, the first-run offer, grounding
-> and drift at session start, and the hard blocks are in place. Dogfooding, the overlay template's settings and the
-> real-agent scenarios come next in the same phase.
+> and drift at session start, and the hard blocks are in place. This repo uses its own profile and settings, and the
+> overlay template ships starter settings. The real-agent scenarios come next in the same phase.
 
 ## The profiler
 
@@ -37,6 +37,10 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
 - Each list option replaces that list, and `none` empties it. `--protected` takes a comma-separated list; the
   others repeat. When valid settings already exist, a list that isn't given keeps its saved value. Rule
   switches a later Cartwright added are kept as they are.
+- `check` exits 1 when the profile is out of date or unreadable, or the settings are broken. It exits 0 for a
+  project that isn't profiled (`profiled: false`) and for a profile with no settings file (`settings: "none"`).
+  In that last case the output adds a `note`: the protected-branch and generated-file rules are off until
+  settings exist. Missing settings aren't broken settings, so they don't fail safe.
 - `--dir <path>` runs against another folder. Outside a git repository the profiler stops with exit 2.
 
 ### How it detects
@@ -44,9 +48,13 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
 - **Allowlist only, inside the project.** It opens `package.json`, `tsconfig.json`, `.nvmrc`, `.node-version`,
   `.tool-versions`, `.python-version`, `pyproject.toml` and `Makefile` (target names only). For everything else
   it checks existence or lists folders (at most 2,000 entries, never inside `node_modules`, `.git` or build
-  output). A symlink is followed only if it stays inside the project, and symlinked folders are never entered.
+  output). A symlink is followed only if it stays inside the project. A symlinked folder met while listing is
+  never entered, so a cartridge that is a symlinked folder isn't listed. A folder the profiler starts listing from
+  (such as `cartridges/`) is entered even when it's a symlink, as long as it leads to a place inside the project.
   Lockfiles are checked for existence, never opened.
-  A cartridge that is a symlinked folder isn't listed, because symlinked folders are never entered.
+- **One search across tracked files.** To suggest generated files, it runs `git grep` for "generated, do not
+  edit" headers over the tracked files (credential files and lockfiles excluded), and keeps only file names
+  whose match is in the first lines. The matching text isn't kept.
 - **Never opens credential files:** `.env*`, `dw.json`, `*.pem`, `*.key`, `id_rsa*`, `id_dsa*`, `id_ecdsa*`,
   `id_ed25519*`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `.npmrc`, `.netrc`, `.pgpass`, `credentials*`,
   `secrets.*`, `*.tfvars`. It doesn't search them for headers either, and never suggests them as generated
@@ -58,7 +66,9 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
 - **Exact names.** A file counts only under its exact name, taken from its folder's listing. On a
   case-insensitive disk `claude.md` isn't `CLAUDE.md`, so a project profiles the same way on macOS and Linux.
 - **Pins must look like versions.** A Node or Python pin that doesn't look like one is "not found". An
-  `engines` or `requires-python` range is recorded as `kind: "range"`, and a pin as `kind: "pinned"`.
+  `engines` or `requires-python` range is recorded as `kind: "range"`, and a pin as `kind: "pinned"`. A Node
+  pin that names a release line instead of a version (`lts/*`, `lts/iron`, `node`, `stable`, `latest`) is
+  recorded as `kind: "alias"`, because what it means changes over time.
 - **Writes nothing while studying.** git runs with `GIT_OPTIONAL_LOCKS=0`, so not even `.git` changes.
 - **Reproducible.** Sorted keys, no timestamps, no absolute paths, no plugin version. The same project always
   gives the same bytes, so upgrading the plugin never rewrites a profile on its own.
@@ -73,10 +83,11 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
 | `guidance` | skills that fit the stack, and skills to avoid (SFRA versus Storefront Next) |
 | `suggestions` | generated-file candidates for setup to confirm: from the stack modules, "generated, do not edit" headers in the first lines of tracked files, and tracked build output |
 
-Each command has `run` (how the package manager runs it, for example `pnpm test`), `defined` (the script as the
-project wrote it) and `how`: `defined`, or `configured` when it comes from tool configuration such as
-`[tool.pytest.ini_options]`. When the package manager isn't found, a script is recorded with `defined` and no
-`run`: Cartwright doesn't assume npm. A generated-file suggestion then has no regenerate command.
+Each command has `run` (how the package manager runs it, for example `pnpm test`) and `how`: `defined` for a
+script the project wrote, or `configured` when it comes from tool configuration such as
+`[tool.pytest.ini_options]` or a Makefile target. A Node package script also has `defined` (the script as the
+project wrote it). When the package manager isn't found, a script is recorded with `defined` and no `run`:
+Cartwright doesn't assume npm. A generated-file suggestion then has no regenerate command.
 
 ### Stacks
 
@@ -113,13 +124,14 @@ Notes on the storage choices:
 
 - **Markers in `AGENTS.md`** count only as whole lines outside code blocks (fenced, or indented by four spaces),
   so a file that merely mentions them isn't Cartwright storage.
-- **An unclosed code fence** in `AGENTS.md` makes `write` stop ("unclosed code fence at line N; close it and run
-  again"), because a section appended after it would sit inside the fence. After writing, Cartwright reads the
+- **An unclosed code fence** anywhere in `AGENTS.md` makes `write` stop ("unclosed code fence at line N; close it
+  and run again"), because it would swallow the section or what follows it. After writing, Cartwright reads the
   section back and fails if it can't find it.
 - **The name must be exactly `AGENTS.md`.** With only `Agents.md`, Cartwright neither reads nor writes it, on any
   disk: `write` asks you to rename it (`git mv Agents.md AGENTS.md`), and `show` notes the mismatch.
 - **A symlinked file stays a symlink.** For example `AGENTS.md` → `CLAUDE.md`: the section is written into the
-  file the link points at. A link that leads outside the project is refused.
+  file the link points at. A link that leads outside the project is refused, and so is a `.cartwright` folder
+  that is a symlink to a folder outside the project.
 - **Writes keep each file's permissions** and replace the file in one step (a temporary file, then a rename).
 - **Unreadable storage.** An unreadable `.cartwright/` folder or settings file counts as found, with broken
   settings (stricter, and loud), because the folder is the evidence that the project was profiled. An unreadable
@@ -164,14 +176,14 @@ If the settings can't be used, all four rules stay on. Then:
 - the project's own `rules`, `locations.allowed` and `secrets.allow` pause, because broken must never mean
   looser.
 
-`show` and `check` say which file is broken and where (a line and column, or a key path). They never quote the
-file's content. `write` won't overwrite a broken file: fix or move it by hand.
+`show` and `check` say which file is broken and where (a line and column, the line where a file ends too early,
+or a key path). They never quote the file's content. `write` won't overwrite a broken file: fix or move it by hand.
 
 ### The personal file can only tighten
 
 | Key | How it merges with the team's settings |
 |---|---|
-| `guardrails.<rule>` | `true` switches a rule on for you; `false` is ignored and reported |
+| `guardrails.<rule>` | `true` switches a rule on for you; `false` is ignored, and reported when the team's rule is on (when the team already switched it off, there's nothing to loosen) |
 | `protectedBranches`, `generated`, `locations.protected` | added to the team's (for the same generated path, the team's command wins) |
 | `rules` | added; a rule reusing a team rule's `id` is ignored and reported |
 | `locations.allowed`, `secrets.allow`, `tracks`, `clientProject` | team only; ignored and reported |
@@ -202,9 +214,10 @@ In a project that isn't set up, the session-start hook tells the agent to open i
 - **"not now"** asks again after 7 days.
 - **"never here"** never asks again in that project, and changes nothing in it.
 
-If the client is already known (the kit is there, the settings say `clientProject: false`, or "no client" was
-answered), the line leaves out the client part. A profiled project with no client recorded is asked only *"Is this
-project for a client?"*. The library and overlay repos are never offered setup. The full table is in
+If the client is already known (the kit is there, the settings say `clientProject: false`, or "no client" or
+"done" was answered), the line leaves out the client part. A profiled project with no client recorded is asked only
+*"Is this project for a client?"*, and one whose settings say `clientProject: true` but has no kit is offered to be
+connected to the client's project skills. The library and overlay repos are never offered setup. The full table is in
 [Client setup](12-client-setup.md).
 
 ## Grounding and drift at session start
@@ -284,13 +297,19 @@ as too deep to check.
 ### `protected-branches`
 
 Every form of push is judged by where it would go:
-- `git push origin main`, `HEAD:main`, `+main`, `--force` and `--force-with-lease`;
+- `git push origin main`, `HEAD:main`, `+main`, `--force`, `--force-with-lease` and `--repo=origin main`;
+- wildcard refspecs such as `refs/heads/*:refs/heads/*`, and `:` or `push.default=matching`, which push every
+  matching branch;
 - deleting (`:main`, `--delete main`);
 - a bare `git push`, which goes where `@{push}` says (the upstream and `push.default`), or where the remote's push
   refspec says (from the repo's config, `-c remote.<r>.push`, or `git config` earlier on the line);
 - `--all` and `--mirror`;
 - `git subtree push <repo> <branch>`, and `gh api` changing `…/git/refs/heads/<branch>` (PATCH, POST, PUT,
-  DELETE).
+  DELETE, also written `-XPATCH`; fields with no method mean POST).
+
+Git configuration that changes where a push goes (`-c`, `--config-env`, `GIT_CONFIG_*`, an `include.path`, or
+`git config`, `git branch -u` and `git remote add`/`set-url` earlier on the line) is followed when its value is
+known. When it isn't, the push is blocked: "can't tell where this push goes".
 
 Merging (`gh pr merge`, a merge in the GitHub UI) isn't blocked; that's for the phase 3 auditor.
 
@@ -305,9 +324,12 @@ this push goes"), except `$(git branch --show-current)`.
 ### `secrets`
 
 At `git commit`, the guard looks at what would be committed:
-- the staged changes;
-- with `-a` or pathspecs, the matching tracked changes;
+- the staged changes, or with pathspecs only the files they name (`git commit -- safe.txt` doesn't look at an
+  unrelated staged file, unless `--include` is given);
+- with `-a`, the tracked changes too;
 - files added earlier on the same line (`git add . && git commit …`).
+
+File names come from the full list of what would be committed, so an empty `.env` is still caught.
 
 It scans the added lines with the same patterns as `npm run scrub`: private keys, GitHub, AWS and Slack tokens,
 JWTs, quoted secret assignments, and `sk_live_`/`sk_test_`/`npm_`/`AIza`/`glpat-` keys. It also blocks committing
@@ -332,8 +354,9 @@ a generated path, are blocked. The shell writes include:
 - `prettier --write` and `eslint --fix` on generated paths;
 - `git apply` and `patch`.
 
-Commands inside `sh -c`, `eval` and `$(…)` count too. Reading, `git checkout -- <file>`, `git restore`, deleting,
-and running the regenerate command aren't blocked.
+Commands inside `sh -c`, `eval` and `$(…)` count too. Reading, `git checkout -- <file>`, `git restore` and
+deleting aren't blocked, and neither is running the recorded regenerate command exactly as the settings give it,
+on its own.
 
 > Cartwright blocked this (generated-files): src/generated/api.ts is generated (.cartwright/settings.json:
 > src/generated/**). Don't edit it by hand: change its source and run pnpm generate:api. …
@@ -349,9 +372,11 @@ overwriting an **existing** path (redirection, `cp`, `tee`, `sed -i`, an edit) o
 
 These places are worked out on each call, on each machine. A `locations.protected` entry is blocked even inside the
 project. Creating a new file and appending lose no data, so they aren't blocked. A target that depends on an
-unknown variable is blocked ("can't tell where this delete points; use an explicit path").
+unknown variable is blocked ("can't tell where this delete points; use an explicit path"). The message names the
+full path, with `~` expanded and symlinks resolved, so `rm -rf ~/precious` reads (`<home>` is the real home
+folder's path):
 
-> Cartwright blocked this (destructive-outside-project): it would delete ~/precious, which is outside this
+> Cartwright blocked this (destructive-outside-project): it would delete <home>/precious, which is outside this
 > project, the temporary folder and Cartwright's cache. Work inside the project, or ask the person to run it
 > themselves. If the team works there routinely, they can add it to locations.allowed in the settings through a
 > pull request. …
@@ -360,10 +385,11 @@ unknown variable is blocked ("can't tell where this delete points; use an explic
 
 Changing the guardrail settings needs the person's approval at that moment. That covers:
 - `.cartwright/settings.json` or `profile.json`, and deleting or moving `.cartwright/`;
-- the Cartwright section of `AGENTS.md` (an edit inside it, or any shell write to `AGENTS.md`);
-- the machine-mode files;
+- the Cartwright section of `AGENTS.md` (an edit inside it, or any shell write to `AGENTS.md`, or to the file it
+  links to when it's a symlink);
+- the machine-mode files and the project's machine-mode folder;
 - running `profile.mjs write` or `refresh`;
-- `git rm`, `git mv`, `git checkout -- <path>` and `git restore <path>` on these paths (putting back an older
+- `git rm`, `git mv` (from or onto these paths), `git checkout -- <path>` and `git restore <path>` on these paths (putting back an older
   settings file can loosen the rules);
 - `git stash`, `git clean -f`, `git reset --hard`, `git checkout -f` and `git checkout -- .`, **only when** they would
   destroy guardrail content that isn't committed (one `git status` on those paths decides);
@@ -416,8 +442,10 @@ These are guardrails, not a complete boundary, as the agent vendors themselves s
   and says so.
 - **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
   Approving once covers updates, because the hook entries never change.
-- **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The guard test checks what the guard
-  adds on top of starting Node: within 100 ms without git and 400 ms for a push.
+- **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The budgets for what the guard adds on
+  top of starting Node are 100 ms without git and 400 ms for a push. The guard test compares 30 paired runs (with
+  and without the guard) and fails when the median difference is more than twice the budget (200 ms and 800 ms),
+  so a busy machine doesn't fail it.
 
 ## Tests
 
@@ -453,4 +481,5 @@ project with a local remote:
 
 Allowed pushes and commits are then run, and denied ones must leave the remote unchanged and log exactly one
 decision. HOME is a symlink and the temporary folder is moved, to prove that locations are worked out at run
-time. The suite also measures p50 and p95 against the budget. To add a case, add an entry to the table.
+time. The suite also reports p50 and p95, and judges the time on the median of 30 paired differences, failing at
+twice the budget (see *Speed* above). To add a case, add an entry to the table.

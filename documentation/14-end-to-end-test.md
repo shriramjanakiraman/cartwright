@@ -39,7 +39,9 @@ shapes of Claude Code, Copilot and Codex:
 - the rest call the guard in-process.
 
 Allowed pushes and commits are then run. It also covers the trampoline without node, the cached plugin root,
-malformed payloads, and p50/p95 timing against the budget, measured alone after the other steps.
+malformed payloads, and the time the guard adds, measured alone after the other steps: p50 and p95 are
+reported, and the step fails when the median of 30 paired differences is more than twice the budget (100 ms
+without git, 400 ms for a push).
 `test-release` runs it after the profile and bare-machine tests, which run at the same time. The steps of the
 profile and guard tests run concurrently, in about half the machine's CPUs (`CARTWRIGHT_E2E_CONCURRENCY` sets
 the number). See

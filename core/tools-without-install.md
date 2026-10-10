@@ -40,10 +40,10 @@ If the project has a Cartwright profile, take its facts from there instead of op
 node <profile.mjs> show      # profile.mjs sits next to run.mjs
 ```
 
-- **The pins:** `facts.node` and `facts.python` give the pin (`kind: "pinned"`) or the range (`kind: "range"`) the
-  project asks for, with its source.
-- **The tools that matter:** `facts.platform` says whether it's a Salesforce B2C Commerce project, where the B2C
-  CLI matters. `conventions.specKit` says whether spec-kit is set up, which needs uv. Without spec-kit or graphify
+- **The pins:** `profile.facts.node` and `profile.facts.python` give the pin (`kind: "pinned"`), a release-line
+  alias such as `lts/*` (`kind: "alias"`), or the range (`kind: "range"`) the project asks for, with its source.
+- **The tools that matter:** `profile.facts.platform` says whether it's a Salesforce B2C Commerce project, where the
+  B2C CLI matters. `profile.conventions.specKit` says whether spec-kit is set up, which needs uv. Without spec-kit or graphify
   in use, uv isn't needed.
 - **Not found** means the profile doesn't know; say so rather than guessing.
 

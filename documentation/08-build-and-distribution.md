@@ -32,8 +32,10 @@ npm run build:check    # fail if the committed output is stale (CI and the pre-c
 
 - **Claude Code** installs `.claude-plugin/marketplace.json` from the default branch (`main`), which is why
   `main` must always be the released state and stays the default branch.
-- **Codex** installs the same plugin through `.agents/plugins/marketplace.json`. Both manifests carry
-  `package.json`'s version, so one release updates both.
+- **Codex** installs the same plugin through `.agents/plugins/marketplace.json`, which only points at
+  `plugin/`. The version is in the Claude Code marketplace entry and in both plugin manifests
+  (`plugin/plugin.json` and `plugin/.codex-plugin/plugin.json`), all from `package.json`, so one release updates
+  every agent.
 - **GitHub Copilot CLI and VS Code** install it from the same marketplace and read `plugin/plugin.json`. It
   must stay in Copilot's own format (no `$schema`) and name its parts: in the Agent Plugins 1.0 format
   (with `$schema`) Copilot loads the skills but no hooks, so the session-start hook never ran (fixed after
@@ -56,7 +58,12 @@ releases. See [Project overlays](09-project-overlays.md).
 ## Local checks
 
 ```bash
-npm run check          # validate + scrub-scan + build:check, the same as the pre-commit hook and CI
+npm run check          # validate + scrub-scan + build:check + the registry check
 npm run validate       # the skill standard only
 npm run scrub          # the data-leakage scan only
 ```
+
+The other places run different sets. The pre-commit hook scans the staged files, and runs validate and the
+build check only when `core/` or `upstream/` changed. CI runs validate, the scrub scan, the upstream mirror
+check, the build check, the profile and guard tests, and a secret scan across history. It doesn't run the
+registry check.

@@ -36,7 +36,8 @@ plugins with the machine's own git credentials.
 
 ## 2. The session-start hook
 
-The plugin ships one hook that runs when a session starts, in Claude Code, Codex, Copilot and VS Code. In
+The plugin ships one hook that runs when a session starts, in Claude Code, Codex and the Copilot CLI (VS Code
+reads the same hook file, but that isn't verified yet; it's a manual check at the end of phase 1). In
 about a quarter of a second, with no network access, it checks the project and asks **one** combined question
 when there's something to set up:
 
@@ -48,14 +49,15 @@ when there's something to set up:
 | no profile, and it isn't known whether it's for a client | *"Cartwright can study this project (read-only) and save a profile so I use its real commands and rules, and connect it to a client's project skills if it's for a client. Reply set up, not now, or never here."* |
 | no profile, but the client is known (the kit is there, the settings say it isn't for a client, or "no client" was answered) | the same without the client part: *"… so I use its real commands and rules. Reply set up, not now, or never here."* |
 | a profile, but no client recorded | *"Is this project for a client? I can connect it to that client's project skills. Reply set up, not now, or never here."* |
+| a profile whose settings say it's for a client (`clientProject: true`), but no kit yet | *"This project is for a client but isn't connected to its project skills yet. Reply set up, not now, or never here."* "set up" goes straight to `client-setup`. |
 | a profile and a known client | nothing |
 
 - **"set up"** starts the `project-profile` skill (study, confirm, write after a yes), which hands on to this
   guide's `client-setup` when the project is for a client. The kit and the profile go in the same pull request.
   In the client-only case, "set up" goes straight to `client-setup`.
 - **"not now"** runs `setup.mjs remember later`; **"never here"** runs `setup.mjs remember never`.
-- **Earlier answers are kept.** A remembered "no client" (or "done") counts as the client being known, and a later
-  "not now" doesn't erase it.
+- **Earlier answers are kept.** A remembered "no client" or "done" counts as the client being known, and a later
+  "not now" or "never here" doesn't erase it: after the 7 days, the client question isn't asked again.
 
 Choices are remembered per project in `~/.cartwright/projects.json` on the developer's machine. The profile and
 grounding are covered in [Project profile and guardrails](16-project-profile-and-guardrails.md).

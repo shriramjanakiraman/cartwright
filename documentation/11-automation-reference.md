@@ -33,7 +33,7 @@ Run one by hand: `gh workflow run <file> --ref develop` (or `--ref main` for the
 | `npm run validate` | the skill standard (`--overlay <repo>` for overlays) |
 | `npm run scrub` | data-leakage and secret scan (`--denylist`, `--secrets-only`) |
 | `npm run build` / `build:check` | package the plugin and INDEX, or check they're current |
-| `npm run check` | validate + scrub + build check |
+| `npm run check` | validate + scrub + build check + registry check (CI and the pre-commit hook run different sets; see [Build and distribution](08-build-and-distribution.md#local-checks)) |
 | `npm run release [-- x.y.z]` | cut a release branch (`--overlay <repo>` for overlays) |
 | `node scripts/next-version.mjs` | print the version the next release would get |
 | `node scripts/similar-skills.mjs <files>` | the duplicate check, locally |
@@ -59,7 +59,7 @@ Run one by hand: `gh workflow run <file> --ref develop` (or `--ref main` for the
 |---|---|
 | Scheduled workflows only run from the default branch (`main`) | small triggers on `main` start the real work on `develop`; changing a trigger needs a release |
 | `main` must stay the default branch | the Claude Code plugin installs from the default branch |
-| Pull requests opened by a workflow get no checks | `upstream-watch` and `weekly-release` run every check themselves before opening; the sync pull request shows red or missing checks, which is expected |
+| Pull requests opened by a workflow get no checks | `upstream-watch` and `weekly-release` run CI's checks themselves before opening (validate, scrub, the upstream mirror and build checks, and the profile and guard tests; not the history secret scan or `test:release`); the sync pull request shows red or missing checks, which is expected |
 | Comments on a pull request (`issue_comment`) run the workflow from `main` | "comment anywhere to re-run the duplicate check" works once `duplicate-recheck` is released; replies inside the conversation work straight away |
 | Resolving a conversation starts no workflow | after resolving a duplicate comment, add a comment or press *Re-run* |
 | Free private repos can't use rulesets | guards signal and alert instead of blocking; `protect-branches.sh` is ready for the upgrade |

@@ -83,7 +83,9 @@ The team lead's decisions shape the rules:
 - **Blocking all four rules in every project:** a major release (tracked in #41).
 
 ## Consequences
-- **Latency:** about 0.1 s per guarded tool call (Node start-up). The p95 budget is tested.
+- **Latency:** about 0.1 s per guarded tool call (Node start-up). The guard test reports p50 and p95, and fails
+  when the median of paired differences (with and without the guard) is more than twice the budget, so a busy
+  machine doesn't fail it.
 - **Coverage:** command matching can't see actions hidden in scripts. The docs say so, and phase 3's auditor closes
   the loop.
 - **Codex (verified on 0.162.1):** grounding and blocks work only after the user trusts the hooks in `/hooks`; until
