@@ -913,18 +913,15 @@ step('session start time (E45): what the hook adds to starting node, with no net
   // are reported for the tester, who measures E45 (about a quarter of a second) on a quiet machine.
   const ms = (f) => { const t = process.hrtime.bigint(); f(); return Number(process.hrtime.bigint() - t) / 1e6; };
   const q = (xs, x) => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(x * xs.length))];
-  // A load spike on a shared machine can skew one run: measure up to three times and judge the best.
-  let bare, hook, over, tries = 0;
-  do {
-    bare = []; hook = []; tries++;
-    for (let i = 0; i < 15; i++) {
-      bare.push(ms(() => sh('/bin/sh', ['-c', `exec "${NODE}" -e 0`], { cwd: dir, env: env() })));
-      hook.push(ms(() => assert(/\[cartwright\] Project profile/.test(session(dir, { extra: nowhere })), 'no grounding')));
-    }
-    over = q(hook, 0.95) - q(bare, 0.95);
-  } while (tries < 3 && over > 200);
-  const line = `session start p50 ${q(hook, 0.5).toFixed(0)} ms, p95 ${q(hook, 0.95).toFixed(0)} ms; node alone p50 ${q(bare, 0.5).toFixed(0)} ms, p95 ${q(bare, 0.95).toFixed(0)} ms; the hook adds +${over.toFixed(0)} ms at p95 (budget +100)${tries > 1 ? `; best of ${tries} runs` : ''}`;
-  assert(over <= 200, `the session start adds more than twice its budget: ${line}`);
+  // Judged on the median of 20 paired differences (hook_i - node_i, sampled in turn), so one stall can't fail it.
+  const bare = [], hook = [];
+  for (let i = 0; i < 20; i++) {
+    bare.push(ms(() => sh('/bin/sh', ['-c', `exec "${NODE}" -e 0`], { cwd: dir, env: env() })));
+    hook.push(ms(() => assert(/\[cartwright\] Project profile/.test(session(dir, { extra: nowhere })), 'no grounding')));
+  }
+  const adds = q(hook.map((x, i) => x - bare[i]), 0.5);
+  const line = `session start p50 ${q(hook, 0.5).toFixed(0)} ms, p95 ${q(hook, 0.95).toFixed(0)} ms; node alone p50 ${q(bare, 0.5).toFixed(0)} ms, p95 ${q(bare, 0.95).toFixed(0)} ms; the hook adds ${adds.toFixed(0)} ms (median of 20 paired differences; budget 100)`;
+  assert(adds <= 200, `the session start adds more than twice its budget: ${line}`);
   return line;
 }, { alone: true });
 

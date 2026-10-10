@@ -269,16 +269,14 @@ step('timing (5.9): the guard\'s overhead above starting node, through the hook'
   // both alike and what's judged is what the guard adds. Each timed call must really have been decided.
   const nodeAlone = () => { const t = process.hrtime.bigint(); sh('/bin/sh', ['-c', `exec "${NODE}" -e 0`], { cwd: dir, env: env() }); return Number(process.hrtime.bigint() - t) / 1e6; };
   const timed = (c, want) => { const r = call(c, 'claude-code', dir); assert(r.decision === want && r.logLines >= 1, `a timed call wasn't decided: ${r.decision}`); return r.ms; };
-  // A load spike on a shared machine can skew one run: measure up to three times and judge the best.
-  let bare, a, b, base, over, tries = 0;
-  do {
-    bare = []; a = []; b = []; tries++;
-    for (let i = 0; i < 30; i++) { bare.push(nodeAlone()); a.push(timed(plain, 'allow')); b.push(timed(push, 'deny')); }
-    base = p(bare, 0.95); over = (xs) => p(xs, 0.95) - base;
-  } while (tries < 3 && (over(a) > 200 || over(b) > 800));
+  // Judged on the median of paired differences (guard_i - node_i, sampled in turn), so one stall can't fail it.
+  const bare = [], a = [], b = [];
+  for (let i = 0; i < 30; i++) { bare.push(nodeAlone()); a.push(timed(plain, 'allow')); b.push(timed(push, 'deny')); }
+  const median = (xs) => p(xs, 0.5);
+  const addA = median(a.map((x, i) => x - bare[i])), addB = median(b.map((x, i) => x - bare[i]));
   // Budgets for what the guard adds: 100 ms without git, 400 ms for a push; the test fails beyond twice that.
-  const line = `node alone: p50 ${p(bare, 0.5).toFixed(0)} ms, p95 ${base.toFixed(0)} ms; no git: p50 ${p(a, 0.5).toFixed(0)} ms, p95 ${p(a, 0.95).toFixed(0)} ms (+${over(a).toFixed(0)}, budget +100); push: p50 ${p(b, 0.5).toFixed(0)} ms, p95 ${p(b, 0.95).toFixed(0)} ms (+${over(b).toFixed(0)}, budget +400)${tries > 1 ? `; best of ${tries} runs` : ''}`;
-  assert(over(a) <= 200 && over(b) <= 800, `the guard adds more than twice its budget: ${line}`);
+  const line = `node alone: p50 ${p(bare, 0.5).toFixed(0)} ms, p95 ${p(bare, 0.95).toFixed(0)} ms; no git: p50 ${p(a, 0.5).toFixed(0)} ms, p95 ${p(a, 0.95).toFixed(0)} ms (adds ${addA.toFixed(0)}, budget 100); push: p50 ${p(b, 0.5).toFixed(0)} ms, p95 ${p(b, 0.95).toFixed(0)} ms (adds ${addB.toFixed(0)}, budget 400); median of 30 paired differences`;
+  assert(addA <= 200 && addB <= 800, `the guard adds more than twice its budget: ${line}`);
   return line;
 }, { alone: true });
 
