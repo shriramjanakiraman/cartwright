@@ -38,8 +38,9 @@ export const SELF_PROTECTION = {
   settingsFiles: [/^\.claude\/settings(\.local)?\.json$/, /^\.github\/copilot\/settings\.json$/, /^\.codex\/config\.toml$/],
   switchOff: [/"disableAllHooks"\s*:\s*true/, /"cartwright@[^"]*"\s*:\s*false/, /\[plugins\."cartwright@[^"]*"\][^[]*enabled\s*=\s*false/],
 };
-// File names whose commit is blocked whatever they contain (design 5.4), plus other private-key files.
-const COMMIT_SECRET_FILES = [/^\.env$/, /^\.env\.(?!(example|sample|template)$)/, /\.pem$/, /\.key$/, /^id_(rsa|dsa|ecdsa|ed25519)/, /\.p12$/, /\.pfx$/, /\.jks$/, /\.keystore$/];
+// File names whose commit is blocked whatever they contain (design 5.4), plus other private-key files and dw.json
+// (B2C Commerce's instance credentials).
+const COMMIT_SECRET_FILES = [/^dw\.json$/, /^\.env$/, /^\.env\.(?!(example|sample|template)$)/, /\.pem$/, /\.key$/, /^id_(rsa|dsa|ecdsa|ed25519)/, /\.p12$/, /\.pfx$/, /\.jks$/, /\.keystore$/];
 const LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'uv.lock', 'poetry.lock', 'Pipfile.lock', 'pdm.lock', 'composer.lock', 'Gemfile.lock', 'Cargo.lock', 'go.sum']);
 const MAX_SCAN_BYTES = 2 * 1024 * 1024;
 
