@@ -486,16 +486,21 @@ function commitContent(c, adds, ctx) {
     }
     return true;
   };
+  // File names come from --name-only (an empty new file has no diff header), for the same scope as the diff.
+  const named = (args) => { const t = ctx.git(g.cwd, 'diff', '--name-only', '--diff-filter=ACMR', ...args); for (const f of (t || '').split('\n').filter(Boolean)) names.add(f); return t !== null; };
   const args = g.args;
   const all = args.some((w) => w.text === '--all') || shortHas(args, 'a', 'mFCctSu');
+  const include = args.some((w) => w.text === '--include') || shortHas(args, 'i', 'mFCctSu');
   const ps = positionals([{ text: 'commit' }, ...args], ['-m', '--message', '-F', '--file', '-C', '--reuse-message', '-c', '--reedit-message', '--author', '--date', '-t', '--template', '--cleanup', '--trailer', '--fixup', '--squash', '--pathspec-from-file']);
-  diff(['--cached']);
-  if (all && !diff(['HEAD'])) diff([]);
-  if (ps.length) { if (ps.some((w) => w.text === null)) throw new Unclear("can't tell which files this commit takes"); if (!diff(['HEAD', '--', ...ps.map((w) => w.text)])) diff(['--', ...ps.map((w) => w.text)]); }
+  // What this commit takes: with pathspecs (and no --include), only those paths' changes; otherwise the index, plus
+  // the tracked changes with -a.
+  if (!ps.length || include) { diff(['--cached']); named(['--cached']); }
+  if (all) { if (diff(['HEAD'])) named(['HEAD']); else { diff([]); named([]); } }
+  if (ps.length) { if (ps.some((w) => w.text === null)) throw new Unclear("can't tell which files this commit takes"); const p = ps.map((w) => w.text); if (diff(['HEAD', '--', ...p])) named(['HEAD', '--', ...p]); else { diff(['--', ...p]); named(['--', ...p]); } }
   for (const a of adds.filter((x) => x.cwd === g.cwd)) {
     if (a.paths === null) throw new Unclear("can't tell which files were added before this commit");
     const paths = a.paths.length ? a.paths : ['.'];
-    if (!diff(['HEAD', '--', ...paths])) diff(['--', ...paths]);
+    if (diff(['HEAD', '--', ...paths])) named(['HEAD', '--', ...paths]); else { diff(['--', ...paths]); named(['--', ...paths]); }
     const untracked = (ctx.git(g.cwd, 'ls-files', '-o', '--exclude-standard', '--full-name', '-z', '--', ...paths) || '').split('\0').filter(Boolean);
     for (const f of untracked) {
       names.add(f);
@@ -579,6 +584,8 @@ function guardrailRemoved(t, ctx) {
   for (const f of ['settings.json', 'profile.json']) if (removes(t, join(cw, f)) && ctx.exists(join(cw, f))) return `.cartwright/${f}`;
   if (ctx.exists(cw) && removes(t, cw)) return 'the .cartwright/ folder';
   if (ctx.exists(projects) && removes(t, projects)) return `${projects} (Cartwright's machine-only settings)`;
+  const md = ctx.machineDir();
+  if (md && ctx.exists(md) && (removes(t, md) || inside(t.path, md))) return `${md} (Cartwright's machine-only settings)`;
   if (t.path && inside(t.path, projects) && /\/(settings|profile)\.json$/.test(t.path)) return t.path;
   return null;
 }
@@ -588,10 +595,10 @@ const confirm = (what, how) => ({ decision: 'confirm', rule: 'guardrail-files', 
 // exists) and, in AGENTS.md mode, AGENTS.md. Returns what a command would change, or null.
 const PERMISSION_COMMANDS = { chmod: 1, chown: 1, chgrp: 1, chflags: 1, setfacl: 0, xattr: 0 };
 function guardrailByGitOrPermissions(c, ctx, sec) {
-  const root = ctx.root(), cw = join(root, '.cartwright');
-  const paths = [...(ctx.exists(cw) ? [cw] : []), ...(sec ? [sec.path] : [])];
+  const root = ctx.root(), cw = join(root, '.cartwright'), md = ctx.machineDir();
+  const paths = [...(ctx.exists(cw) ? [cw] : []), ...(sec ? [sec.path, ...(sec.real !== sec.path ? [sec.real] : [])] : []), ...(md && ctx.exists(md) ? [md] : [])];
   if (!paths.length) return null;
-  const label = (p) => (p === cw ? 'the .cartwright/ folder' : `the Cartwright section of ${relative(root, p)}`);
+  const label = (p) => (p === cw ? 'the .cartwright/ folder' : p === md ? `${md} (Cartwright's machine-only settings)` : `the Cartwright section of ${relative(root, sec.path)}`);
   // A path names a guardrail path exactly or inside it ("explicit"), or is a folder above one ("above").
   const hit = (p) => { for (const g of paths) { if (p && (p === g || inside(p, g))) return { g, explicit: true }; if (p && inside(g, p)) return { g, explicit: false }; } return null; };
   const at = (w, cwd) => place(w, cwd, ctx).path;
@@ -728,8 +735,10 @@ const CHECKS = {
       // gh api changing a protected branch's ref directly (PATCH, POST, PUT or DELETE on …/git/refs/heads/<branch>).
       if (c.name === 'gh' && c.argv[1]?.text === 'api') {
         const a = c.argv;
-        const mi = a.findIndex((w) => w.text === '-X' || w.text === '--method' || w.text?.startsWith('--method='));
-        const method = mi < 0 ? 'GET' : (a[mi].text.includes('=') ? a[mi].text.slice(a[mi].text.indexOf('=') + 1) : a[mi + 1]?.text || '').toUpperCase();
+        // The method: -X PATCH, -XPATCH, --method PATCH, --method=PATCH; with fields or --input and no method, gh POSTs.
+        const mi = a.findIndex((w) => w.text === '-X' || w.text === '--method' || /^-X[A-Za-z]+$/.test(w.text || '') || w.text?.startsWith('--method='));
+        const fields = a.some((w) => /^(-f|-F|--field|--raw-field|--input)(=|$)/.test(w.text || ''));
+        const method = (mi < 0 ? (fields ? 'POST' : 'GET') : /^-X[A-Za-z]+$/.test(a[mi].text) ? a[mi].text.slice(2) : a[mi].text.includes('=') ? a[mi].text.slice(a[mi].text.indexOf('=') + 1) : a[mi + 1]?.text || '').toUpperCase();
         const path = positionals(a.slice(1), ['-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--header', '--hostname', '--input', '-q', '--jq', '-t', '--template', '--cache', '-p', '--preview'])[0];
         const m = path?.text?.match(/(?:^|\/)git\/refs\/heads\/(.+?)\/?$/);
         if (['PATCH', 'POST', 'PUT', 'DELETE'].includes(method) && m && branchMatches(s.protectedBranches, m[1])) return block('protected-branches', `it would change ${m[1]}, a protected branch here (${s.file}), through the GitHub API. Push your own branch and open a pull request.`);
@@ -752,6 +761,9 @@ const CHECKS = {
       const g = match(e.path);
       if (g) return say(relative(root, e.path), g);
     }
+    // Running a recorded regenerate command, exactly as recorded, isn't hand-editing (D33), even when it visibly
+    // writes the generated output.
+    if (A.edits.length === 0 && s.generated.some((g) => g.regenerate && g.regenerate.trim() === A.line.trim())) return null;
     for (const c of A.cmds) {
       for (const t of writeTargets(c, ctx)) {
         if (t.kind === 'move-src' || t.kind === 'delete') continue;
@@ -804,7 +816,7 @@ const CHECKS = {
     for (const e of A.edits) {
       const g = guardrailPath(e.path, ctx);
       if (g) return confirm(g, 'edit');
-      if (sec && e.path === sec.path && editTouchesSection(e, sec)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'edit');
+      if (sec && (e.path === sec.path || e.path === sec.real) && editTouchesSection(e, sec)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'edit');
       if (e.path && inside(e.path, root) && SELF_PROTECTION.settingsFiles.some((re) => re.test(relative(root, e.path)))) {
         const after = [e.content, ...(e.edits || []).map((x) => x.after), ...(e.patch?.lines || []).filter((l) => l.t === '+').map((l) => l.text)].filter(Boolean).join('\n');
         if (SELF_PROTECTION.switchOff.some((re) => re.test(after))) return confirm(`${relative(root, e.path)} (it would switch Cartwright's hooks or plugin off)`, 'edit');
@@ -826,9 +838,9 @@ const CHECKS = {
         if (t.kind === 'move-src') continue;
         const g = guardrailPath(t.path, ctx);
         if (g) return confirm(g, 'shell');
-        if (sec && t.path === sec.path) return confirm(`the Cartwright section of ${relative(root, sec.path)} (a shell write to it counts as changing the section)`, 'shell');
+        if (sec && (t.path === sec.path || t.path === sec.real)) return confirm(`the Cartwright section of ${relative(root, sec.path)} (a shell write to it counts as changing the section)`, 'shell');
       }
-      if (sec) for (const t of gone) if (removes(t, sec.path)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'shell');
+      if (sec) for (const t of gone) if (removes(t, sec.path) || removes(t, sec.real)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'shell');
       const viaGit = guardrailByGitOrPermissions(c, ctx, sec);
       if (viaGit) return confirm(viaGit, 'shell');
     }

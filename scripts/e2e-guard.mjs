@@ -9,7 +9,7 @@
 //
 // Usage: node scripts/e2e-guard.mjs [--plugin ./plugin] [--keep] [--only "<words in a case name>"]
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, halfTheCpus, harness, sh, workBase } from './e2e-lib.mjs';
@@ -53,6 +53,7 @@ const profileWrite = (dir, ...a) => { const r = sh(NODE, [join(PLUGIN, 'tools', 
 const editJson = (p, fn) => { const j = JSON.parse(readFileSync(p, 'utf8')); fn(j); writeFileSync(p, JSON.stringify(j, null, 2) + '\n'); };
 const commitPush = (dir, msg) => { git(dir, 'add', '-A'); git(dir, 'commit', '-q', '-m', msg); git(dir, 'push', '-q', 'origin', 'main'); };
 const PROFILED = ['--store', 'folder', '--protected', 'main,develop,release/*', '--generated', 'src/generated/**=pnpm generate:api',
+  '--generated', 'src/generated/copy.ts=cp src/server.ts src/generated/copy.ts',
   '--secrets-allow', 'tests/fixtures/**', '--allow-location', ALLOWED, '--protect-location', 'vault'];
 const RULES = [
   { id: 'no-prod-deploy', shell: 'deploy\\s+--prod', message: 'Production deploys go through the pipeline.' },
@@ -68,6 +69,8 @@ const SETUPS = {
   profiled: { once: profiled },
   'agents-md': { once: (d) => profileWrite(d, ...PROFILED.map((a) => (a === 'folder' ? 'agents-md' : a))) },
   machine: { each: (d) => profileWrite(d, ...PROFILED.map((a) => (a === 'folder' ? 'machine' : a))) },
+  // AGENTS.md as a symlink to CLAUDE.md, with the section in CLAUDE.md.
+  'agents-md-link': { once: (d) => { renameSync(join(d, 'AGENTS.md'), join(d, 'CLAUDE.md')); symlinkSync('CLAUDE.md', join(d, 'AGENTS.md')); profileWrite(d, ...PROFILED.map((a) => (a === 'folder' ? 'agents-md' : a))); } },
   broken: { once: (d) => { profiled(d); writeFileSync(settingsOf(d), '{ "cartwright": "settings", "version": 1,\n'); } },
   'switched-off': { once: (d) => { profiled(d); editJson(settingsOf(d), (s) => { s.guardrails['generated-files'] = false; s.guardrails['protected-branches'] = false; }); } },
   'personal-tighten': { once: (d) => { profiled(d); editJson(settingsOf(d), (s) => { s.guardrails['generated-files'] = false; }); personal(d, { guardrails: { 'generated-files': true }, protectedBranches: ['staging'] }); } },
@@ -98,7 +101,7 @@ function fresh(setup) {
   const t = template(setup), id = `${setup} ${++seq}-${process.pid}`;
   const dir = join(WORK, 'projects', id), bare = join(WORK, 'remotes', `${id}.git`);
   cpSync(t.bare, bare, { recursive: true, preserveTimestamps: true });
-  cpSync(t.dir, dir, { recursive: true, preserveTimestamps: true });
+  cpSync(t.dir, dir, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
   git(dir, 'remote', 'set-url', 'origin', bare);
   SETUPS[setup].each?.(dir);
   return { dir, bare };

@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { confirmAsDeny, confirmReason, decide, prepare, READINGS, RULES, ruleSettings } from './guard-rules.mjs';
 import { shQuote } from './guard-shell.mjs';
 import { resolveSettings } from './settings.mjs';
-import { agentsFile, load, readSection, stateDir } from './store.mjs';
+import { agentsFile, load, machineDir, readSection, stateDir } from './store.mjs';
 
 export const DEADLINE_MS = 5000;
 // Agents whose own approval prompt ("ask") is verified to work for a hook. Until it is, a guardrail-file change is
@@ -129,6 +129,8 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     env, tick, realish, realFull, git, root, settings, stored,
     cwd: here,
     stateDir: () => real(stateDir()) || realish(stateDir()),
+    // This project's folder in the machine-only store.
+    machineDir: memo(() => { try { const d = machineDir(root()); return real(d) || realish(d); } catch { return null; } }),
     locations: () => locations(),
     exists: (p) => { try { statSync(p); return true; } catch { return false; } },
     isDir: (p) => { try { return statSync(p).isDirectory(); } catch { return false; } },
@@ -151,7 +153,8 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
       const text = (() => { try { return readFileSync(a.path, 'utf8'); } catch { return null; } })();
       if (text === null) return null;
       const sec = readSection(text);
-      return sec.status === 'ok' ? { path: realish(a.path), text, start: sec.start, end: sec.end } : null;
+      // path keeps a symlink's own name (AGENTS.md → CLAUDE.md); real is the file it points at, which writes resolve to.
+      return sec.status === 'ok' ? { path: realish(a.path), real: realFull(a.path), text, start: sec.start, end: sec.end } : null;
     }),
   };
 }
