@@ -8,7 +8,7 @@
 // Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens]
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, halfTheCpus, harness, json, sh } from './e2e-lib.mjs';
@@ -732,5 +732,193 @@ step('outside a git repository: a clear message and exit 2', () => {
   assert(r.status === 2 && /Not a git repository/.test(r.stderr), `exit ${r.status}: ${r.stderr}`);
   return r.stderr.trim();
 });
+
+// --- session start: the offer, grounding, drift, guardrail health (design 4 and 6) ---------------------------
+const SESSION = JSON.parse(read(join(PLUGIN, 'hooks', 'hooks.json'))).hooks.SessionStart[0].hooks[0].command;
+const SETUP = join(PLUGIN, 'tools', 'setup.mjs');
+// A session start through the real hooks.json command, as Claude Code runs it (Copilot with copilot: true).
+function session(dir, { copilot = false, extra = {} } = {}) {
+  const roots = copilot ? { COPILOT_PLUGIN_ROOT: PLUGIN, PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN } : { CLAUDE_PLUGIN_ROOT: PLUGIN };
+  const r = sh('/bin/sh', ['-c', SESSION], { cwd: dir, env: env({ ...roots, ...extra }) });
+  assert(r.status === 0, `session start failed: exit ${r.status} ${r.stderr.trim().slice(0, 200)}`);
+  return copilot ? JSON.parse(r.stdout || '{}').additionalContext || '' : r.stdout;
+}
+const setupCmd = (dir, ...a) => json(sh(NODE, [SETUP, ...a], { cwd: dir, env: env() }));
+const COMBINED = /"Cartwright can study this project \(read-only\) and save a profile so I use its real commands and rules, and connect it to a client's project skills if it's for a client\. Reply set up, not now, or never here\."/;
+const PROFILE_ONLY = /"Cartwright can study this project \(read-only\) and save a profile so I use its real commands and rules\. Reply set up, not now, or never here\."/;
+const CLIENT_ONLY = /"Is this project for a client\? I can connect it to that client's project skills\. Reply set up, not now, or never here\."/;
+const offered = (out) => /Reply set up, not now, or never here/.test(out);
+const backdate = (dir, days) => {
+  const f = join(STATE, 'projects.json'), j = readJson(f), key = Object.keys(j).find((k) => k === realpathSync(dir));
+  j[key].at -= days * 864e5; writeFileSync(f, JSON.stringify(j));
+};
+
+step('first run (B12): an unset project gets the combined line first, with the three replies', () => {
+  const { dir } = project('ts');
+  const out = session(dir);
+  assert(COMBINED.test(out) && out.indexOf('Reply set up') < out.indexOf('Not installed on this machine'), `no combined offer first: ${out.slice(0, 200)}`);
+  assert(/REQUIRED: begin your very first reply/.test(out) && /follow the project-profile skill/.test(out) && /remember later/.test(out) && /remember never/.test(out), 'the replies are missing');
+  assert(!/client-setup skill/.test(out) && (out.match(/Reply set up/g) || []).length === 1, 'a separate client question too');
+  return 'combined line first; set up → project-profile, not now → remember later, never here → remember never';
+});
+
+step('not now (B13): nothing for 7 days, then the combined line again', () => {
+  const { dir } = project('ts');
+  setupCmd(dir, 'remember', 'later');
+  assert(!offered(session(dir)), 'asked again straight away');
+  backdate(dir, 6); assert(!offered(session(dir)), 'asked again within 7 days');
+  backdate(dir, 2); assert(COMBINED.test(session(dir)), 'not asked again after 7 days');
+  return 'quiet at day 0 and 6, asked at day 8';
+});
+
+step('never here (B14): never offered again, and nothing in the repo changes', () => {
+  const { dir } = project('ts');
+  const before = snapshot(dir);
+  setupCmd(dir, 'remember', 'never');
+  backdate(dir, 400);
+  assert(!offered(session(dir)) && !offered(session(dir)), 'offered after never here');
+  assert(snapshot(dir) === before && clean(dir), 'the repo changed');
+  return 'no offer, even a year later; repo byte for byte unchanged';
+});
+
+step('the offer when the client is known: profile only (kit, no-client, done, clientProject: false)', () => {
+  const kit = project('ts').dir;
+  setupCmd(kit, 'kit', '--code', 'zzt', '--overlay', 'example/zzt-cartwright');
+  const results = [['kit', session(kit)]];
+  for (const choice of ['no-client', 'done']) { const { dir } = project('ts'); setupCmd(dir, 'remember', choice); results.push([choice, session(dir)]); }
+  // no-client survives a later "not now", once its 7 days are over.
+  const { dir: d } = project('ts'); setupCmd(d, 'remember', 'no-client'); setupCmd(d, 'remember', 'later'); backdate(d, 8);
+  results.push(['no-client then later', session(d)]);
+  const bad = results.filter(([, out]) => !PROFILE_ONLY.test(out) || /client's project skills/.test(out)).map(([k]) => k);
+  assert(!bad.length, `not the profile-only line: ${bad.join(', ')}`);
+  const p = project('ts').dir; ok(p, ['write', '--store', 'folder', ...LISTS, '--client-project', 'no']);
+  assert(!offered(session(p)), 'a profiled project with clientProject: false was still offered setup');
+  return 'profile-only for kit, no-client, done and no-client-then-later; nothing when profiled and not for a client';
+});
+
+step('a profiled project with no client recorded gets the client-only line; the library and overlay repos get none', () => {
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const out = session(dir);
+  assert(CLIENT_ONLY.test(out) && /follow the client-setup skill/.test(out), `no client-only line: ${out.slice(0, 200)}`);
+  const lib = project('unknown-stack', (d) => put(d, 'package.json', JSON.stringify({ name: 'cartwright' }) + '\n')).dir;
+  ok(lib, ['write', '--store', 'folder', ...LISTS]);
+  const l = session(lib);
+  const overlay = project('unknown-stack', (d) => put(d, 'overlay.json', JSON.stringify({ project: 'zzt' }) + '\n')).dir;
+  assert(!offered(l) && /\[cartwright\] Project profile/.test(l) && !offered(session(overlay)), 'library or overlay repo offered setup, or the library lost its grounding');
+  return 'client-only line; library repo: no offer but grounded; overlay: no offer';
+});
+
+step('grounding (C23 input): the profile with sources in every storage mode, and the project\'s rules winning', () => {
+  const labels = { folder: '.cartwright/profile.json', 'agents-md': 'the Cartwright section of AGENTS.md', machine: 'saved on this machine only' };
+  for (const store of ['folder', 'agents-md', 'machine']) {
+    const { dir } = project('python');
+    ok(dir, ['write', '--store', store, '--protected', 'main', '--generated', 'src/gen/**=make gen']);
+    const out = session(dir);
+    assert(out.includes(`[cartwright] Project profile (${labels[store]})`), `${store}: no grounding: ${out.slice(0, 160)}`);
+    assert(out.includes('If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them') && out.includes(`A fact marked "not found" isn't known`), `${store}: the rules-win or not-found sentence is missing`);
+    assert(out.includes('Test: uv run pytest (pyproject.toml#tool.pytest.ini_options)') && out.includes('Build: not found') && out.includes('Python 3.12.7 (.python-version)'), `${store}: facts or sources missing`);
+    assert(out.includes('Guardrails: protected main; generated src/gen/** (regenerate: make gen)') && out.includes('profile.mjs" show --json'), `${store}: guardrails or the full-profile command missing`);
+  }
+  const sfra = project('sfra').dir; ok(sfra, ['write', '--store', 'folder', ...LISTS]);
+  const g = session(sfra);
+  assert(/Platform: Salesforce B2C Commerce, SFRA \(package\.json#paths\.base\)\. Prefer b2c-controllers, b2c-forms, b2c-isml; don't use sfnext-\* skills/.test(g), `SFRA guidance missing: ${g.split('\n').find((l) => l.includes('Platform'))}`);
+  return 'folder, AGENTS.md and machine; sources, not found, rules win, guardrails; SFRA skill guidance';
+});
+
+step('drift at session start (A10): found in-process, mentioned until refreshed; the hook writes nothing', () => {
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  commitAll(dir, 'profile');
+  const fresh = session(dir);
+  assert(!/out of date/.test(fresh), 'drift reported on a fresh profile');
+  editJson(join(dir, 'package.json'), (j) => { j.scripts.test = 'vitest run --coverage'; });
+  const before = snapshot(dir);
+  const trace = join(WORK, `trace-${process.pid}`);
+  for (const n of [1, 2]) {
+    const out = session(dir, { extra: { CARTWRIGHT_HOOK_TRACE: trace } });
+    assert(/The project profile is out of date: commands\.test changed/.test(out) && /Mention this once in this session, and offer to refresh it/.test(out), `session ${n}: no drift note`);
+    assert(/Test: pnpm test \(package\.json#scripts\.test\) \[out of date\]/.test(out), `session ${n}: the stale fact isn't marked`);
+  }
+  assert(snapshot(dir) === before, 'the session-start hook changed a file in the project');
+  // Every node process the session start runs is recorded by a wrapper on the PATH: only the hook itself.
+  const bin = join(WORK, `node-wrapper-${process.pid}`), calls = join(bin, 'calls');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'node'), `#!/bin/sh\necho "$@" >> "${calls}"\nexec "${NODE}" "$@"\n`, { mode: 0o755 });
+  session(dir, { extra: { PATH: `${bin}:${BARE}` } });
+  const ran = read(calls).trim().split('\n');
+  assert(ran.length === 1 && /setup\.mjs hook$/.test(ran[0]), `node ran ${ran.length} times: ${ran.join(' | ')}`);
+  ok(dir, ['refresh']);
+  assert(!/out of date/.test(session(dir)), 'still reported after a refresh');
+  return 'reported in two sessions, stale fact marked, project unchanged; gone after refresh';
+});
+
+step('guardrail health at session start: broken settings (G3) and a loosening personal file are said once', () => {
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  writeFileSync(join(dir, '.cartwright', 'settings.json'), '{ "cartwright": "settings",');
+  const out = session(dir);
+  assert(/can't be used: not valid JSON \(line 1, column \d+\)\. Built-in protections are on and the project's own rules are paused\./.test(out) && /Tell the person once/.test(out), `no broken-settings warning: ${out.slice(0, 300)}`);
+  const p = project('ts').dir;
+  ok(p, ['write', '--store', 'folder', ...LISTS]);
+  put(p, '.cartwright/personal.json', JSON.stringify({ cartwright: 'personal', version: 1, guardrails: { secrets: false } }) + '\n');
+  assert(/personal file tries to loosen team rules.*guardrails\.secrets/.test(session(p)), 'loosening not reported');
+  return 'G3 message with the position; loosening named';
+});
+
+step('the plugin-root cache, and "guardrails are inactive" when the guard can\'t run here', () => {
+  const { dir } = project('ts');
+  const state = join(WORK, `state-cache-${process.pid}`);
+  const out = session(dir, { extra: { CARTWRIGHT_STATE_DIR: state } });
+  assert(read(join(state, 'plugin-root')).trim() === PLUGIN && !/Guardrails are inactive/.test(out), 'cache not written, or a false inactive note');
+  const at = statSync(join(state, 'plugin-root')).mtimeMs;
+  session(dir, { extra: { CARTWRIGHT_STATE_DIR: state } });
+  assert(statSync(join(state, 'plugin-root')).mtimeMs === at, 'the cache was rewritten although nothing changed');
+  // A plugin without the guard, and no cached root: inactive.
+  const bare = join(WORK, `plugin-no-guard-${process.pid}`);
+  cpSync(PLUGIN, bare, { recursive: true }); rmSync(join(bare, 'tools', 'guard.mjs'));
+  const r = sh(NODE, [join(bare, 'tools', 'setup.mjs'), 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: bare, CARTWRIGHT_STATE_DIR: join(WORK, `state-empty-${process.pid}`) }) });
+  assert(/Guardrails are inactive in this agent: the guard can't be found/.test(r.stdout), `no inactive note: ${r.stdout.slice(0, 200)}`);
+  // No node on the PATH the hooks use.
+  const nonode = join(WORK, `no-node-${process.pid}`); mkdirSync(nonode, { recursive: true });
+  symlinkSync(sh('/bin/sh', ['-c', 'command -v git']).stdout.trim(), join(nonode, 'git'));
+  const n = sh(NODE, [SETUP, 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: nonode }) });
+  assert(/Guardrails are inactive in this agent: node isn't on the PATH/.test(n.stdout), `no note without node: ${n.stdout.slice(0, 200)}`);
+  return 'cache written once; inactive without the guard and without node';
+});
+
+step('Copilot gets the same session start as JSON additionalContext', () => {
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const ctx = session(dir, { copilot: true });
+  assert(CLIENT_ONLY.test(ctx) && ctx.includes('[cartwright] Project profile (.cartwright/profile.json)'), `not in additionalContext: ${ctx.slice(0, 200)}`);
+  return 'offer and grounding in additionalContext';
+});
+
+step('status.profile (C27): where the profile is, the host, PR template, client and default branch', () => {
+  const { dir } = project('ts');
+  assert(setupCmd(dir, 'status').profile === null, 'an unprofiled project has a profile in status');
+  ok(dir, ['write', '--store', 'folder', ...LISTS, '--client-project', 'no']);
+  const p = setupCmd(dir, 'status').profile;
+  assert(p.store === 'folder' && p.settings === 'ok' && p.remoteHost === 'local' && p.prTemplate === '.github/pull_request_template.md' && p.clientProject === false && p.defaultBranch === 'main', JSON.stringify(p));
+  return JSON.stringify(p);
+});
+
+step('session start time (E45): p50 and p95 of 10 starts with no network, within twice a quarter second', () => {
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const nowhere = { HTTP_PROXY: 'http://127.0.0.1:9', HTTPS_PROXY: 'http://127.0.0.1:9', ALL_PROXY: 'http://127.0.0.1:9', NO_PROXY: '' };
+  const times = [];
+  for (let i = 0; i < 10; i++) {
+    const t = process.hrtime.bigint();
+    const out = session(dir, { extra: nowhere });
+    times.push(Number(process.hrtime.bigint() - t) / 1e6);
+    assert(/\[cartwright\] Project profile/.test(out), 'no grounding');
+  }
+  const q = (x) => [...times].sort((a, b) => a - b)[Math.min(9, Math.floor(x * 10))];
+  const line = `p50 ${q(0.5).toFixed(0)} ms, p95 ${q(0.95).toFixed(0)} ms (budget about 250)`;
+  assert(q(0.95) <= 500, `over twice the budget: ${line}`);
+  return line;
+}, { alone: true });
 
 process.exit(await report('Cartwright profile test', { keep: KEEP }));

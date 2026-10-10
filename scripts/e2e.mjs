@@ -106,7 +106,7 @@ const empty = join(WORK, 'empty'); mkdirSync(empty);
 step('session start outside a project: names the missing tools, no setup offer', () => {
   const out = hook(empty);
   assert(/Not installed on this machine: b2c, specify, graphify/.test(out), `got: ${out.slice(0, 200) || '(nothing)'}`);
-  assert(!/isn't set up/.test(out), 'offered client setup outside a git repo');
+  assert(!/isn't set up|Reply set up/.test(out), 'offered setup outside a git repo');
   return 'tools note shown';
 });
 
@@ -150,11 +150,14 @@ step(`clone the client project (${CLIENT})`, () => {
   return 'cloned';
 });
 
-step('session start in the client project: offers client setup once', () => {
+// The offer's wording changed on purpose in phase 1 (E44): one combined line for the profile and client skills.
+const COMBINED = /Cartwright can study this project \(read-only\).*connect it to a client's project skills.*Reply set up, not now, or never here/;
+const PROFILE_ONLY = /Cartwright can study this project \(read-only\) and save a profile so I use its real commands and rules\. Reply set up, not now, or never here/;
+step('session start in the client project: offers the combined setup once', () => {
   const out = hook(clientDir);
-  assert(/isn't set up for client project skills/.test(out), `no setup offer; got: ${out.slice(0, 200) || '(nothing)'}`);
-  assert(/set up, not now, or no client/.test(out), 'answers missing from the offer');
-  return 'offer shown';
+  assert(COMBINED.test(out), `no combined offer; got: ${out.slice(0, 200) || '(nothing)'}`);
+  assert(/follow the project-profile skill/.test(out) && /remember never/.test(out), 'the replies are missing from the offer');
+  return 'combined offer shown';
 });
 
 step(`lookup "${UNKNOWN}" finds nothing`, () => {
@@ -191,11 +194,11 @@ step('the kit is added, recognised, and adding it again changes nothing', () => 
   return a.changed.join(', ');
 });
 
-step('session start after the kit: no setup offer', () => {
+step('session start after the kit: only the profile offer (the client is known)', () => {
   assert(found, 'skipped: no client found');
   const out = hook(clientDir);
-  assert(!/isn't set up/.test(out), 'still offering setup');
-  return out.trim() ? 'only the tools note' : 'silent';
+  assert(PROFILE_ONLY.test(out) && !/client's project skills/.test(out), `expected the profile-only offer; got: ${out.slice(0, 200)}`);
+  return 'profile-only offer';
 });
 
 // Every plugin source the kit points at must actually resolve to the right plugin.
@@ -241,13 +244,16 @@ step('Codex marketplace: each git-subdir source holds a Codex plugin of that nam
   return m.plugins.map((p) => `${p.name}@${m.name}`).join(', ');
 });
 
-step('"no client" is remembered: the next session doesn\'t ask', () => {
+step('"no client" is remembered: the client question isn\'t asked again; "never here" stops the offer', () => {
   const other = join(WORK, 'other-project'); mkdirSync(other);
   sh('git', ['init', '-q'], { cwd: other, env: env(BARE) });
-  assert(/isn't set up/.test(hook(other)), 'expected an offer before answering');
+  assert(COMBINED.test(hook(other)), 'expected the combined offer before answering');
   json(node(SETUP(), ['remember', 'no-client'], BARE, { cwd: other }));
-  assert(!/isn't set up/.test(hook(other)), 'asked again after "no client"');
-  return 'asked once, then quiet';
+  const after = hook(other);
+  assert(PROFILE_ONLY.test(after) && !/client's project skills/.test(after), 'asked about a client again after "no client"');
+  json(node(SETUP(), ['remember', 'never'], BARE, { cwd: other }));
+  assert(!/Reply set up/.test(hook(other)), 'offered again after "never here"');
+  return 'combined, then profile-only, then nothing';
 });
 
 let prUrl, prBranch;
