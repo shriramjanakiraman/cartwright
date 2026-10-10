@@ -240,17 +240,21 @@ step('failing safe (5.7): a rule that fails denies only actions in its family; a
   return 'unrelated action allowed; write and push denied with the error; deadline → "too large to check in time"';
 });
 
-step('timing (5.9): p50 and p95 through the hook, within twice the budget', () => {
+step('timing (5.9): the guard\'s overhead above starting node, through the hook', () => {
   const { dir } = fresh('profiled');
   const plain = { via: 'hook', edit: { path: 'src/server.ts', before: 'ok: true', after: 'ok: false' } };
   const push = { via: 'hook', shell: 'git push origin main' };
   const p = (xs, q) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
-  // Each measured call must really have been decided (an early exit would also be fast).
-  const timed = (c, n, want) => Array.from({ length: n }, () => { const r = call(c, 'claude-code', dir); assert(r.decision === want && r.logLines >= 1, `a timed call wasn't decided: ${r.decision}`); return r.ms; });
-  const a = timed(plain, 15, 'allow');
-  const b = timed(push, 8, 'deny');
-  const line = `no git: p50 ${p(a, 0.5).toFixed(0)} ms, p95 ${p(a, 0.95).toFixed(0)} ms (budget 200); push: p50 ${p(b, 0.5).toFixed(0)} ms, p95 ${p(b, 0.95).toFixed(0)} ms (budget 500)`;
-  assert(p(a, 0.95) <= 400 && p(b, 0.95) <= 1000, `over twice the budget: ${line}`);
+  // The machine's own cost of starting node through sh, sampled in turn with the guard, so background load affects
+  // both alike and what's judged is what the guard adds. Each timed call must really have been decided.
+  const nodeAlone = () => { const t = process.hrtime.bigint(); sh('/bin/sh', ['-c', `exec "${NODE}" -e 0`], { cwd: dir, env: env() }); return Number(process.hrtime.bigint() - t) / 1e6; };
+  const timed = (c, want) => { const r = call(c, 'claude-code', dir); assert(r.decision === want && r.logLines >= 1, `a timed call wasn't decided: ${r.decision}`); return r.ms; };
+  const bare = [], a = [], b = [];
+  for (let i = 0; i < 30; i++) { bare.push(nodeAlone()); a.push(timed(plain, 'allow')); b.push(timed(push, 'deny')); }
+  const base = p(bare, 0.95), over = (xs) => p(xs, 0.95) - base;
+  // Budgets for what the guard adds: 100 ms without git, 400 ms for a push; the test fails beyond twice that.
+  const line = `node alone: p50 ${p(bare, 0.5).toFixed(0)} ms, p95 ${base.toFixed(0)} ms; no git: p50 ${p(a, 0.5).toFixed(0)} ms, p95 ${p(a, 0.95).toFixed(0)} ms (+${over(a).toFixed(0)}, budget +100); push: p50 ${p(b, 0.5).toFixed(0)} ms, p95 ${p(b, 0.95).toFixed(0)} ms (+${over(b).toFixed(0)}, budget +400)`;
+  assert(over(a) <= 200 && over(b) <= 800, `the guard adds more than twice its budget: ${line}`);
   return line;
 }, { alone: true });
 

@@ -61,7 +61,7 @@ export function normalise(p, env = process.env) {
     const path = str(input.file_path, input.path, input.filePath, input.notebook_path) ?? null;
     if (t === 'multiedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: (Array.isArray(input.edits) ? input.edits : []).map((e) => ({ before: e.old_string ?? e.old_str ?? '', after: e.new_string ?? e.new_str ?? '' })) }] });
     else if (t === 'write' || t === 'create') actions.push({ type: 'edit', targets: [{ path, op: 'write', content: str(input.content, input.file_text, input.new_str) ?? '' }] });
-    else if (t === 'notebookedit') actions.push({ type: 'edit', targets: [{ path, op: input.edit_mode === 'delete' ? 'modify' : 'modify', edits: [{ before: '', after: str(input.new_source) ?? '' }] }] });
+    else if (t === 'notebookedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: '', after: str(input.new_source) ?? '' }] }] });
     else actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: str(input.old_string, input.old_str) ?? '', after: str(input.new_string, input.new_str) ?? '' }] }] });
   }
   return { agent: agentOf(p, env), tool, cwd, actions };
@@ -163,7 +163,8 @@ export function respond(payload, env = process.env) {
 }
 
 function preToolUse() {
-  if (process.platform === 'win32') { process.stderr.write('Cartwright: hard blocks are not available on Windows.\n'); process.exit(0); }
+  // Windows: a documented gap. Exit at once and silently; the session start says it once.
+  if (process.platform === 'win32') process.exit(0);
   let payload;
   try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { process.exit(0); }
   const out = respond(payload);
