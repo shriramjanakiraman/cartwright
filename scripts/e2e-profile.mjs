@@ -226,6 +226,7 @@ step('secrets (A7): each secret shape in a script is hidden, and ordinary script
     () => `aws_secret_access_key = ${hex(12)}abcdefgh`, () => `curl https://hooks.slack.com/services/T0/B0/${hex(8)}`,
     () => `SENTRY_DSN=https://${hex(16)}@o1.ingest.sentry.io/123 node x`, () => `echo sk_${'test'}_${hex(8)}`, () => `echo glpat-${hex(12)}`,
     () => `AUTH="Basic ${Buffer.from(`admin:${v()}`).toString('base64')}" node x`, () => `node report.js --dsn https://${hex(16)}@sentry.example.com`,
+    () => `SENTRY_DSN=https://a1${hex(5)}@o1.ingest.sentry.io/1 x`,
   ];
   const keep = ['jest --passWithNoTests', 'eslint --max-warnings=0 .', 'PASSWORD_MIN_LENGTH=12 node x', 'KEYCLOAK_URL=http://localhost:8080 node x', 'npm publish --token $NPM_TOKEN'];
   const { dir } = project('ts');
