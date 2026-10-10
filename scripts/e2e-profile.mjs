@@ -8,7 +8,7 @@
 // Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens]
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, harness, json, sh } from './e2e-lib.mjs';
@@ -26,6 +26,7 @@ cpSync(resolve(opt('--plugin', join(ROOT, 'plugin'))), PLUGIN, { recursive: true
 const PROFILE = join(PLUGIN, 'tools', 'profile.mjs');
 const { HIDDEN } = await import(pathToFileURL(join(PLUGIN, 'tools', 'secret-rules.mjs')));
 const { isTightening, teamDefaults, validateSettings } = await import(pathToFileURL(join(PLUGIN, 'tools', 'settings.mjs')));
+const { makeCtx } = await import(pathToFileURL(join(PLUGIN, 'tools', 'profile.mjs')));
 
 const env = (extra = {}) => ({ HOME, PATH: BARE, NO_COLOR: '1', CARTWRIGHT_STATE_DIR: STATE, GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'fixture', GIT_AUTHOR_EMAIL: 'fixture@example.com', GIT_COMMITTER_NAME: 'fixture', GIT_COMMITTER_EMAIL: 'fixture@example.com', ...extra });
@@ -85,14 +86,16 @@ function unsourced(p) {
   return bad;
 }
 const notFound = (x) => x?.status === 'not found';
+// New settings need both lists on the command line; most steps confirm these.
+const LISTS = ['--protected', 'develop,main', '--generated', 'none'];
 
 // --- A1–A6: detection, sources, "not found", conventions -----------------------------------------------------
-const FIXTURES = ['storefront-next', 'ts', 'python', 'unknown-stack'];
+const FIXTURES = ['sfra', 'storefront-next', 'ts', 'python', 'unknown-stack'];
 const P = {};
 for (const name of FIXTURES) {
   step(`${name}: the profile matches tests/expected/${name}.profile.json, every fact with its source`, () => {
     const { dir } = project(name);
-    const w = ok(dir, ['write', '--store', 'folder']);
+    const w = ok(dir, ['write', '--store', 'folder', ...LISTS]);
     assert(w.changed.includes('.cartwright/profile.json'), `nothing written: ${JSON.stringify(w)}`);
     const got = read(join(dir, '.cartwright', 'profile.json'));
     const golden = join(ROOT, 'tests', 'expected', `${name}.profile.json`);
@@ -154,29 +157,16 @@ step('conventions (A6): rules files, spec-kit, ADR folder, PR template and track
   return 'AGENTS.md, CLAUDE.md, .cursor/rules, .specify, docs/adr, docs/decisions, both PR templates, both trackers';
 });
 
-// SFRA: generated here until the zzt-client-test fixture is reworked into a real SFRA layout (design G7).
-const sfraTree = (d) => {
-  put(d, 'package.json', JSON.stringify({ name: 'sample-sfra', version: '1.0.0', private: true,
-    paths: { base: '../storefront-reference-architecture/cartridges/app_storefront_base/' },
-    scripts: { build: 'npm run compile:js && npm run compile:scss', 'compile:js': 'sgmf-scripts --compile js', 'compile:scss': 'sgmf-scripts --compile css', test: 'sgmf-scripts --test test/unit/**/*.js', upload: 'sgmf-scripts --uploadCartridge app_sample' },
-    devDependencies: { 'sgmf-scripts': '^2.4.2' } }, null, 2) + '\n');
-  put(d, 'package-lock.json', '{ "lockfileVersion": 3 }\n');
-  put(d, '.nvmrc', '18.19.0\n');
-  put(d, 'cartridges/app_sample/cartridge/controllers/Home.js', "'use strict';\n");
-  put(d, 'cartridges/app_sample/cartridge/templates/default/home.isml', '<isdecorate template="common/layout/page"></isdecorate>\n');
-  put(d, 'cartridges/int_sample_payments/cartridge/scripts/hooks.js', "'use strict';\n");
-};
-step('SFRA (A1, generated tree): SFRA flavour, Node pin, npm from its lockfile, exact commands, cartridges, branches', () => {
-  const { dir } = project(null, sfraTree);
-  const p = ok(dir, ['study']).profile;
+step('SFRA (A1): SFRA flavour, Node pin, npm from its lockfile, exact commands, cartridges, branches, conventions', () => {
+  const p = P.sfra; assert(p, 'no profile');
   assert(p.facts.platform.flavour === 'sfra' && p.facts.platform.source === 'package.json#paths.base', JSON.stringify(p.facts.platform));
   assert(p.facts.languages.value.map((l) => l.value).join() === 'JavaScript,ISML' && p.facts.node.value === '18.19.0', 'languages or Node');
   assert(p.facts.packageManager.value === 'npm' && p.facts.packageManager.source === 'package-lock.json', 'npm');
-  assert(p.facts.commands.test.defined === 'sgmf-scripts --test test/unit/**/*.js' && notFound(p.facts.commands.lint), 'commands');
+  assert(p.facts.commands.test.defined === 'sgmf-scripts --test test/unit/**/*.js' && p.facts.commands.build.run === 'npm run build' && notFound(p.facts.commands.lint), 'commands');
   assert(p.facts.layout.value.cartridges.join() === 'app_sample,int_sample_payments', 'cartridges');
   assert(p.facts.protectedBranchCandidates.value.join() === 'develop,main', 'protected-branch candidates');
-  assert(p.suggestions.generated.some((g) => g.regenerate === 'npm run compile:js'), 'generated suggestion');
-  assert(!unsourced(p).length && p.guidance.avoidSkills.includes('sfnext-*'), 'sources or guidance');
+  assert(p.conventions.prTemplate.path === '.github/pull_request_template.md' && p.conventions.rulesFiles.value[0].path === 'AGENTS.md', 'conventions');
+  assert(p.suggestions.generated.some((g) => g.regenerate === 'npm run compile:js') && p.guidance.avoidSkills.includes('sfnext-*'), 'generated suggestion or guidance');
   return `${p.facts.platform.flavour}, cartridges ${p.facts.layout.value.cartridges.join(', ')}`;
 });
 
@@ -194,7 +184,7 @@ step('secrets (A7): credential files are never read and secret-looking values ne
   let seen = '';
   const runAll = (a, extra) => { const r = profile(dir, a, extra); seen += r.stdout + r.stderr; return r; };
   runAll(['study']);
-  for (const store of ['folder', 'agents-md', 'machine']) assert(runAll(['write', '--store', store]).status === 0, `write ${store} failed`);
+  for (const store of ['folder', 'agents-md', 'machine']) assert(runAll(['write', '--store', store, ...LISTS]).status === 0, `write ${store} failed`);
   for (const a of [['show'], ['diff'], ['check']]) runAll(a);
   const files = [join(dir, '.cartwright', 'profile.json'), join(dir, '.cartwright', 'settings.json'), join(dir, 'AGENTS.md')];
   const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
@@ -231,11 +221,37 @@ step('read-only (A9): study, diff, show and check change no file, not even under
   return 'mtimes, sizes and .git/index unchanged; git status clean; nothing on the machine';
 });
 
+step('reads stay inside the project: a symlinked file pointing outside is never read', () => {
+  const outside = join(WORK, 'outside-file'); mkdirSync(outside, { recursive: true });
+  const marker = `outsidevalue${randomBytes(6).toString('hex')}`;
+  writeFileSync(join(outside, 'package.json'), JSON.stringify({ name: marker, scripts: { test: `echo ${marker}` } }) + '\n');
+  const { dir } = project('unknown-stack');
+  symlinkSync(join(outside, 'package.json'), join(dir, 'package.json'));
+  const r = profile(dir, ['study']);
+  assert(r.status === 0 && !r.stdout.includes(marker), 'a file outside the project was read through a symlink');
+  assert(notFound(JSON.parse(r.stdout).profile.facts.commands.test), 'a command came from outside the project');
+  return 'not read; test command not found';
+});
+
+step('reads stay inside the project: listing never enters a symlinked folder, or one that leads outside', () => {
+  const outside = join(WORK, 'outside-dir', 'app_elsewhere', 'cartridge', 'controllers'); mkdirSync(outside, { recursive: true });
+  writeFileSync(join(outside, 'Secret.js'), '\n');
+  const { dir } = project('ts');
+  symlinkSync(join(WORK, 'outside-dir'), join(dir, 'cartridges'));
+  symlinkSync(join(WORK, 'outside-dir'), join(dir, 'docs', 'linked'));
+  const ctx = makeCtx(dir);
+  assert(ctx.list('cartridges', { depth: 3 }).length === 0, `listed a folder outside the project: ${ctx.list('cartridges', { depth: 3 })}`);
+  const all = ctx.list('.', { depth: 4 });
+  assert(all.includes('docs/linked') && !all.some((e) => e.startsWith('docs/linked/')), `entered a symlinked folder: ${all.filter((e) => e.startsWith('docs/linked')).join(', ')}`);
+  assert(notFound(ok(dir, ['study']).profile.facts.platform), 'a cartridge outside the project made it SFCC');
+  return 'cartridges (a link outside) lists nothing; docs/linked listed but not entered';
+});
+
 step('reproducible (A8): writing again with nothing changed changes no byte, and study gives the same output', () => {
   const { dir } = project('storefront-next');
-  ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   commitAll(dir, 'profile');
-  const again = ok(dir, ['write', '--store', 'folder']);
+  const again = ok(dir, ['write', '--store', 'folder', ...LISTS]);
   assert(again.changed.length === 0 && clean(dir), `second write changed ${again.changed.join(', ')}`);
   assert(profile(dir, ['study']).stdout === profile(dir, ['study']).stdout, 'study output differs between runs');
   const text = read(join(dir, '.cartwright', 'profile.json'));
@@ -246,7 +262,7 @@ step('reproducible (A8): writing again with nothing changed changes no byte, and
 // --- A10, A11: drift and refresh -----------------------------------------------------------------------------
 step('drift (A10): a changed test script is reported, again in the next session, and not after a refresh', () => {
   const { dir } = project('ts');
-  ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   commitAll(dir, 'profile');
   editJson(join(dir, 'package.json'), (j) => { j.scripts.test = 'vitest run --coverage'; });
   for (const session of [1, 2]) {
@@ -261,8 +277,8 @@ step('drift (A10): a changed test script is reported, again in the next session,
 });
 
 step('drift (A10): a new lockfile is reported (npm → pnpm)', () => {
-  const { dir } = project(null, sfraTree);
-  ok(dir, ['write', '--store', 'folder']);
+  const { dir } = project('sfra');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   put(dir, 'pnpm-lock.yaml', "lockfileVersion: '9.0'\n");
   const c = JSON.parse(profile(dir, ['check']).stdout);
   assert(c.changed.includes('facts.packageManager') && c.changed.includes('facts.commands.test'), JSON.stringify(c.changed));
@@ -271,7 +287,7 @@ step('drift (A10): a new lockfile is reported (npm → pnpm)', () => {
 
 step('refresh (A11): diff lists exactly the changed facts; refresh writes only those, and leaves the settings alone', () => {
   const { dir } = project('python');
-  ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   rmSync(join(dir, '.cartwright', 'README.md'));
   commitAll(dir, 'profile');
   const settingsBefore = read(join(dir, '.cartwright', 'settings.json'));
@@ -291,7 +307,7 @@ step('refresh (A11): diff lists exactly the changed facts; refresh writes only t
   assert(git(dir, 'log', '--oneline').trim().split('\n').length === 2, 'refresh committed');
   // AGENTS.md mode: only the profile block changes; the settings block keeps its exact bytes, even hand-formatted.
   const a = project('python').dir;
-  ok(a, ['write', '--store', 'agents-md']);
+  ok(a, ['write', '--store', 'agents-md', ...LISTS]);
   const settingsBlock = (t) => t.slice(t.indexOf('```json cartwright-settings'), t.indexOf('<!-- cartwright:end'));
   writeFileSync(join(a, 'AGENTS.md'), read(join(a, 'AGENTS.md')).replace('"rules": []', '"rules":   []'));
   const handEdited = settingsBlock(read(join(a, 'AGENTS.md')));
@@ -308,25 +324,49 @@ step('settings content (B16): confirmed branches, the four rules on, generated f
   const proposal = ok(dir, ['study']).proposedSettings;
   assert(proposal.protectedBranches.join() === 'develop,main', `proposed branches: ${proposal.protectedBranches}`);
   ok(dir, ['write', '--store', 'folder', '--protected', 'main,develop,release/*', '--generated', 'src/generated/**=pnpm generate:api',
-    '--allow', '~/sandbox', '--protect', '${HOME}/.ssh', '--client-project', 'no']);
+    '--secrets-allow', 'tests/fixtures/**', '--allow-location', '~/sandbox', '--protect-location', '${HOME}/.ssh', '--client-project', 'no']);
   const s = readJson(join(dir, '.cartwright', 'settings.json'));
   assert(s.cartwright === 'settings' && s.version === 1, 'kind or version');
   assert(s.protectedBranches.join() === 'main,develop,release/*', `branches: ${s.protectedBranches}`);
   assert(Object.values(s.guardrails).length === 4 && Object.values(s.guardrails).every((v) => v === true), JSON.stringify(s.guardrails));
   assert(s.generated.length === 1 && s.generated[0].regenerate === 'pnpm generate:api', JSON.stringify(s.generated));
+  assert(s.secrets.allow.join() === 'tests/fixtures/**', JSON.stringify(s.secrets));
   assert(s.locations.allowed.join() === '~/sandbox' && s.locations.protected.join() === '${HOME}/.ssh', JSON.stringify(s.locations));
   assert(s.tracks.enabled === false && /no effect yet/.test(s.tracks.$comment) && s.clientProject === false, JSON.stringify(s.tracks));
   assert(validateSettings(s).ok, 'the written settings are not valid');
+  return 'all present';
+});
+
+step('settings need explicit lists (B16): new settings refuse to guess and print the proposal as the command to confirm', () => {
+  // Storefront Next: the refusal shows a command that, run as shown, saves exactly the proposal.
   const sn = project('storefront-next').dir;
-  ok(sn, ['write', '--store', 'folder']);
-  const g = readJson(join(sn, '.cartwright', 'settings.json')).generated;
-  assert(g[0]?.regenerate === 'pnpm cartridge:generate', `proposal's generated list not written: ${JSON.stringify(g)}`);
-  return 'all present; without options, write uses what study proposed';
+  const r = profile(sn, ['write', '--store', 'folder']);
+  const cmd = (r.stderr.match(/^ {2}(node .*)$/m) || [])[1];
+  assert(r.status === 2 && /--protected and --generated/.test(r.stderr) && cmd, `exit ${r.status}: ${r.stderr.trim()}`);
+  assert(!existsSync(join(sn, '.cartwright')), 'something was written');
+  assert(sh('/bin/sh', ['-c', cmd.replace(/^node /, `"${NODE}" `)], { cwd: sn, env: env() }).status === 0, `the printed command failed: ${cmd}`);
+  const s = readJson(join(sn, '.cartwright', 'settings.json'));
+  assert(s.protectedBranches.join() === 'develop,main' && s.generated.map((g) => `${g.path}=${g.regenerate}`).join() === 'cartridges/app_storefrontnext_base/cartridge/experience/**=pnpm cartridge:generate', JSON.stringify(s));
+  // TypeScript: a suggestion with no known regenerate command is named, not dropped silently.
+  const ts = project('ts').dir;
+  const t = profile(ts, ['write', '--store', 'folder', '--protected', 'main']);
+  assert(t.status === 2 && t.stderr.includes('src/generated/api.ts'), `suggestion without a command not mentioned: ${t.stderr.trim()}`);
+  assert(ok(ts, ['study']).writeCommand?.includes('--generated none'), 'study has no write command');
+  // Existing settings: an omitted list keeps the saved one; none empties a list; unknown rule switches survive.
+  ok(ts, ['write', '--store', 'folder', '--protected', 'main', '--generated', 'src/generated/**=pnpm generate:api', '--secrets-allow', 'tests/fixtures/**', '--allow-location', '/opt/sandbox']);
+  editJson(join(ts, '.cartwright', 'settings.json'), (x) => { x.guardrails['future-rule'] = true; });
+  ok(ts, ['write', '--store', 'folder', '--protected', 'main,develop', '--allow-location', 'none']);
+  const k = readJson(join(ts, '.cartwright', 'settings.json'));
+  assert(k.protectedBranches.join() === 'main,develop' && k.generated[0]?.regenerate === 'pnpm generate:api' && k.secrets.allow.join() === 'tests/fixtures/**', `kept lists: ${JSON.stringify(k)}`);
+  assert(!k.locations.allowed.length && k.guardrails['future-rule'] === true, `none or the unknown rule switch: ${JSON.stringify(k)}`);
+  const old = profile(ts, ['write', '--store', 'folder', '--allow', '/tmp']);
+  assert(old.status === 2 && /--allow-location/.test(old.stderr), `an unknown option was accepted: ${old.stderr.trim()}`);
+  return 'refused with a runnable command; uncommanded suggestion named; omitted lists kept; none empties; future-rule kept; old flag refused';
 });
 
 step('personal file (B17): .cartwright/.gitignore ignores it, so git never offers it for commit', () => {
   const { dir } = project('ts');
-  ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   put(dir, '.cartwright/personal.json', JSON.stringify({ cartwright: 'personal', version: 1, protectedBranches: ['staging'] }) + '\n');
   assert(sh('git', ['check-ignore', '-q', '.cartwright/personal.json'], { cwd: dir, env: env() }).status === 0, 'not ignored');
   const status = git(dir, 'status', '--porcelain', '--untracked-files=all');
@@ -338,7 +378,7 @@ step('personal file (B17): .cartwright/.gitignore ignores it, so git never offer
 
 step('personal file (B18): it adds or tightens for this developer only; a teammate\'s clone is unaffected', () => {
   const { dir, bare } = project('ts');
-  ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   editJson(join(dir, '.cartwright', 'settings.json'), (s) => { s.guardrails['generated-files'] = false; });
   commitAll(dir, 'profile'); git(dir, 'push', '-q', 'origin', 'main');
   put(dir, '.cartwright/personal.json', JSON.stringify({ cartwright: 'personal', version: 1, guardrails: { 'generated-files': true },
@@ -356,7 +396,7 @@ step('personal file (B18): it adds or tightens for this developer only; a teamma
 
 step('personal file (B19): attempts to switch off or loosen a team rule are ignored and reported', () => {
   const { dir } = project('ts');
-  ok(dir, ['write', '--store', 'folder', '--generated', 'src/generated/**=pnpm generate:api']);
+  ok(dir, ['write', '--store', 'folder', '--protected', 'develop,main', '--generated', 'src/generated/**=pnpm generate:api']);
   editJson(join(dir, '.cartwright', 'settings.json'), (s) => { s.rules = [{ id: 'no-prod-deploy', shell: 'deploy\\s+--prod', message: 'Production deploys go through the pipeline.' }]; });
   put(dir, '.cartwright/personal.json', JSON.stringify({ cartwright: 'personal', version: 1, guardrails: { secrets: false, 'protected-branches': false },
     protectedBranches: [], locations: { allowed: ['/'] }, secrets: { allow: ['**'] }, generated: [{ path: 'src/generated/**', regenerate: 'echo skip' }],
@@ -375,22 +415,24 @@ step('storage (B20): each of the three choices works and is found again', () => 
   const out = [];
   for (const store of ['folder', 'agents-md', 'machine']) {
     const { dir } = project('python');
-    ok(dir, ['write', '--store', store]);
+    ok(dir, ['write', '--store', store, ...LISTS]);
     const s = ok(dir, ['show']);
     assert(s.store === store && s.profile?.facts.python.value === '3.12.7' && s.settings.status === 'ok', `${store}: ${JSON.stringify({ store: s.store, settings: s.settings.status })}`);
+    const leftovers = [join(dir, '.cartwright'), STATE].filter(existsSync).flatMap((d) => readdirSync(d, { recursive: true })).filter((f) => String(f).endsWith('.tmp'));
+    assert(!leftovers.length, `temporary files left: ${leftovers.join(', ')}`);
     out.push(store);
   }
-  return out.join(', ');
+  return out.join(', ') + '; no temporary files left';
 });
 
 step('storage (B21): AGENTS.md mode adds one marked section, keeps every other byte, and creates no .cartwright/', () => {
   const { dir } = project('ts');
   const original = read(join(dir, 'AGENTS.md'));
-  const w = ok(dir, ['write', '--store', 'agents-md']);
+  const w = ok(dir, ['write', '--store', 'agents-md', ...LISTS]);
   const text = read(join(dir, 'AGENTS.md'));
   assert(w.changed.join() === 'AGENTS.md' && !existsSync(join(dir, '.cartwright')), `changed ${w.changed}; .cartwright exists: ${existsSync(join(dir, '.cartwright'))}`);
   assert(text.startsWith(original) && text.slice(original.length).startsWith('\n<!-- cartwright:begin'), 'bytes before the section changed, or no blank line before it');
-  assert(ok(dir, ['write', '--store', 'agents-md']).changed.length === 0, 'second write changed it');
+  assert(ok(dir, ['write', '--store', 'agents-md', ...LISTS]).changed.length === 0, 'second write changed it');
   // Text the team adds around the section stays exactly as it is when the section is rewritten.
   writeFileSync(join(dir, 'AGENTS.md'), `# Top\r\n\r\n${text}\r\nAfter the section.`);
   const around = read(join(dir, 'AGENTS.md'));
@@ -401,20 +443,20 @@ step('storage (B21): AGENTS.md mode adds one marked section, keeps every other b
   assert(ok(dir, ['show']).settings.effective.protectedBranches.join() === 'main', 'the section\'s settings are not the ones that apply');
   // No AGENTS.md: it's created with only the section.
   const u = project('unknown-stack').dir;
-  ok(u, ['write', '--store', 'agents-md']);
+  ok(u, ['write', '--store', 'agents-md', ...LISTS]);
   assert(read(join(u, 'AGENTS.md')).startsWith('<!-- cartwright:begin') && !existsSync(join(u, '.cartwright')), 'AGENTS.md not created with only the section');
   assert(profile(u, ['check']).status === 0 && ok(u, ['show']).profile.conventions.rulesFiles.value[0].path === 'AGENTS.md', 'the profile is stale right after creating AGENTS.md');
   // Markers missing a partner: write refuses and changes nothing; the settings count as broken.
   writeFileSync(join(u, 'AGENTS.md'), read(join(u, 'AGENTS.md')).replace('<!-- cartwright:end -->', ''));
   const broken = read(join(u, 'AGENTS.md'));
-  assert(profile(u, ['write', '--store', 'agents-md']).status === 1 && read(join(u, 'AGENTS.md')) === broken, 'wrote over unpaired markers');
+  assert(profile(u, ['write', '--store', 'agents-md', ...LISTS]).status === 1 && read(join(u, 'AGENTS.md')) === broken, 'wrote over unpaired markers');
   assert(ok(u, ['show']).settings.status === 'broken', 'unpaired markers not treated as broken settings');
   return 'section appended after one blank line; CRLF text around it untouched; idempotent; created when missing';
 });
 
 step('storage (B22): machine mode changes nothing in the repo, and another clone is unprofiled', () => {
   const { dir, bare } = project('ts');
-  const w = ok(dir, ['write', '--store', 'machine']);
+  const w = ok(dir, ['write', '--store', 'machine', ...LISTS]);
   assert(clean(dir) && w.changed.every((p) => p.startsWith(STATE)), `repo changed: ${git(dir, 'status', '--porcelain')}`);
   assert(w.changed.some((p) => p.endsWith('settings.json')) && w.changed.some((p) => p.endsWith('/root')), w.changed.join(', '));
   assert(ok(dir, ['show']).store === 'machine', 'not found again');
@@ -425,17 +467,19 @@ step('storage (B22): machine mode changes nothing in the repo, and another clone
 
 step('lookup order: the folder wins over the machine copy, and both are reported', () => {
   const { dir } = project('ts');
-  ok(dir, ['write', '--store', 'machine']);
-  const w = ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'machine', ...LISTS]);
+  const w = ok(dir, ['write', '--store', 'folder', ...LISTS]);
   const s = ok(dir, ['show']);
-  assert(s.store === 'folder' && s.found.join() === 'folder,machine' && w.otherStores.join() === 'machine', JSON.stringify({ store: s.store, found: s.found, other: w.otherStores }));
-  return 'folder, machine';
+  assert(s.store === 'folder' && s.found.join() === 'folder,machine' && w.otherStores.join() === 'machine' && !w.active, JSON.stringify({ store: s.store, found: s.found, other: w.otherStores, active: w.active }));
+  const a = ok(dir, ['write', '--store', 'agents-md', ...LISTS]);
+  assert(a.active === 'folder' && /\.cartwright\/ folder still takes precedence; remove it to use the AGENTS\.md section/.test(a.note), JSON.stringify(a));
+  return `folder, agents-md, machine; "${a.note}"`;
 });
 
 // --- broken settings: fail safe, loud, and never quoting the file -------------------------------------------
 step('broken settings: malformed, newer version or a schema error all fail safe and say where, never what', () => {
   const { dir } = project('storefront-next');
-  ok(dir, ['write', '--store', 'folder']);
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
   const file = join(dir, '.cartwright', 'settings.json');
   const marker = `markervalue${randomBytes(6).toString('hex')}`;
   const cases = [
@@ -453,7 +497,7 @@ step('broken settings: malformed, newer version or a schema error all fail safe 
     assert(Object.values(e.guardrails).every(Boolean) && e.protectedBranches.join() === 'main,develop', `${name}: defaults not applied`);
     assert(e.generated.some((g) => g.regenerate === 'pnpm cartridge:generate') && !e.rules.length && !e.locations.allowed.length, `${name}: fallback lists`);
     assert(profile(dir, ['check']).status === 1, `${name}: check passed`);
-    assert(profile(dir, ['write', '--store', 'folder']).status === 1 && read(file) === text, `${name}: write overwrote the broken file`);
+    assert(profile(dir, ['write', '--store', 'folder', ...LISTS]).status === 1 && read(file) === text, `${name}: write overwrote the broken file`);
   }
   writeFileSync(file, JSON.stringify({ cartwright: 'settings', version: 1, laterKey: true }));
   const later = ok(dir, ['show']).settings;
@@ -466,7 +510,18 @@ step('merge rules: isTightening agrees with the table', () => {
   const tighter = teamDefaults(validateSettings({ cartwright: 'settings', version: 1, protectedBranches: ['main', 'develop'], locations: { allowed: [] } }).value);
   const looser = teamDefaults(validateSettings({ cartwright: 'settings', version: 1, guardrails: { secrets: false }, protectedBranches: ['main'], locations: { allowed: ['/opt/x'] } }).value);
   assert(isTightening(base, tighter) && !isTightening(tighter, base) && !isTightening(base, looser), 'wrong verdict');
-  return 'tighter: yes; reversed or a rule off: no';
+  const team = (extra) => teamDefaults(validateSettings({ cartwright: 'settings', version: 1, ...extra }).value);
+  const full = { secrets: { allow: ['tests/fixtures/**'] }, rules: [{ id: 'no-prod', shell: 'deploy --prod', message: 'Use the pipeline.' }],
+    generated: [{ path: 'INDEX.md', regenerate: 'npm run build' }], locations: { protected: ['~/.ssh'] } };
+  const cases = {
+    'secrets.allow widened': { ...full, secrets: { allow: ['tests/fixtures/**', '**'] } },
+    'a team rule removed': { ...full, rules: [] },
+    'a generated path removed': { ...full, generated: [] },
+    'a protected location removed': { ...full, locations: { protected: [] } },
+  };
+  for (const [name, after] of Object.entries(cases)) assert(!isTightening(team(full), team(after)), `${name} counted as tightening`);
+  assert(isTightening(team(full), team(full)), 'unchanged settings should count as at least as strict');
+  return 'tighter: yes; reversed, a rule off, secrets.allow widened, a rule, generated path or protected location removed: no';
 });
 
 step('outside a git repository: a clear message and exit 2', () => {

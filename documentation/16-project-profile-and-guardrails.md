@@ -16,9 +16,10 @@ each with the file it came from. It also keeps the team's **guardrail settings**
 `tools/profile.mjs` in the plugin (`scripts/profile.mjs` here). It only reads until the person says yes.
 
 ```bash
-node "<plugin>/tools/profile.mjs" study       # the proposed profile and settings, as JSON; changes nothing
-node "<plugin>/tools/profile.mjs" write --store folder [--protected main,develop] \
-     [--generated '<glob>=<regenerate command>' …] [--allow <location>] [--protect <location>] [--client-project yes|no]
+node "<plugin>/tools/profile.mjs" study       # the proposed profile and settings, and the write command; changes nothing
+node "<plugin>/tools/profile.mjs" write --store folder --protected main,develop \
+     --generated '<glob>=<regenerate command>' … [--secrets-allow <glob> …] \
+     [--allow-location <location> …] [--protect-location <location> …] [--client-project yes|no]
 node "<plugin>/tools/profile.mjs" diff        # which facts differ from the saved profile, before and after
 node "<plugin>/tools/profile.mjs" refresh     # save only those facts
 node "<plugin>/tools/profile.mjs" show        # the saved profile, where it's stored, the settings that apply
@@ -26,16 +27,25 @@ node "<plugin>/tools/profile.mjs" check       # quick drift and settings check; 
 ```
 
 - `write` needs `--store` (`folder`, `agents-md` or `machine`). It re-runs detection, so it saves what `study`
-  showed, and prints `{ store, changed, otherStores }`. Each list option replaces that list (`none` empties
-  it). Without one, existing settings keep theirs, and new settings get what `study` proposed.
+  showed. It prints `{ store, changed, otherStores }`. If a store earlier in the lookup order still exists,
+  the output also has `active` and a `note`, because that store still takes precedence.
+- **New settings need both lists on the command line:** `--protected` and `--generated`, either of which may
+  be `none`. The person approves the write command, so what they confirm must be in it. Without them,
+  `write` exits 2 and prints the proposal as a ready-to-confirm command (`study` returns it too, as
+  `writeCommand`). It also names any suggested generated file that has no known regenerate command, so the
+  person can add one or leave it out.
+- Each list option replaces that list, and `none` empties it. `--protected` takes a comma-separated list; the
+  others repeat. When valid settings already exist, a list that isn't given keeps its saved value. Rule
+  switches a later Cartwright added are kept as they are.
 - `--dir <path>` runs against another folder. Outside a git repository the profiler stops with exit 2.
 
 ### How it detects
 
-- **Allowlist only.** It opens `package.json`, `tsconfig.json`, `.nvmrc`, `.node-version`, `.tool-versions`,
-  `.python-version`, `pyproject.toml` and `Makefile` (target names only). For everything else it checks
-  existence or lists folders (at most 2,000 entries, never inside `node_modules`, `.git` or build
-  output). Lockfiles are checked for existence, never opened.
+- **Allowlist only, inside the project.** It opens `package.json`, `tsconfig.json`, `.nvmrc`, `.node-version`,
+  `.tool-versions`, `.python-version`, `pyproject.toml` and `Makefile` (target names only). For everything else
+  it checks existence or lists folders (at most 2,000 entries, never inside `node_modules`, `.git` or build
+  output). A symlink is followed only if it stays inside the project, and symlinked folders are never entered.
+  Lockfiles are checked for existence, never opened.
 - **Never opens credential files:** `.env*`, `dw.json`, `*.pem`, `*.key`, `id_rsa*`, `*.p12`, `*.pfx`, `.npmrc`,
   `.netrc`, `credentials*`. Any value that looks like a secret (the same patterns as `npm run scrub`, in
   `secret-rules.mjs`) is saved as `<hidden: looked like a secret>`.
@@ -164,5 +174,5 @@ turns the fixtures in `tests/projects/` into git repos with a local remote, comp
 - broken settings.
 
 After an intended detection change, run `node scripts/e2e-profile.mjs --update-goldens` and review the diff of
-`tests/expected/`. The SFRA case uses a tree the test generates until the `zzt-client-test` fixture is reworked
-into a real SFRA layout.
+`tests/expected/`. The fixtures are SFRA, Storefront Next, TypeScript/pnpm, Python and an unknown stack, all
+made up.

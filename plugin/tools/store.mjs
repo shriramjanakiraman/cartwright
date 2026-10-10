@@ -7,7 +7,7 @@
 // <state> is $CARTWRIGHT_STATE_DIR or ~/.cartwright; <key> is the first 16 hex characters of the sha256 of the
 // project root's real path. Shipped in the plugin as tools/store.mjs. No dependencies.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -147,7 +147,10 @@ export function save(root, mode, { profile, settings, summary = [] }) {
   const put = (path, text, label) => {
     if (readText(path) === text) return;
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, text);
+    // Write a temporary file next to it, then rename: a reader never sees half a file.
+    const tmp = `${path}.cartwright-${process.pid}.tmp`;
+    writeFileSync(tmp, text);
+    renameSync(tmp, path);
     changed.push(label);
   };
   if (mode === 'folder') {

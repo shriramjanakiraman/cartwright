@@ -6,11 +6,13 @@
 // plugin as tools/profile.mjs. No dependencies: Node and git only.
 //
 //   node profile.mjs study                    JSON: the proposed profile and settings; changes nothing
-//   node profile.mjs write --store folder|agents-md|machine [--protected main,develop] [--generated '<glob>=<cmd>' …]
-//                          [--allow <loc>] [--protect <loc>] [--client-project yes|no]
+//   node profile.mjs write --store folder|agents-md|machine --protected main,develop --generated '<glob>=<cmd>' …
+//                          [--secrets-allow <glob> …] [--allow-location <loc> …] [--protect-location <loc> …]
+//                          [--client-project yes|no]
 //                                             save the profile and settings, after the person said yes. A list
-//                                             option replaces that list (none empties it); without it, the saved
-//                                             settings keep theirs, or a new file gets what study proposed
+//                                             option replaces that list; none empties it. New settings need
+//                                             --protected and --generated (study prints the command to confirm);
+//                                             existing settings keep any list that isn't given
 //   node profile.mjs diff                     JSON: the facts that differ from the saved profile, before and after
 //   node profile.mjs refresh                  save only those facts into the saved profile, after a yes
 //   node profile.mjs show [--json]            JSON: the saved profile, where it's stored, the settings that apply
@@ -18,7 +20,7 @@
 // Options: --dir <path> runs against another project folder. Exit 2 on usage errors.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
-import { isAbsolute, join, normalize } from 'node:path';
+import { isAbsolute, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import STACKS from './stacks/index.mjs';
 import { parseToml } from './stacks/python.mjs';
@@ -48,31 +50,37 @@ const NOT_FOUND = { status: 'not found' };
 // --- reading the project: read-only, bounded, and refusing credential files --------------------------------------
 export function makeCtx(root) {
   const inside = (rel) => { const n = normalize(rel); if (isAbsolute(n) || n.split(/[\\/]/).includes('..')) throw new Error(`outside the project: ${rel}`); return join(root, n); };
+  // Whether a path, after following symlinks, is still inside the project.
+  const real = realpathSync(root);
+  const within = (p) => { try { const r = realpathSync(p); return r === real || r.startsWith(real + sep); } catch { return false; } };
   const isDir = (rel) => { try { return statSync(inside(rel)).isDirectory(); } catch { return false; } };
   const ctx = {
     exists: (rel) => existsSync(inside(rel)),
     isDir,
-    // Entries under a folder, repo-relative, folders ending in "/", sorted; bounded in depth and count.
+    // Entries under a folder, repo-relative, folders ending in "/", sorted; bounded in depth and count. A folder that
+    // leads outside the project lists nothing, and symlinked folders are listed as entries but never entered.
     list(rel = '.', { depth = 1, max = LIST_MAX } = {}) {
       const out = [];
+      const start = rel.replace(/\/$/, '') || '.';
+      if (!within(inside(start))) return out;
       const walk = (d, level) => {
-        let names; try { names = readdirSync(inside(d)).sort(); } catch { return; }
-        for (const n of names) {
-          if (out.length >= max || SKIP_DIRS.has(n)) continue;
-          const r = d === '.' ? n : `${d}/${n}`;
-          const dir = isDir(r);
-          out.push(dir ? `${r}/` : r);
-          if (dir && level < depth) walk(r, level + 1);
+        let entries; try { entries = readdirSync(inside(d), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)); } catch { return; }
+        for (const e of entries) {
+          if (out.length >= max || SKIP_DIRS.has(e.name)) continue;
+          const r = d === '.' ? e.name : `${d}/${e.name}`;
+          out.push(e.isDirectory() ? `${r}/` : r);
+          if (e.isDirectory() && level < depth) walk(r, level + 1);
         }
       };
-      walk(rel.replace(/\/$/, ''), 1);
+      walk(start, 1);
       return out;
     },
-    // A file's text, only for the allowlisted files, never for credential files.
+    // A file's text, only for the allowlisted files inside the project (symlinks followed only if they stay
+    // inside), never for credential files.
     text(rel) {
       const name = rel.split('/').pop();
       if (!READABLE.has(name) || isSecretPath(rel)) return null;
-      try { const p = inside(rel); return statSync(p).size > MAX_BYTES ? null : readFileSync(p, 'utf8'); } catch { return null; }
+      try { const p = inside(rel); return !within(p) || statSync(p).size > MAX_BYTES ? null : readFileSync(p, 'utf8'); } catch { return null; }
     },
     json(rel) { try { const t = ctx.text(rel); return t === null ? null : JSON.parse(t); } catch { return null; } },
     toml(rel) { try { const t = ctx.text(rel); return t === null ? null : parseToml(t); } catch { return null; } },
@@ -270,7 +278,16 @@ export function proposedLists(profile) {
   };
 }
 
+// The write command that saves exactly the proposal, for the person to confirm (POSIX shell quoting).
+const quote = (v) => (/^[\w@%+=:,./-]+$/.test(v) ? v : `'${String(v).replace(/'/g, "'\\''")}'`);
+export function writeCommand(lists, store = 'folder') {
+  const a = ['node', fileURLToPath(import.meta.url), 'write', '--store', store, '--protected', lists.protectedBranches.length ? lists.protectedBranches.join(',') : 'none'];
+  if (lists.generated.length) for (const g of lists.generated) a.push('--generated', `${g.path}=${g.regenerate}`); else a.push('--generated', 'none');
+  return a.map(quote).join(' ');
+}
+
 // --- the command line -------------------------------------------------------------------------------------------
+const WRITE_FLAGS = ['--dir', '--store', '--protected', '--generated', '--secrets-allow', '--allow-location', '--protect-location', '--client-project'];
 function cli(argv) {
   const [cmd, ...rest] = argv;
   const opt = (flag) => { const i = rest.indexOf(flag); return i > -1 ? rest[i + 1] : undefined; };
@@ -295,7 +312,8 @@ function cli(argv) {
   if (cmd === 'study') {
     const profile = detect(root);
     const team = stored.settings.status === 'ok' && validateSettings(stored.settings.data).ok ? stored.settings.data : null;
-    out({ profile, proposedSettings: buildSettings(team, team ? {} : proposedLists(profile)), stored: { store: stored.mode, found: stored.found } });
+    const lists = proposedLists(profile);
+    out({ profile, proposedSettings: buildSettings(team, team ? {} : lists), ...(team ? {} : { writeCommand: writeCommand(lists) }), stored: { store: stored.mode, found: stored.found } });
     return;
   }
 
@@ -303,9 +321,13 @@ function cli(argv) {
     const store = opt('--store');
     if (!store) usage('Choose where to store it: --store folder (default), agents-md or machine.');
     if (!MODES.includes(store)) usage(`--store must be folder, agents-md or machine (got "${store}")`);
+    for (let i = 1; i < rest.length; i += 2) if (!WRITE_FLAGS.includes(rest[i - 1]) || rest[i] === undefined) usage(`write doesn't take "${rest[i - 1]}"${WRITE_FLAGS.includes(rest[i - 1]) ? ' without a value' : ''}; its options are ${WRITE_FLAGS.join(', ')}`);
+    if (rest.length % 2) usage(`"${rest.at(-1)}" needs a value`);
     const list = (v) => (v === undefined ? undefined : v === 'none' ? [] : v.split(',').map((s) => s.trim()).filter(Boolean));
-    const generated = many('--generated');
-    for (const g of generated) if (g !== 'none' && !/^[^=]+=.+$/.test(g)) usage(`--generated takes '<glob>=<regenerate command>', got "${g}"`);
+    // A repeatable list option: undefined when absent, [] for none.
+    const repeated = (flag) => { const v = many(flag); return v.length ? v.filter((x) => x !== 'none') : undefined; };
+    const generated = repeated('--generated');
+    for (const g of generated || []) if (!/^[^=]+=.+$/.test(g)) usage(`--generated takes '<glob>=<regenerate command>' (or none), got "${g}"`);
     const cp = opt('--client-project');
     if (cp !== undefined && !['yes', 'no'].includes(cp)) usage('--client-project takes yes or no');
     const target = load(root, store);
@@ -318,12 +340,18 @@ function cli(argv) {
       if (v.ok) { base = s.data; break; }
     }
     const profile = detect(root);
-    const proposal = base ? {} : proposedLists(profile);
+    // New settings: the person confirms both lists, so they must be on the command line (the command they approve).
+    if (!base && (opt('--protected') === undefined || generated === undefined)) {
+      const lists = proposedLists(profile);
+      const unknown = (profile.suggestions?.generated || []).filter((g) => !g.regenerate).map((g) => g.path);
+      usage(`New settings need --protected and --generated (either may be none). Show the person this proposal and run it after their yes, changed as they ask:\n  ${writeCommand(lists, store)}${unknown.length ? `\nAlso suggested as generated, with no known regenerate command (add --generated '<path>=<command>' for any the person confirms): ${unknown.join(', ')}` : ''}`);
+    }
     const settings = buildSettings(base, {
-      protectedBranches: list(opt('--protected')) || proposal.protectedBranches,
-      generated: generated.length ? generated.filter((g) => g !== 'none').map((g) => { const i = g.indexOf('='); return { path: g.slice(0, i).trim(), regenerate: g.slice(i + 1).trim() }; }) : proposal.generated,
-      allowed: many('--allow').length ? many('--allow') : undefined,
-      protect: many('--protect').length ? many('--protect') : undefined,
+      protectedBranches: list(opt('--protected')),
+      generated: generated?.map((g) => { const i = g.indexOf('='); return { path: g.slice(0, i).trim(), regenerate: g.slice(i + 1).trim() }; }),
+      secretsAllow: repeated('--secrets-allow'),
+      allowed: repeated('--allow-location'),
+      protect: repeated('--protect-location'),
       clientProject: cp === undefined ? undefined : cp === 'yes',
     });
     const v = validateSettings(settings);
@@ -335,7 +363,12 @@ function cli(argv) {
       const again = store === 'agents-md' ? detect(root) : profile;
       if (compare(profile, again).length) changed = [...new Set([...changed, ...save(root, store, { profile: again, settings, summary: summaryLines(again) })])];
     } catch (e) { stop(e.message); }
-    out({ store, changed, otherStores: found(root).filter((m) => m !== store) });
+    // An earlier store in lookup order still wins: say so, so the person isn't surprised.
+    const all = found(root);
+    const active = all[0];
+    const where = { folder: 'the .cartwright/ folder', 'agents-md': 'the AGENTS.md section', machine: 'the copy on this machine' };
+    out({ store, changed, otherStores: all.filter((m) => m !== store),
+      ...(active && active !== store ? { active, note: `${where[active][0].toUpperCase()}${where[active].slice(1)} still takes precedence; remove it to use ${where[store]}.` } : {}) });
     return;
   }
 

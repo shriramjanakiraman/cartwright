@@ -194,18 +194,20 @@ export function isTightening(before, after) {
 }
 
 // A new team settings file, keeping everything in `base` (an existing valid file's raw object) that the
-// options don't set. Options are what the person confirmed; each list option replaces the list.
-export function buildSettings(base, { protectedBranches, generated, allowed, protect, clientProject } = {}) {
+// options don't set, including rule switches a later Cartwright added. Options are what the person confirmed;
+// each list option replaces the list.
+export function buildSettings(base, { protectedBranches, generated, secretsAllow, allowed, protect, clientProject } = {}) {
   const s = JSON.parse(JSON.stringify(base || {}));
   s.$comment = SETTINGS_COMMENT;
   s.cartwright = 'settings';
   s.version = SETTINGS_VERSION;
-  s.guardrails = Object.fromEntries(GUARDRAILS.map((g) => [g, s.guardrails?.[g] !== false]));
+  s.guardrails = { ...(isObj(s.guardrails) ? s.guardrails : {}), ...Object.fromEntries(GUARDRAILS.map((g) => [g, s.guardrails?.[g] !== false])) };
   if (protectedBranches) s.protectedBranches = protectedBranches;
   else if (!s.protectedBranches) s.protectedBranches = [...DEFAULT_PROTECTED];
   if (generated) s.generated = generated;
   else if (!s.generated) s.generated = [];
   s.secrets = { allow: [], ...(isObj(s.secrets) ? s.secrets : {}) };
+  if (secretsAllow) s.secrets.allow = secretsAllow;
   s.locations = { allowed: [], protected: [], ...(isObj(s.locations) ? s.locations : {}) };
   if (allowed) s.locations.allowed = allowed;
   if (protect) s.locations.protected = protect;
