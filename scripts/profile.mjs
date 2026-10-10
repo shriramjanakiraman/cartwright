@@ -96,6 +96,31 @@ export function makeCtx(root, deadline = Infinity) {
     },
     json(rel) { try { const t = ctx.text(rel); return t === null ? null : JSON.parse(t); } catch { return null; } },
     toml(rel) { try { const t = ctx.text(rel); return t === null ? null : parseToml(t); } catch { return null; } },
+    // refs/heads and refs/remotes/origin as "<ref> <symref target>" lines, from .git's loose refs and packed-refs;
+    // null when .git isn't a folder (a worktree or submodule).
+    gitRefs() {
+      const git = join(root, '.git');
+      try { if (!lstatSync(git).isDirectory()) return null; } catch { return null; }
+      const refs = new Map();
+      try {
+        for (const line of readFileSync(join(git, 'packed-refs'), 'utf8').split('\n')) {
+          const m = line.match(/^[0-9a-f]{40,64} (refs\/(heads|remotes\/origin)\/.+)$/);
+          if (m) refs.set(m[1], '');
+        }
+      } catch { /* no packed refs */ }
+      const walk = (rel) => {
+        let entries; try { entries = readdirSync(join(git, rel), { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          const r = `${rel}/${e.name}`;
+          if (e.isDirectory()) { walk(r); continue; }
+          let text = ''; try { text = readFileSync(join(git, r), 'utf8').trim(); } catch { continue; }
+          refs.set(r, text.startsWith('ref: ') ? text.slice(5) : '');
+        }
+      };
+      walk('refs/heads');
+      walk('refs/remotes/origin');
+      return [...refs].sort(([a], [b]) => byCodePoint(a, b)).map(([r, sym]) => `${r} ${sym}`);
+    },
     // The repository's own config file, when .git is a folder; null otherwise (a worktree or submodule).
     gitConfig() { try { return lstatSync(join(root, '.git')).isDirectory() ? readFileSync(join(root, '.git', 'config'), 'utf8') : null; } catch { return null; } },
     // git, without taking any lock or writing anything under .git. stdout, or null on failure.
@@ -137,8 +162,9 @@ function remoteHost(ctx) {
 }
 
 function branchCandidates(ctx) {
-  // One git call: every local and origin ref, with origin/HEAD's target (the remote's default branch).
-  const lines = (ctx.git('for-each-ref', '--format=%(refname) %(symref)', 'refs/heads', 'refs/remotes/origin') || '').split('\n').filter(Boolean);
+  // Every local and origin ref, with origin/HEAD's target (the remote's default branch): read from .git's files when
+  // it's a folder (no git process, for the session-start drift check), else from one git call.
+  const lines = ctx.gitRefs() ?? (ctx.git('for-each-ref', '--format=%(refname) %(symref)', 'refs/heads', 'refs/remotes/origin') || '').split('\n').filter(Boolean);
   const refs = lines.map((l) => l.split(' ')[0]);
   const found = new Map();
   const head = (lines.find((l) => l.startsWith('refs/remotes/origin/HEAD ')) || '').split(' ')[1] || '';
