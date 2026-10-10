@@ -885,7 +885,9 @@ step('the plugin-root cache, and "guardrails are inactive" when the guard can\'t
   cpSync(PLUGIN, bare, { recursive: true }); rmSync(join(bare, 'tools', 'guard.mjs'));
   const r = sh(NODE, [join(bare, 'tools', 'setup.mjs'), 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: bare, CARTWRIGHT_STATE_DIR: join(WORK, `state-empty-${process.pid}`) }) });
   assert(/Guardrails are inactive in this agent: the guard can't be found/.test(r.stdout), `no inactive note: ${r.stdout.slice(0, 200)}`);
-  // No node on the PATH the hooks use.
+  // No node on the PATH the hooks use. This runs setup.mjs with an absolute node, as a control.
+  // TODO(end-of-phase SessionStart edit, P6): once the entry has the node guard, also run the real SessionStart
+  // command with a PATH holding only sh, and assert exit 0 (today it exits 127 there, before the helper can speak).
   const nonode = join(WORK, `no-node-${process.pid}`); mkdirSync(nonode, { recursive: true });
   symlinkSync(sh('/bin/sh', ['-c', 'command -v git']).stdout.trim(), join(nonode, 'git'));
   const n = sh(NODE, [SETUP, 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: nonode }) });
