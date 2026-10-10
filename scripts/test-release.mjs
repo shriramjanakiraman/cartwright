@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // One command for testing a change or a release, at the depth it deserves (see documentation/14).
 //
-//   quick  feature and bugfix work, patch releases:  checks + the profile test + the bare-machine test without
-//                                                     tool downloads
+//   quick  feature and bugfix work, patch releases:  checks + the profile test and the bare-machine test without
+//                                                     tool downloads (at the same time) + the guard test
 //   minor  minor releases:                            + tool downloads and smoke test, Claude Code's tools
 //                                                       scenario, a fresh Copilot install and its session start
 //   major  major releases:                            + a real pull request in the test client, Claude Code
@@ -12,7 +12,7 @@
 // Usage: node scripts/test-release.mjs --level quick|minor|major [--report <file>] [--keep]
 // Builds the plugin first and tests that build. Env: GH_TOKEN (needed from "quick" up: the bare-machine test
 // clones the fixture repos), CLAUDE_BIN, AGENT_MODEL — as for e2e.mjs and agent-e2e.mjs.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,22 +23,27 @@ const opt = (f, d) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] :
 const LEVEL = opt('--level', 'quick');
 const keep = args.includes('--keep') ? ['--keep'] : [];
 
+// The guard test runs on its own, after the suites that run together, because it measures the hook's timing.
+const GUARD = ['Guard test (deterministic, offline)', 'node', ['scripts/e2e-guard.mjs', '--plugin', './plugin', ...keep]];
 const PLANS = {
   quick: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
-    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep]],
-    ['Bare-machine test (no tool downloads)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--fast', ...keep]],
+    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep], 'together'],
+    ['Bare-machine test (no tool downloads)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--fast', ...keep], 'together'],
+    GUARD,
   ],
   minor: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
-    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep]],
-    ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep]],
+    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep], 'together'],
+    ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep], 'together'],
+    GUARD,
     ['Agents: Claude Code tools, Copilot install and session start', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--scenarios', 'claude-tools,copilot-install,copilot-session-start', ...keep]],
   ],
   major: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
-    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep]],
-    ['Bare-machine test (full, with a real pull request)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--pr', ...keep]],
+    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep], 'together'],
+    ['Bare-machine test (full, with a real pull request)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--pr', ...keep], 'together'],
+    GUARD,
     ['Agents: every scenario', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', ...keep]],
   ],
 };
@@ -63,14 +68,31 @@ const out = [`# Cartwright test report: ${LEVEL}`, '', `${new Date().toISOString
 const summary = [['Build', build.status === 0]];
 if (build.status !== 0) out.push('Build failed:', '```', build.stderr.trim(), '```');
 
-for (const [label, cmd, a] of PLANS[LEVEL]) {
+// Run one part: { status, stdout, stderr, secs }.
+const runPart = (cmd, a) => new Promise((done) => {
   const t = Date.now();
-  const r = spawnSync(cmd, a, { cwd: ROOT, encoding: 'utf8', timeout: 3600000, env: process.env });
-  const secs = Math.round((Date.now() - t) / 1000);
-  summary.push([label, r.status === 0]);
-  out.push(`## ${r.status === 0 ? '✅' : '❌'} ${label} (${secs}s)`, '');
-  const body = (r.stdout || '').trim();
-  out.push(body.startsWith('##') || body.startsWith('|') ? body.replace(/^## .*\n+/, '') : '```\n' + (body + '\n' + (r.stderr || '')).trim().slice(-3000) + '\n```', '');
+  const child = spawn(cmd, a, { cwd: ROOT, env: process.env });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.stderr.on('data', (d) => { stderr += d; });
+  const timer = setTimeout(() => child.kill('SIGKILL'), 3600000);
+  child.on('close', (status) => { clearTimeout(timer); done({ status, stdout, stderr, secs: Math.round((Date.now() - t) / 1000) }); });
+});
+// Parts marked with the same group (the fourth field) run at the same time; the report keeps the plan's order.
+const plan = PLANS[LEVEL];
+for (let i = 0; i < plan.length;) {
+  let j = i + 1;
+  while (plan[i][3] && j < plan.length && plan[j][3] === plan[i][3]) j++;
+  const parts = plan.slice(i, j);
+  const results = await Promise.all(parts.map(([, cmd, a]) => runPart(cmd, a)));
+  parts.forEach(([label], k) => {
+    const r = results[k];
+    summary.push([label, r.status === 0]);
+    out.push(`## ${r.status === 0 ? '✅' : '❌'} ${label} (${r.secs}s${parts.length > 1 ? ', alongside the others in its group' : ''})`, '');
+    const body = (r.stdout || '').trim();
+    out.push(body.startsWith('##') || body.startsWith('|') ? body.replace(/^## .*\n+/, '') : '```\n' + (body + '\n' + (r.stderr || '')).trim().slice(-3000) + '\n```', '');
+  });
+  i = j;
 }
 if (LEVEL === 'major') out.push(MANUAL);
 out.splice(3, 0, '| | Part |', '|---|---|', ...summary.map(([l, ok]) => `| ${ok ? '✅' : '❌'} | ${l} |`), '');

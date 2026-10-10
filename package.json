@@ -28,6 +28,7 @@
     "setup": "node scripts/setup.mjs",
     "e2e": "node scripts/e2e.mjs",
     "e2e:profile": "node scripts/e2e-profile.mjs",
+    "e2e:guard": "node scripts/e2e-guard.mjs",
     "test:release": "node scripts/test-release.mjs",
     "test:agents": "node scripts/agent-e2e.mjs"
   }
