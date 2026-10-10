@@ -13,7 +13,8 @@ const OUT_OPS = ['&>>', '&>', '>>', '>|', '>&', '<<<', '<<-', '<<', '<>', '<&', 
 const CTL_OPS = ['&&', '||', '|&', ';;', '|', '&', ';', '(', ')'];
 const PLAIN_END = /[\s'"\\$`<>&|;()]/;
 
-// The index just past the parenthesis that closes the one opened before `i`, skipping quotes and nested pairs.
+// The index just past the parenthesis that closes the one opened before `i`, skipping quotes and nested pairs; past
+// the end (src.length + 1) when it's never closed, so an unterminated $(… keeps all its text.
 function closeParen(src, i) {
   let depth = 1, q = null;
   for (; i < src.length; i++) {
@@ -24,14 +25,14 @@ function closeParen(src, i) {
     else if (c === '(') depth++;
     else if (c === ')' && --depth === 0) return i + 1;
   }
-  return src.length;
+  return src.length + 1;
 }
 
 // One $… expansion starting at src[i]: a segment and the index after it.
 function dollar(src, i) {
   const n = src[i + 1];
   if (src.startsWith('$((', i)) { const j = closeParen(src, i + 2); return [{ dyn: 'arithmetic' }, Math.min(src.length, j + 1)]; }
-  if (n === '(') { const j = closeParen(src, i + 2); return [{ cmd: src.slice(i + 2, j - 1) }, j]; }
+  if (n === '(') { const j = closeParen(src, i + 2); return [{ cmd: src.slice(i + 2, j - 1) }, Math.min(j, src.length)]; }
   if (n === '{') {
     const j = src.indexOf('}', i + 2), body = src.slice(i + 2, j < 0 ? src.length : j);
     const m = body.match(/^[A-Za-z_][A-Za-z0-9_]*$/);
@@ -244,7 +245,12 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
     prev = cmd;
     out.push(cmd);
     // cd changes the folder for the rest of the line; export sets variables.
-    if (name === 'cd') {
+    if (name === 'pushd') {
+      const to = argv[1];
+      cwd = !to || to.text === null ? null : to.text.startsWith('/') ? to.text : cwd ? `${cwd}/${to.text}` : null;
+    } else if (name === 'popd') {
+      cwd = null;
+    } else if (name === 'cd') {
       const to = argv[1];
       cwd = !to ? env.HOME || null : to.text === null || to.text === '-' ? null : to.text.startsWith('/') ? to.text : cwd ? `${cwd}/${to.text}` : null;
     } else if (name === 'export') {

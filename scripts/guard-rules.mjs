@@ -77,8 +77,10 @@ const inside = (p, dir) => !!p && !!dir && (p === dir || p.startsWith(dir.endsWi
 export function patchTargets(text) {
   const out = [];
   let cur = null, created = false;
-  for (const line of String(text || '').split('\n').map((l) => l.replace(/\r$/, ''))) {
+  for (const raw of String(text || '').split('\n').map((l) => l.replace(/\r$/, ''))) {
     let m;
+    // Codex's markers may come indented; the hunk lines keep their first character.
+    const line = /^\s+\*\*\* /.test(raw) ? raw.trimStart() : raw;
     if ((m = line.match(/^\*\*\* (Add|Update|Delete) File: (.+)$/))) { cur = { path: m[2].trim(), op: { Add: 'create', Update: 'modify', Delete: 'delete' }[m[1]], lines: [] }; out.push(cur); continue; }
     if ((m = line.match(/^\*\*\* Move to: (.+)$/))) { if (cur) { out.push({ path: m[1].trim(), op: 'create', lines: cur.lines, from: cur.path }); cur.op = 'move'; } continue; }
     if (/^\*\*\* (Begin|End) Patch/.test(line) || line === '*** End of File') continue;
@@ -170,6 +172,11 @@ function expandGit(cmds, ctx, lineAliases = new Map(), linePush = new Map()) {
       g = { ...g, sub: words[0]?.text ?? null, args: [...words.slice(1), ...g.args] };
     }
     if (g) out.push({ ...c, git: g });
+    // git submodule foreach '<cmd>' runs a shell command in each submodule: read it like sh -c.
+    if (g?.sub === 'submodule' && g.args.some((w) => w.text === 'foreach')) {
+      const cmd = g.args.at(-1)?.text;
+      if (cmd) for (const x of analyse(cmd, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([x], ctx, lineAliases, linePush));
+    }
     // git rebase -x/--exec '<cmd>' runs a shell command after each commit: read it like sh -c.
     if (g?.sub === 'rebase') {
       for (let k = 0; k < g.args.length; k++) {
@@ -266,8 +273,9 @@ export function writeTargets(cmd, ctx) {
     // Output files: curl -o/--output, sort -o/--output.
     for (let k = 1; k < a.length; k++) {
       const t = a[k].text;
-      if (t === '-o' || t === '--output') add(a[k + 1], 'overwrite');
+      if (t === '-o' || t === '--output' || (t && /^-[a-zA-Z]+o$/.test(t))) add(a[k + 1], 'overwrite');
       else if (t?.startsWith('--output=')) add(word(t.slice(9)), 'overwrite');
+      else if (t && /^-o[^-]/.test(t)) add(word(t.slice(2)), 'overwrite');
     }
   } else if (n === 'tar' || n === 'bsdtar' || n === 'gtar') {
     // Extracting writes into the -C folder (or the current one).
@@ -315,8 +323,9 @@ function patchFileTargets(cmd, ctx) {
 export function deleteTargets(cmd, ctx) {
   const a = cmd.argv, n = cmd.name, out = [];
   const add = (w, recursive, through = false, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, through), recursive });
-  if (['rm', 'rmdir', 'unlink', 'shred'].includes(n)) {
-    const recursive = n === 'rmdir' || hasFlag(a, /^(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)$/);
+  if (['rm', 'rmdir', 'unlink', 'shred', 'trash', 'rmtrash', 'trash-put'].includes(n)) {
+    // trash and friends move things to the trash, which counts as deleting them from where they are.
+    const recursive = n === 'rmdir' || n.startsWith('trash') || n === 'rmtrash' || hasFlag(a, /^(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)$/);
     for (const w of positionals(a, n === 'shred' ? ['-n', '-s', '--iterations', '--size'] : [])) add(w, recursive);
   } else if (n === 'find') {
     const deletes = a.some((w, k) => w.text === '-delete' || (['-exec', '-execdir', '-ok', '-okdir'].includes(w.text) && ['rm', 'unlink', 'shred', 'rmdir'].includes(base(a[k + 1]?.text))));
@@ -613,7 +622,7 @@ const FAMILY = {
   secrets: (A) => A.cmds.some((c) => isGit(c, 'commit')),
   'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push') || isGit(c, 'subtree') || (c.name === 'gh' && c.argv[1]?.text === 'api')),
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
-  'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
+  'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|trash|rmtrash|trash-put|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
   'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || c.name === 'gh' || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
   'project-rules': () => true,
 };
