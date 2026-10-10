@@ -122,6 +122,7 @@
       ]
     },
     "python": {
+      "kind": "pinned",
       "source": ".python-version",
       "status": "found",
       "value": "3.12.7"

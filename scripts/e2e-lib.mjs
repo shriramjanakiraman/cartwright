@@ -20,17 +20,18 @@ export function harness(prefix) {
   const binDir = (name, cmds) => { const d = join(WORK, name); mkdirSync(d); for (const c of cmds) if (which(c)) symlinkSync(which(c), join(d, c)); return d; };
   const BARE = `${binDir('bin-bare', ['node', 'npx', 'npm', 'git', 'gh'])}:/usr/bin:/bin`;
   const results = [];
+  // A step that returns "skipped: <why>" didn't check anything: it's reported as skipped, not passed.
   function step(name, fn) {
-    try { const detail = fn(); results.push({ name, ok: true, detail: detail || '' }); }
+    try { const detail = fn() || ''; results.push({ name, ok: true, skipped: /^skipped\b/.test(detail), detail }); }
     catch (e) { results.push({ name, ok: false, detail: String(e.message || e).split('\n').slice(0, 3).join(' ') }); }
   }
   // Print the report, remove the work folder unless kept, and return the exit code.
   function report(title, { keep = false } = {}) {
     console.log(`## ${title}\n`);
     console.log('| | Step | Result |\n|---|---|---|');
-    for (const r of results) console.log(`| ${r.ok ? '✅' : '❌'} | ${r.name} | ${r.detail.replace(/\|/g, '\\|')} |`);
-    const failed = results.filter((r) => !r.ok).length;
-    console.log(`\n${results.length - failed}/${results.length} passed${keep ? `; work folder kept: ${WORK}` : ''}`);
+    for (const r of results) console.log(`| ${r.skipped ? '⏭️' : r.ok ? '✅' : '❌'} | ${r.name} | ${r.detail.replace(/\|/g, '\\|')} |`);
+    const failed = results.filter((r) => !r.ok).length, skipped = results.filter((r) => r.skipped).length;
+    console.log(`\n${results.length - failed - skipped}/${results.length} passed${skipped ? `, ${skipped} skipped` : ''}${keep ? `; work folder kept: ${WORK}` : ''}`);
     if (!keep) rmSync(WORK, { recursive: true, force: true });
     return failed ? 1 : 0;
   }

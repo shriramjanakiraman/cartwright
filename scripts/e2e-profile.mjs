@@ -8,7 +8,7 @@
 // Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens]
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, harness, json, sh } from './e2e-lib.mjs';
@@ -162,7 +162,8 @@ step('SFRA (A1): SFRA flavour, Node pin, npm from its lockfile, exact commands, 
   assert(p.facts.platform.flavour === 'sfra' && p.facts.platform.source === 'package.json#paths.base', JSON.stringify(p.facts.platform));
   assert(p.facts.languages.value.map((l) => l.value).join() === 'JavaScript,ISML' && p.facts.node.value === '18.19.0', 'languages or Node');
   assert(p.facts.packageManager.value === 'npm' && p.facts.packageManager.source === 'package-lock.json', 'npm');
-  assert(p.facts.commands.test.defined === 'sgmf-scripts --test test/unit/**/*.js' && p.facts.commands.build.run === 'npm run build' && notFound(p.facts.commands.lint), 'commands');
+  assert(p.facts.commands.build.run === 'npm run build' && p.facts.commands.build.defined === 'npm run compile:js && npm run compile:scss', `build: ${JSON.stringify(p.facts.commands.build)}`);
+  assert(p.facts.commands.test.run === 'npm test' && p.facts.commands.test.defined === 'sgmf-scripts --test test/unit/**/*.js' && notFound(p.facts.commands.lint), 'test or lint');
   assert(p.facts.layout.value.cartridges.join() === 'app_sample,int_sample_payments', 'cartridges');
   assert(p.facts.protectedBranchCandidates.value.join() === 'develop,main', 'protected-branch candidates');
   assert(p.conventions.prTemplate.path === '.github/pull_request_template.md' && p.conventions.rulesFiles.value[0].path === 'AGENTS.md', 'conventions');
@@ -173,13 +174,23 @@ step('SFRA (A1): SFRA flavour, Node pin, npm from its lockfile, exact commands, 
 // --- A7: secrets never appear --------------------------------------------------------------------------------
 step('secrets (A7): credential files are never read and secret-looking values never appear in output or files', () => {
   const hex = (n) => randomBytes(n).toString('hex');
-  const S = { token: 'gh' + 'p_' + hex(18), env: `envvalue${hex(8)}`, dw: `dwvalue${hex(8)}`, npm: `npmvalue${hex(8)}`, key: `keyvalue${hex(8)}` };
+  const S = { token: 'gh' + 'p_' + hex(18), env: `envvalue${hex(8)}`, dw: `dwvalue${hex(8)}`, npm: `npmvalue${hex(8)}`, key: `keyvalue${hex(8)}`,
+    urlpass: `Pa55${hex(6)}`, bearer: `bearer${hex(10)}`, stripe: `sk_live_${hex(10)}`, mysql: `S3cr${hex(5)}`, pyurl: `pyPa55${hex(6)}` };
+  const CRED_FILES = ['id_ed25519', 'id_ecdsa', 'id_dsa', 'release.jks', 'app.keystore', '.pgpass', 'secrets.yaml', 'prod.tfvars'];
   const { dir } = project('ts', (d) => {
     put(d, '.env', `# DO NOT EDIT\nAPI_KEY=${S.env}\n`);
     put(d, 'dw.json', JSON.stringify({ _comment: '@generated', password: S.dw }) + '\n');
     put(d, '.npmrc', `# DO NOT EDIT\n//registry.npmjs.org/:_authToken=${S.npm}\n`);
     put(d, 'id_rsa', `# DO NOT EDIT\n${S.key}\n`);
-    editJson(join(d, 'package.json'), (j) => { j.scripts.test = `GITHUB_TOKEN=${S.token} vitest run`; j.scripts.deploy = `npm publish --token ${S.token}`; });
+    CRED_FILES.forEach((f, i) => put(d, f, `# DO NOT EDIT\ncredvalue${i}${S.key}\n`));
+    // Values in files the profiler does read, in the shapes people actually paste into scripts.
+    editJson(join(d, 'package.json'), (j) => {
+      j.scripts.test = `GITHUB_TOKEN=${S.token} vitest run`;
+      j.scripts.build = `psql postgres://admin:${S.urlpass}@db.internal/app -c 'select 1' && tsc -p tsconfig.json`;
+      j.scripts.lint = `curl -H "Authorization: Bearer ${S.bearer}" https://lint.example.com && API_KEY=${S.stripe} eslint . && mysql -p${S.mysql} -e 'select 1'`;
+      j.scripts.deploy = `npm publish --token ${S.token}`;
+    });
+    put(d, 'pyproject.toml', `[project]\nname = "x"\nrequires-python = "postgres://u:${S.pyurl}@h"\n`);
   });
   let seen = '';
   const runAll = (a, extra) => { const r = profile(dir, a, extra); seen += r.stdout + r.stderr; return r; };
@@ -192,16 +203,16 @@ step('secrets (A7): credential files are never read and secret-looking values ne
   const leaked = Object.entries(S).filter(([, v]) => seen.includes(v)).map(([k]) => k);
   assert(!leaked.length, `secret values leaked: ${leaked.join(', ')}`);
   const p = readJson(files[0]);
-  assert(p.facts.commands.test.defined === HIDDEN, `test command not hidden: ${p.facts.commands.test.defined}`);
+  for (const c of ['test', 'build', 'lint']) assert(p.facts.commands[c].defined === HIDDEN, `${c} command not hidden: ${p.facts.commands[c].defined}`);
   const sugg = p.suggestions.generated.map((g) => g.path);
-  assert(!sugg.some((s) => /\.env|dw\.json|\.npmrc|id_rsa/.test(s)), `a credential file was searched: ${sugg.join(', ')}`);
-  return `no value in ${files.length} files, the state folder or any output; test command shown as "${HIDDEN}"`;
+  assert(!sugg.some((s) => /\.env|dw\.json|\.npmrc|id_|\.jks|\.keystore|\.pgpass|secrets\.|\.tfvars/.test(s)), `a credential file was searched: ${sugg.join(', ')}`);
+  return `no value in ${files.length} files, the state folder or any output (URL password, Bearer, sk_live_, mysql -p, ${CRED_FILES.length + 4} credential files); commands shown as "${HIDDEN}"`;
 });
 
 // --- A8, A9: reproducible and read-only ----------------------------------------------------------------------
 function snapshot(dir) {
   const out = {};
-  const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); const s = statSync(p); if (s.isDirectory()) walk(p); else out[p] = `${s.mtimeMs}:${s.size}`; } };
+  const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); const s = statSync(p); if (s.isDirectory()) walk(p); else out[p] = `${s.mtimeMs}:${s.size}:${createHash('sha256').update(readFileSync(p)).digest('hex')}`; } };
   walk(dir);
   out.index = createHash('sha256').update(readFileSync(join(dir, '.git', 'index'))).digest('hex');
   return JSON.stringify(out);
@@ -218,19 +229,32 @@ step('read-only (A9): study, diff, show and check change no file, not even under
   assert(w.status === 2 && /--store folder \(default\), agents-md or machine/.test(w.stderr), `write without --store: exit ${w.status} ${w.stderr.trim()}`);
   assert(snapshot(dir) === before, 'a file changed (mtime, size or the git index)');
   assert(clean(dir) && !existsSync(state), 'git status not clean, or something written to the state folder');
-  return 'mtimes, sizes and .git/index unchanged; git status clean; nothing on the machine';
+  // A profiled project whose index is stale (files touched since it was written): git would normally refresh the
+  // index; diff, check, refresh, show and study must leave the tree and .git byte for byte as they were.
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  commitAll(dir, 'profile');
+  const later = new Date(Date.now() + 60000);
+  for (const f of ['package.json', 'tsconfig.json', 'src/server.ts', '.cartwright/profile.json']) utimesSync(join(dir, f), later, later);
+  const stale = snapshot(dir);
+  for (const a of [['diff'], ['check'], ['refresh'], ['show'], ['study']]) assert(profile(dir, a).status === 0, `${a[0]} failed`);
+  assert(snapshot(dir) === stale, 'a file or .git changed on a profiled project with a stale index');
+  return 'unprofiled and profiled (stale index): every file and .git byte for byte unchanged; nothing on the machine';
 });
 
-step('reads stay inside the project: a symlinked file pointing outside is never read', () => {
-  const outside = join(WORK, 'outside-file'); mkdirSync(outside, { recursive: true });
-  const marker = `outsidevalue${randomBytes(6).toString('hex')}`;
-  writeFileSync(join(outside, 'package.json'), JSON.stringify({ name: marker, scripts: { test: `echo ${marker}` } }) + '\n');
-  const { dir } = project('unknown-stack');
-  symlinkSync(join(outside, 'package.json'), join(dir, 'package.json'));
+step('reads stay inside the project: a symlinked .nvmrc pointing outside is never read, and a pin must look like one', () => {
+  const marker = `DB_PASS=outside${randomBytes(6).toString('hex')}`;
+  const { dir } = project('ts');
+  writeFileSync(join(dir, '..', 'outside.env'), `${marker}\n`);
+  rmSync(join(dir, '.nvmrc'));
+  symlinkSync('../outside.env', join(dir, '.nvmrc'));
   const r = profile(dir, ['study']);
   assert(r.status === 0 && !r.stdout.includes(marker), 'a file outside the project was read through a symlink');
-  assert(notFound(JSON.parse(r.stdout).profile.facts.commands.test), 'a command came from outside the project');
-  return 'not read; test command not found';
+  assert(notFound(JSON.parse(r.stdout).profile.facts.node), `Node pin came from outside: ${JSON.stringify(JSON.parse(r.stdout).profile.facts.node)}`);
+  // Inside the project, but not a version: "not found", not the text.
+  rmSync(join(dir, '.nvmrc')); writeFileSync(join(dir, '.nvmrc'), 'DB_PASS=hunter2hunter2\n');
+  const n = ok(dir, ['study']).profile.facts.node;
+  assert(notFound(n), `a non-version pin was recorded: ${JSON.stringify(n)}`);
+  return 'not read; "DB_PASS=…" in .nvmrc is not a Node version';
 });
 
 step('reads stay inside the project: listing never enters a symlinked folder, or one that leads outside', () => {
@@ -295,13 +319,12 @@ step('refresh (A11): diff lists exactly the changed facts; refresh writes only t
   put(dir, 'Makefile', `${read(join(dir, 'Makefile'))}\ntest:\n\tuv run pytest -q\n`);
   const d = ok(dir, ['diff']);
   const keys = d.changed.map((c) => c.key);
-  assert(keys.join() === 'facts.commands.test,facts.otherScripts' || keys.join() === 'facts.commands.test', `diff: ${keys.join(', ')}`);
+  assert(keys.join() === 'facts.commands.test', `diff: ${keys.join(', ')}`);
   assert(d.changed[0].before.run === 'uv run pytest' && d.changed[0].after.run === 'make test', 'before/after');
   const r = ok(dir, ['refresh']);
   assert(JSON.stringify(r.facts) === JSON.stringify(keys) && r.changed.join() === '.cartwright/profile.json', JSON.stringify(r));
   const after = readJson(join(dir, '.cartwright', 'profile.json'));
   after.facts.commands.test = before.facts.commands.test;
-  after.facts.otherScripts = before.facts.otherScripts;
   assert(JSON.stringify(after) === JSON.stringify(before), 'refresh changed more than the listed facts');
   assert(read(join(dir, '.cartwright', 'settings.json')) === settingsBefore && !existsSync(join(dir, '.cartwright', 'README.md')), 'settings or other folder files changed');
   assert(git(dir, 'log', '--oneline').trim().split('\n').length === 2, 'refresh committed');
@@ -474,6 +497,87 @@ step('lookup order: the folder wins over the machine copy, and both are reported
   const a = ok(dir, ['write', '--store', 'agents-md', ...LISTS]);
   assert(a.active === 'folder' && /\.cartwright\/ folder still takes precedence; remove it to use the AGENTS\.md section/.test(a.note), JSON.stringify(a));
   return `folder, agents-md, machine; "${a.note}"`;
+});
+
+step('exact names only: claude.md, PULL_REQUEST_TEMPLATE.md and docs/ADR give the same profile on any disk', () => {
+  const { dir } = project('unknown-stack', (d) => {
+    put(d, 'claude.md', '# lower-case rules file\n');
+    put(d, '.github/PULL_REQUEST_TEMPLATE.md', '## What\n');
+    put(d, 'docs/ADR/0001-x.md', '# 1. X\n');
+  });
+  const c = ok(dir, ['study']).profile.conventions;
+  assert(notFound(c.rulesFiles), `claude.md counted as CLAUDE.md: ${JSON.stringify(c.rulesFiles)}`);
+  assert(c.prTemplate.path === '.github/PULL_REQUEST_TEMPLATE.md', `PR template recorded as ${c.prTemplate.path}`);
+  assert(notFound(c.adrs), `docs/ADR counted as docs/adr: ${JSON.stringify(c.adrs)}`);
+  return 'rules files and ADRs not found; PR template under its own name';
+});
+
+step('AGENTS.md that only mentions the markers (in prose or a code block) is not Cartwright storage', () => {
+  const prose = '# Rules\n\nCartwright keeps its section between `<!-- cartwright:begin` and `<!-- cartwright:end -->`.\n\n```md\n<!-- cartwright:begin. Example -->\n<!-- cartwright:end -->\n```\n';
+  const { dir } = project('ts', (d) => put(d, 'AGENTS.md', prose));
+  const s = ok(dir, ['show']);
+  assert(s.store === null && s.settings.status === 'none', `treated as storage: ${JSON.stringify({ store: s.store, settings: s.settings.status })}`);
+  ok(dir, ['write', '--store', 'agents-md', ...LISTS]);
+  const text = read(join(dir, 'AGENTS.md'));
+  assert(text.startsWith(prose) && ok(dir, ['show']).store === 'agents-md' && profile(dir, ['check']).status === 0, 'the section was not added after the prose');
+  return 'unprofiled until written; then the real section is found and the prose kept';
+});
+
+step('AGENTS.md edge cases: BOM, CRLF without a final newline, mixed or CR-only endings, empty files', () => {
+  const cases = {
+    'crlf-no-final-newline': '﻿# Rules\r\n\r\nUse pnpm.\t \r\nTrailing ws   \r\nÜnïcödé — ok',
+    'lf-final-newline': '# Rules\n\n- one\n- two\n',
+    'mixed-endings': '# Rules\r\nline lf\nline crlf\r\n',
+    'empty-file': '',
+    'only-newline': '\n',
+    'cr-only': '# Old Mac\rline\r',
+  };
+  const cut = (t) => [t.slice(0, t.indexOf('<!-- cartwright:begin')), t.slice(t.indexOf('<!-- cartwright:end -->') + '<!-- cartwright:end -->'.length)];
+  const bad = [];
+  for (const [name, orig] of Object.entries(cases)) {
+    const { dir } = project('unknown-stack', (d) => put(d, 'AGENTS.md', orig));
+    const w = profile(dir, ['write', '--store', 'agents-md', ...LISTS]);
+    const t1 = read(join(dir, 'AGENTS.md'));
+    writeFileSync(join(dir, 'AGENTS.md'), `Before\r\n${t1}\nAfter\n\n`);
+    const around = read(join(dir, 'AGENTS.md'));
+    profile(dir, ['write', '--store', 'agents-md', '--protected', 'main,release/*']);
+    const t2 = read(join(dir, 'AGENTS.md'));
+    profile(dir, ['write', '--store', 'agents-md', '--protected', 'main,release/*']);
+    const ok1 = w.status === 0 && t1.startsWith(orig) && JSON.stringify(cut(t2)) === JSON.stringify(cut(around)) && read(join(dir, 'AGENTS.md')) === t2 && profile(dir, ['check']).status === 0;
+    if (!ok1) bad.push(name);
+  }
+  assert(!bad.length, `failed: ${bad.join(', ')}`);
+  return `${Object.keys(cases).length} cases: original kept, text around the section kept, idempotent, up to date`;
+});
+
+step('unreadable storage (D40, P5): an unreadable settings file or .cartwright/ folder is broken, never "unprofiled"', () => {
+  if (process.getuid?.() === 0) return 'skipped: running as root, so file permissions don\'t stop reads';
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const file = join(dir, '.cartwright', 'settings.json'), folder = join(dir, '.cartwright');
+  const results = [];
+  for (const [name, target] of [['settings.json', file], ['the folder', folder]]) {
+    chmodSync(target, 0o000);
+    try {
+      const s = ok(dir, ['show']);
+      const w = profile(dir, ['write', '--store', 'folder', ...LISTS]);
+      results.push([name, s.store === 'folder' && s.settings.status === 'broken' && /can't be read \(EACCES\)/.test(s.settings.message)
+        && Object.values(s.settings.effective.guardrails).every(Boolean) && profile(dir, ['check']).status === 1
+        && w.status === 1 && !/can't be read: the file can't be read|can't be read: can't be read/.test(w.stderr), s.settings.message]);
+    } finally { chmodSync(target, target === folder ? 0o755 : 0o644); }
+  }
+  const bad = results.filter(([, good]) => !good);
+  assert(!bad.length, bad.map(([n, , m]) => `${n}: ${m}`).join('; '));
+  return 'both: broken, all rules on, check fails, write refuses with one clear message';
+});
+
+step('no unsourced defaults (A5, P8): no lockfile means no guessed npm; an engines range is recorded as a range', () => {
+  const { dir } = project('unknown-stack', (d) => put(d, 'package.json', JSON.stringify({ name: 'x', engines: { node: '>=20' }, scripts: { build: 'node build.mjs', compile: 'node c.mjs' } }) + '\n'));
+  const p = ok(dir, ['study']).profile;
+  assert(notFound(p.facts.packageManager) && p.facts.commands.build.defined === 'node build.mjs' && p.facts.commands.build.run === undefined, `build: ${JSON.stringify(p.facts.commands.build)}`);
+  assert(p.facts.node.value === '>=20' && p.facts.node.kind === 'range' && p.facts.node.source === 'package.json#engines.node', `node: ${JSON.stringify(p.facts.node)}`);
+  assert(!JSON.stringify(p).includes('npm '), 'npm assumed somewhere');
+  return 'build recorded as defined with no run command; Node >=20 (range)';
 });
 
 // --- broken settings: fail safe, loud, and never quoting the file -------------------------------------------

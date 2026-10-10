@@ -80,6 +80,7 @@
       }
     },
     "node": {
+      "kind": "pinned",
       "source": ".nvmrc",
       "status": "found",
       "value": "18.19.0"

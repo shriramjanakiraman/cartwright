@@ -129,6 +129,7 @@
       }
     },
     "node": {
+      "kind": "pinned",
       "source": ".nvmrc",
       "status": "found",
       "value": "24.4.0"
