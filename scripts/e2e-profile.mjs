@@ -11,14 +11,14 @@ import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { assert, harness, json, sh } from './e2e-lib.mjs';
+import { assert, halfTheCpus, harness, json, sh } from './e2e-lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = (f, d) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : d; };
 const KEEP = args.includes('--keep');
 const UPDATE = args.includes('--update-goldens');
-const { WORK, HOME, BARE, step, report } = harness('cartwright-profile-');
+const { WORK, HOME, BARE, step, report } = harness('cartwright-profile-', { concurrency: halfTheCpus() });
 const NODE = join(BARE.split(':')[0], 'node');
 const STATE = join(WORK, 'state');
 const PLUGIN = join(WORK, 'plugin');
@@ -91,19 +91,26 @@ const LISTS = ['--protected', 'develop,main', '--generated', 'none'];
 
 // --- A1–A6: detection, sources, "not found", conventions -----------------------------------------------------
 const FIXTURES = ['sfra', 'storefront-next', 'ts', 'python', 'unknown-stack'];
-const P = {};
-for (const name of FIXTURES) {
-  step(`${name}: the profile matches tests/expected/${name}.profile.json, every fact with its source`, () => {
+// Each fixture's written profile, made once per test process (steps may run in different processes).
+const PROFILES = {};
+function written(name) {
+  if (PROFILES[name] === undefined) {
     const { dir } = project(name);
     const w = ok(dir, ['write', '--store', 'folder', ...LISTS]);
     assert(w.changed.includes('.cartwright/profile.json'), `nothing written: ${JSON.stringify(w)}`);
-    const got = read(join(dir, '.cartwright', 'profile.json'));
+    PROFILES[name] = read(join(dir, '.cartwright', 'profile.json'));
+  }
+  return PROFILES[name];
+}
+const P = new Proxy({}, { get: (_, name) => (FIXTURES.includes(name) ? JSON.parse(written(name)) : undefined) });
+for (const name of FIXTURES) {
+  step(`${name}: the profile matches tests/expected/${name}.profile.json, every fact with its source`, () => {
+    const got = written(name);
     const golden = join(ROOT, 'tests', 'expected', `${name}.profile.json`);
     if (UPDATE) { mkdirSync(dirname(golden), { recursive: true }); writeFileSync(golden, got); }
     assert(existsSync(golden), `no expected profile; run with --update-goldens and review it`);
     assert(got === read(golden), `differs from the expected profile (run with --update-goldens and review the diff)`);
-    P[name] = JSON.parse(got);
-    const bad = unsourced(P[name]);
+    const bad = unsourced(JSON.parse(got));
     assert(!bad.length, `facts without a source: ${bad.join(', ')}`);
     return UPDATE ? 'expected profile rewritten' : 'identical';
   });
@@ -726,5 +733,4 @@ step('outside a git repository: a clear message and exit 2', () => {
   return r.stderr.trim();
 });
 
-if (!KEEP) rmSync(STATE, { recursive: true, force: true });
-process.exit(report('Cartwright profile test', { keep: KEEP }));
+process.exit(await report('Cartwright profile test', { keep: KEEP }));

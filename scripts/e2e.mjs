@@ -271,4 +271,4 @@ if (args.includes('--pr')) {
 if (prUrl && !args.includes('--keep')) {
   sh('gh', ['pr', 'close', prUrl, '--delete-branch', '--comment', 'Closed by scripts/e2e.mjs.'], { env: { ...process.env } });
 }
-process.exit(report('Cartwright end-to-end test', { keep: args.includes('--keep') }));
+process.exit(await report('Cartwright end-to-end test', { keep: args.includes('--keep') }));
