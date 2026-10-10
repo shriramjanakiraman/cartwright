@@ -1,0 +1,141 @@
+{
+  "cartwright": "profile",
+  "conventions": {
+    "adrs": {
+      "path": "documentation/decisions",
+      "status": "found"
+    },
+    "prTemplate": {
+      "path": ".github/pull_request_template.md",
+      "status": "found"
+    },
+    "rulesFiles": {
+      "status": "found",
+      "value": [
+        {
+          "path": "AGENTS.md"
+        },
+        {
+          "path": "CLAUDE.md"
+        }
+      ]
+    },
+    "specKit": {
+      "status": "not found"
+    },
+    "tracker": {
+      "source": ".github/ISSUE_TEMPLATE",
+      "status": "found",
+      "value": "github-issues"
+    }
+  },
+  "facts": {
+    "commands": {
+      "build": {
+        "defined": "node scripts/build.mjs",
+        "how": "defined",
+        "source": "package.json#scripts.build",
+        "status": "found"
+      },
+      "lint": {
+        "status": "not found"
+      },
+      "test": {
+        "status": "not found"
+      }
+    },
+    "frameworks": {
+      "status": "not found"
+    },
+    "languages": {
+      "status": "found",
+      "value": [
+        {
+          "source": "package.json",
+          "value": "JavaScript"
+        }
+      ]
+    },
+    "layout": {
+      "source": "tests/",
+      "status": "found",
+      "value": {
+        "testDirs": [
+          "tests"
+        ]
+      }
+    },
+    "node": {
+      "kind": "range",
+      "source": "package.json#engines.node",
+      "status": "found",
+      "value": ">=20"
+    },
+    "otherScripts": {
+      "source": "package.json#scripts",
+      "status": "found",
+      "value": [
+        "branch",
+        "build-overlay",
+        "build:check",
+        "check",
+        "e2e",
+        "e2e:guard",
+        "e2e:profile",
+        "find",
+        "link",
+        "new-skill",
+        "registry",
+        "release",
+        "scrub",
+        "setup",
+        "setup-hooks",
+        "sync-upstream",
+        "sync-upstream:check",
+        "test:agents",
+        "test:release",
+        "upstream",
+        "validate"
+      ]
+    },
+    "packageManager": {
+      "status": "not found"
+    },
+    "platform": {
+      "status": "not found"
+    },
+    "protectedBranchCandidates": {
+      "source": "git: refs/remotes/origin/HEAD, refs/remotes/origin/develop",
+      "status": "found",
+      "value": [
+        "develop",
+        "main"
+      ]
+    },
+    "python": {
+      "status": "not found"
+    },
+    "remoteHost": {
+      "source": "git: remote origin",
+      "status": "found",
+      "value": "github"
+    }
+  },
+  "guidance": {
+    "avoidSkills": [],
+    "preferSkills": []
+  },
+  "suggestions": {
+    "generated": [
+      {
+        "path": "INDEX.md",
+        "source": "git grep: a \"generated, do not edit\" header"
+      },
+      {
+        "path": "tests/projects/ts/src/generated/api.ts",
+        "source": "git grep: a \"generated, do not edit\" header"
+      }
+    ]
+  },
+  "version": 1
+}

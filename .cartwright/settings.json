@@ -1,0 +1,52 @@
+{
+  "$comment": "Cartwright guardrail settings. Change them in a pull request; an agent needs the person's approval to edit this file. See the Cartwright guide 'Project profile and guardrails'.",
+  "cartwright": "settings",
+  "generated": [
+    {
+      "path": "plugin/**",
+      "regenerate": "npm run build"
+    },
+    {
+      "path": "INDEX.md",
+      "regenerate": "npm run build"
+    },
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "regenerate": "npm run build"
+    },
+    {
+      "path": ".agents/plugins/marketplace.json",
+      "regenerate": "npm run build"
+    },
+    {
+      "path": "upstream/**",
+      "regenerate": "npm run sync-upstream"
+    }
+  ],
+  "guardrails": {
+    "destructive-outside-project": true,
+    "generated-files": true,
+    "protected-branches": true,
+    "secrets": true
+  },
+  "locations": {
+    "allowed": [],
+    "protected": []
+  },
+  "protectedBranches": [
+    "main",
+    "develop"
+  ],
+  "rules": [],
+  "secrets": {
+    "allow": [
+      "upstream/**",
+      "plugin/**"
+    ]
+  },
+  "tracks": {
+    "$comment": "Process tracks (quick, standard, full) have no effect yet; they arrive in a later Cartwright release.",
+    "enabled": false
+  },
+  "version": 1
+}
