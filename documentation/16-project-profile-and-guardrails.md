@@ -207,13 +207,32 @@ The personal file can only switch them on.
 **No bypass.** There's no allow-once token, environment variable or inline marker. Every block ends with:
 "Don't try another way; if it really must happen, tell the person they can run it themselves."
 
+**How commands are read.** The guard reads a command line the way a shell would, without running it. It
+follows:
+- quoting, `;`, `&&`, `||`, pipes and newlines, and the commands inside `if`/`for`/`while`/`case` and function
+  bodies;
+- variables set earlier on the line, `cd` and `pushd`;
+- wrappers such as `env`, `sudo`, `xargs`, `timeout`, `nice`, `npx`, `watch`, `script` and `coproc`;
+- commands inside `$(…)`, backticks, `sh -c` (and `bash`, `zsh`, `fish`…), `eval` with known text, a here-string
+  or here-document fed to a shell, `echo …| sh`, `find -exec`, `git rebase -x` and `git submodule foreach`;
+- git aliases: configured ones, ones given with `-c`, and ones set earlier on the line.
+
+Paths are followed through symlinks when the path goes through the link (a trailing `/`, a glob under it, or a
+write onto it), and compared in the disk's own letter case. A command nested more than six levels deep is blocked
+as too deep to check.
+
 ### `protected-branches`
 
 Every form of push is judged by where it would go:
 - `git push origin main`, `HEAD:main`, `+main`, `--force` and `--force-with-lease`;
 - deleting (`:main`, `--delete main`);
-- a bare `git push`, which goes where `@{push}` says (the upstream and `push.default`);
-- `--all` and `--mirror`.
+- a bare `git push`, which goes where `@{push}` says (the upstream and `push.default`), or where the remote's push
+  refspec says (from the repo's config, `-c remote.<r>.push`, or `git config` earlier on the line);
+- `--all` and `--mirror`;
+- `git subtree push <repo> <branch>`, and `gh api` changing `…/git/refs/heads/<branch>` (PATCH, POST, PUT,
+  DELETE).
+
+Merging (`gh pr merge`, a merge in the GitHub UI) isn't blocked; that's for the phase 3 auditor.
 
 The branches are the settings' `protectedBranches` (globs such as `release/*` work), plus the personal file's.
 Tags and other branches go through. A destination hidden in a variable or a command is blocked ("can't tell where
@@ -232,7 +251,9 @@ At `git commit`, the guard looks at what would be committed:
 
 It scans the added lines with the same patterns as `npm run scrub`: private keys, GitHub, AWS and Slack tokens,
 JWTs, quoted secret assignments, and `sk_live_`/`sk_test_`/`npm_`/`AIza`/`glpat-` keys. It also blocks committing
-files named like credentials (`.env`, `*.pem`, `*.key`, `id_rsa`…; `.env.example` is fine). Lockfiles, binary
+files named like credentials (`.env`, `dw.json`, `*.pem`, `*.key`, `id_rsa`, `*.jks`…; `.env.example` is fine).
+When the files can't be known (a variable, a command or `xargs`), the commit is blocked: "name the files
+explicitly". Lockfiles, binary
 files and the team's `secrets.allow` paths are skipped. The message names the file and line, never the value.
 
 > Cartwright blocked this (secrets): src/config.ts:3 looks like a GitHub token. The value isn't shown. Remove it
@@ -246,8 +267,9 @@ a generated path, are blocked. The shell writes include:
 - redirections (`>`, `>>`, here-documents);
 - `tee`;
 - `sed -i`, `perl -pi` and `awk -i inplace`;
-- the destination of `cp`, `mv`, `install`, `ln` and `rsync`;
-- `truncate` and `dd of=`;
+- the destination of `cp`, `mv`, `install`, `ln` and `rsync` (also `--target-directory=`);
+- `truncate`, `dd of=`, `curl -o`, `sort -o`, and `tar -x -C <folder>`;
+- `prettier --write` and `eslint --fix` on generated paths;
 - `git apply` and `patch`.
 
 Commands inside `sh -c`, `eval` and `$(…)` count too. Reading, `git checkout -- <file>`, `git restore`, deleting,
@@ -281,9 +303,19 @@ Changing the guardrail settings needs the person's approval at that moment. That
 - the Cartwright section of `AGENTS.md` (an edit inside it, or any shell write to `AGENTS.md`);
 - the machine-mode files;
 - running `profile.mjs write` or `refresh`;
-- disabling or uninstalling the plugin, or switching its hooks off in an agent's settings file.
+- `git rm`, `git mv`, `git checkout -- <path>` and `git restore <path>` on these paths (putting back an older
+  settings file can loosen the rules);
+- `git stash`, `git clean -f`, `git reset --hard`, `git checkout -f` and `git checkout -- .`, **only when** they would
+  destroy guardrail content that isn't committed (one `git status` on those paths decides);
+- `chmod`, `chown`, `chgrp`, `chflags`, `setfacl` and `xattr` on them;
+- disabling, uninstalling or removing the plugin or its marketplace (`claude|codex|copilot plugin …`);
+- switching its hooks off in an agent's settings file. An edit is judged by what it writes (`disableAllHooks`,
+  `"cartwright@…": false`); any shell write, move or delete of `.claude/settings*.json`,
+  `.github/copilot/settings.json` or `.codex/config.toml` needs the person.
 
-The personal file isn't covered: it's the developer's own, and it can only tighten.
+Switching or checking out branches, pulling, merging, rebasing and `git reset <commit>` without `--hard` stay
+allowed. The personal file is in the folder, so it's covered by deleting or moving the folder, but editing it is
+the developer's own business: it can only tighten.
 
 The person's yes can't be read from the chat, so the guard uses the agent's own approval prompt where that's
 verified to work for a hook. It isn't yet verified for any agent; until it is, the change is blocked, and the
@@ -311,14 +343,21 @@ settings they use.
 
 These are guardrails, not a complete boundary, as the agent vendors themselves say of hooks.
 
-- **Command matching.** It can't see writes made inside a script or an interpreter (`node -e`, `python -c`,
-  `npm run x` that pushes), or a command assembled at run time (`sh -c "$CMD"`). Phase 3's auditor closes the
-  loop.
+- **Command matching.** Phase 3's auditor closes the loop on what it can't see:
+  - writes made inside a script or an interpreter (`node -e`, `python -c`, `npm run x` that pushes);
+  - scripts assembled at run time (`sh -c "$CMD"`, `eval "$X"`, `eval "$(printf …)"`);
+  - a shell reading its script from a file or from a pipe that isn't literal `echo`/`printf` text;
+  - `xargs rm` and `xargs sed -i` with paths from stdin;
+  - `git $SUB …`, where the subcommand is a variable;
+  - a renamed copy of `profile.mjs`;
+  - branch and commit operations that change the guardrail files' committed history (checkout, merge, rebase,
+    reset to a commit).
 - **Windows.** The hooks run through `sh`, so there are no hard blocks on Windows. The guard does nothing there
   and says so.
 - **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
   Approving once covers updates, because the hook entries never change.
-- **Speed.** About 0.1–0.3 s per guarded tool call (Node starting), measured by the guard test.
+- **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The guard test checks what the guard
+  adds on top of starting Node: within 100 ms without git and 400 ms for a push.
 
 ## Tests
 
