@@ -11,9 +11,10 @@
 //   plugin/tools/                      client setup helper (setup.mjs, kit.mjs, registry-core.mjs), the
 //                                      encrypted overlay registry (registry.json), run.mjs with the
 //                                      pinned tool versions (versions.json) to run tools without installing,
-//                                      and the project profiler (profile.mjs, stacks/, store.mjs,
-//                                      settings.mjs, secret-rules.mjs)
-//   plugin/hooks/hooks.json            session-start hook: offers client setup in projects not yet set up
+//                                      the project profiler (profile.mjs, stacks/, store.mjs, settings.mjs,
+//                                      secret-rules.mjs) and the guard (guard.mjs, guard-rules.mjs, guard-shell.mjs)
+//   plugin/hooks/hooks.json            session-start hook (offers client setup in projects not yet set up) and
+//                                      the PreToolUse guardrail hook (tools/guard.mjs)
 //   INDEX.md                           the human catalogue
 // Drafts and deprecated core skills are left out of the plugin but listed in INDEX.md.
 //
@@ -57,7 +58,7 @@ if (Object.keys(servers).length) out.set('plugin/.mcp.json', JSON.stringify({ mc
 for (const f of ['setup.mjs', 'kit.mjs', 'registry-core.mjs', 'run.mjs']) out.set(`plugin/tools/${f}`, readFileSync(join(ROOT, 'scripts', f), 'utf8'));
 // The project profiler and what it shares with the session-start hook and the guard: storage, settings and
 // their merge rules, the secret patterns, and one module per stack.
-for (const f of ['profile.mjs', 'store.mjs', 'settings.mjs', 'secret-rules.mjs']) out.set(`plugin/tools/${f}`, readFileSync(join(ROOT, 'scripts', f), 'utf8'));
+for (const f of ['profile.mjs', 'store.mjs', 'settings.mjs', 'secret-rules.mjs', 'guard.mjs', 'guard-rules.mjs', 'guard-shell.mjs']) out.set(`plugin/tools/${f}`, readFileSync(join(ROOT, 'scripts', f), 'utf8'));
 for (const f of readdirSync(join(ROOT, 'scripts', 'stacks')).filter((n) => n.endsWith('.mjs')).sort()) out.set(`plugin/tools/stacks/${f}`, readFileSync(join(ROOT, 'scripts', 'stacks', f), 'utf8'));
 // The versions run.mjs fetches when a tool isn't installed: the ones pinned in the lock.
 out.set('plugin/tools/versions.json', JSON.stringify(Object.fromEntries(Object.entries(lock.sources).filter(([, s]) => s.version).map(([id, s]) => [id, s.version])), null, 2) + '\n');
@@ -69,8 +70,21 @@ const HOOK = 'for d in "$CLAUDE_PLUGIN_ROOT" "$PLUGIN_ROOT" "$CODEX_PLUGIN_ROOT"
   + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; '
   + 'f=$(find "$HOME/.codex/plugins/cache" "$HOME/.copilot" "$HOME/.claude/plugins" -path "*cartwright*/tools/setup.mjs" 2>/dev/null | tail -n 1); '
   + '[ -n "$f" ] && exec node "$f" hook; exit 0';
+// The guardrail hook, before every write-capable tool call (decision record 0012). Its command, matcher and timeout
+// are fixed from phase 1 on: Codex trusts a hook by a hash of its entry, so any change here, or a new group inserted
+// before it, asks every Codex user to approve the hooks again. New hooks are appended after it; logic changes go in
+// tools/guard.mjs. No find here: it would be too slow on every tool call.
+const GUARD = 'command -v node >/dev/null 2>&1 || exit 0; '
+  + 'for d in "$CLAUDE_PLUGIN_ROOT" "$COPILOT_PLUGIN_ROOT" "$PLUGIN_ROOT"; do '
+  + '[ -n "$d" ] && [ -f "$d/tools/guard.mjs" ] && exec node "$d/tools/guard.mjs" pre-tool-use; done; '
+  + 's="${CARTWRIGHT_STATE_DIR:-$HOME/.cartwright}/plugin-root"; '
+  + '[ -f "$s" ] && d=$(cat "$s") && [ -f "$d/tools/guard.mjs" ] && exec node "$d/tools/guard.mjs" pre-tool-use; exit 0';
+const GUARD_MATCHER = 'Bash|Edit|Write|MultiEdit|NotebookEdit|apply_patch|exec_command|Create|create';
 out.set('plugin/hooks/hooks.json', JSON.stringify({
-  hooks: { SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }] },
+  hooks: {
+    SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }],
+    PreToolUse: [{ matcher: GUARD_MATCHER, hooks: [{ type: 'command', command: `sh -c '${GUARD}'`, timeout: 30 }] }],
+  },
 }, null, 2) + '\n');
 
 // GitHub Copilot (CLI and VS Code) reads the plugin.json at the plugin root. It must be in Copilot's own

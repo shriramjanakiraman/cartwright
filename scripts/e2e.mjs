@@ -86,11 +86,14 @@ step('every agent manifest names the same plugin and version', () => {
   return `${c.name} ${c.version} (Claude Code, Codex, Copilot)`;
 });
 
-step('the Copilot manifest declares the hooks and skills (else Copilot runs no session-start hook)', () => {
+step('the Copilot manifest declares the hooks and skills, and the hooks file has the session-start and guard hooks', () => {
   const a = JSON.parse(readFileSync(join(PLUGIN, 'plugin.json'), 'utf8'));
   assert(!a.$schema, 'plugin.json is in Agent Plugins 1.0 form ($schema): Copilot loads no hooks from it');
   assert(a.hooks && existsSync(join(PLUGIN, a.hooks)), `hooks ${a.hooks ? `"${a.hooks}" not found` : 'not declared'}`);
-  assert(JSON.parse(readFileSync(join(PLUGIN, a.hooks), 'utf8')).hooks?.SessionStart, `${a.hooks} has no SessionStart hook`);
+  const hooks = JSON.parse(readFileSync(join(PLUGIN, a.hooks), 'utf8')).hooks || {};
+  assert(hooks.SessionStart, `${a.hooks} has no SessionStart hook`);
+  const pre = hooks.PreToolUse?.[0];
+  assert(pre && /\bBash\b.*\bEdit\b.*\bapply_patch\b/.test(pre.matcher) && /tools\/guard\.mjs" pre-tool-use/.test(pre.hooks?.[0]?.command || ''), `${a.hooks} has no PreToolUse guard hook`);
   assert(a.skills && existsSync(join(PLUGIN, a.skills, 'client-setup', 'SKILL.md')), `skills ${a.skills ? `"${a.skills}" isn't the skills folder` : 'not declared'}`);
   assert(!a.mcpServers || existsSync(join(PLUGIN, a.mcpServers)), `mcpServers "${a.mcpServers}" not found`);
   return `hooks ${a.hooks}, skills ${a.skills}${a.mcpServers ? `, MCP ${a.mcpServers}` : ''}`;
