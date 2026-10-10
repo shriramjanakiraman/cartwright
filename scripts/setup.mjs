@@ -75,6 +75,7 @@ export const OFFERS = {
   combined: 'Cartwright can study this project (read-only) and save a profile so I use its real commands and rules, and connect it to a client\'s project skills if it\'s for a client. Reply set up, not now, or never here.',
   profile: 'Cartwright can study this project (read-only) and save a profile so I use its real commands and rules. Reply set up, not now, or never here.',
   client: 'Is this project for a client? I can connect it to that client\'s project skills. Reply set up, not now, or never here.',
+  connect: 'This project is for a client but isn\'t connected to its project skills yet. Reply set up, not now, or never here.',
 };
 
 // Where the guard can be found from this agent, as the PreToolUse trampoline looks: null when it can be, else why not.
@@ -154,12 +155,13 @@ if (cmd === 'hook') {
       const profiled = !!st && st.profile.status !== 'none';
       const team = st?.settings.status === 'ok' ? st.settings.data : null;
       const clientKnown = !!readKit(root) || team?.clientProject === false || !!s?.noClient || ['no-client', 'done'].includes(s?.choice);
-      const line = !profiled ? (clientKnown ? 'profile' : 'combined') : clientKnown ? null : 'client';
-      if (line) notes.setup = (`[cartwright] ${line === 'client' ? `This project (${root}) has a Cartwright profile but isn't connected to a client's project skills, and it isn't recorded whether it's for a client.` : `This project (${root}) isn't set up with Cartwright yet.`}
+      // clientProject: true with no kit: it's recorded as a client project, so offer to connect it, not ask again.
+      const line = !profiled ? (clientKnown ? 'profile' : 'combined') : clientKnown ? null : team?.clientProject === true ? 'connect' : 'client';
+      if (line) notes.setup = (`[cartwright] ${line === 'client' ? `This project (${root}) has a Cartwright profile but isn't connected to a client's project skills, and it isn't recorded whether it's for a client.` : line === 'connect' ? `This project (${root}) is recorded as a client project (clientProject in its settings) but has no client project kit yet.` : `This project (${root}) isn't set up with Cartwright yet.`}
 REQUIRED: begin your very first reply in this session with this one line, before answering anything else:
 "${OFFERS[line]}"
 Then answer the user's message as usual.
-- "set up": follow the ${line === 'client' ? 'client-setup' : 'project-profile'} skill. Its helpers are: node "${SELF}"${line === 'client' ? '' : ` and node "${join(HERE, 'profile.mjs')}"`}
+- "set up": follow the ${['client', 'connect'].includes(line) ? 'client-setup' : 'project-profile'} skill. Its helpers are: node "${SELF}"${['client', 'connect'].includes(line) ? '' : ` and node "${join(HERE, 'profile.mjs')}"`}
 - "not now": run node "${SELF}" remember later --dir "${root}" (asks again in ${ASK_AGAIN_DAYS} days)
 - "never here": run node "${SELF}" remember never --dir "${root}"
 Then carry on with what the user asked. Don't raise it again in this session.`);

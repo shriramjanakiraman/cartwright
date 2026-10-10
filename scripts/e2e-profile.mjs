@@ -794,7 +794,11 @@ step('the offer when the client is known: profile only (kit, no-client, done, cl
   assert(!bad.length, `not the profile-only line: ${bad.join(', ')}`);
   const p = project('ts').dir; ok(p, ['write', '--store', 'folder', ...LISTS, '--client-project', 'no']);
   assert(!offered(session(p)), 'a profiled project with clientProject: false was still offered setup');
-  return 'profile-only for kit, no-client, done and no-client-then-later; nothing when profiled and not for a client';
+  // Recorded as a client project but no kit yet: offer to connect it, without asking again whether it's for a client.
+  const c = project('ts').dir; ok(c, ['write', '--store', 'folder', ...LISTS, '--client-project', 'yes']);
+  const connect = session(c);
+  assert(/"This project is for a client but isn't connected to its project skills yet\. Reply set up, not now, or never here\."/.test(connect) && /follow the client-setup skill/.test(connect) && !CLIENT_ONLY.test(connect), `clientProject: true without a kit: ${connect.slice(0, 200)}`);
+  return 'profile-only for kit, no-client, done and no-client-then-later; nothing when profiled and not for a client; the connect line when recorded as a client project without a kit';
 });
 
 step('a profiled project with no client recorded gets the client-only line; the library and overlay repos get none', () => {

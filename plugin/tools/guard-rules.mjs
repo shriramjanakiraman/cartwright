@@ -624,7 +624,8 @@ const FAMILY = {
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|trash|rmtrash|trash-put|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
   'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || c.name === 'gh' || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
-  'project-rules': () => true,
+  // A project rule fails safe for any command when it has a shell pattern; with only paths, for writes.
+  'project-rules': (A, s) => (s.rules.some((r) => r.shell) ? A.cmds.length > 0 || A.edits.length > 0 : FAMILY['generated-files'](A)),
 };
 
 const CHECKS = {
@@ -797,7 +798,7 @@ export function decide(action, ctx) {
     if (!active(rule, s)) continue;
     let r;
     try { r = CHECKS[rule](A, ctx, s); } catch (e) {
-      if (FAMILY[rule](A)) r = { decision: 'deny', rule, message: e.deadline ? `Cartwright blocked this (${rule}): it's too large to check in time; ${rule === 'secrets' ? 'commit in smaller parts' : 'split it into smaller steps'}.` : couldNot(e, rule) };
+      if (FAMILY[rule](A, s)) r = { decision: 'deny', rule, message: e.deadline ? `Cartwright blocked this (${rule}): it's too large to check in time; ${rule === 'secrets' ? 'commit in smaller parts' : 'split it into smaller steps'}.` : couldNot(e, rule) };
       else continue;
     }
     if (!r) continue;
