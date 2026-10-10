@@ -88,7 +88,8 @@ export function makeCtx(root) {
     text(rel) {
       const name = rel.split('/').pop();
       if (!READABLE.has(name) || isSecretPath(rel)) return null;
-      try { const p = inside(rel); return !exact(rel) || !within(p) || statSync(p).size > MAX_BYTES ? null : readFileSync(p, 'utf8'); } catch { return null; }
+      // The real target's name counts too: .nvmrc → .env must never open .env.
+      try { const p = inside(rel); return !exact(rel) || !within(p) || isSecretPath(realpathSync(p)) || statSync(p).size > MAX_BYTES ? null : readFileSync(p, 'utf8'); } catch { return null; }
     },
     json(rel) { try { const t = ctx.text(rel); return t === null ? null : JSON.parse(t); } catch { return null; } },
     toml(rel) { try { const t = ctx.text(rel); return t === null ? null : parseToml(t); } catch { return null; } },

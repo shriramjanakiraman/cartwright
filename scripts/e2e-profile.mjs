@@ -274,7 +274,14 @@ step('reads stay inside the project: a symlinked .nvmrc pointing outside is neve
   rmSync(join(dir, '.nvmrc')); writeFileSync(join(dir, '.nvmrc'), 'DB_PASS=hunter2hunter2\n');
   const n = ok(dir, ['study']).profile.facts.node;
   assert(notFound(n), `a non-version pin was recorded: ${JSON.stringify(n)}`);
-  return 'not read; "DB_PASS=…" in .nvmrc is not a Node version';
+  // A symlink inside the project to a credential file: never opened, even though the target is inside.
+  rmSync(join(dir, '.nvmrc'));
+  // Version-shaped content, so it would show if the file were opened.
+  writeFileSync(join(dir, '.env'), '20.99.1\n');
+  symlinkSync('.env', join(dir, '.nvmrc'));
+  const e = profile(dir, ['study']);
+  assert(e.status === 0 && notFound(JSON.parse(e.stdout).profile.facts.node), `.nvmrc → .env was read: ${JSON.stringify(JSON.parse(e.stdout).profile.facts.node)}`);
+  return 'not read; "DB_PASS=…" in .nvmrc is not a Node version; .nvmrc → .env inside the project not read either';
 });
 
 step('reads stay inside the project: listing never enters a symlinked folder, or one that leads outside', () => {
