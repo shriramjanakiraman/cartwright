@@ -223,8 +223,10 @@ step('timing (5.9): p50 and p95 through the hook, within twice the budget', () =
   const plain = { via: 'hook', edit: { path: 'src/server.ts', before: 'ok: true', after: 'ok: false' } };
   const push = { via: 'hook', shell: 'git push origin main' };
   const p = (xs, q) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
-  const a = Array.from({ length: 15 }, () => call(plain, 'claude-code', dir).ms);
-  const b = Array.from({ length: 8 }, () => call(push, 'claude-code', dir).ms);
+  // Each measured call must really have been decided (an early exit would also be fast).
+  const timed = (c, n, want) => Array.from({ length: n }, () => { const r = call(c, 'claude-code', dir); assert(r.decision === want && r.logLines >= 1, `a timed call wasn't decided: ${r.decision}`); return r.ms; });
+  const a = timed(plain, 15, 'allow');
+  const b = timed(push, 8, 'deny');
   const line = `no git: p50 ${p(a, 0.5).toFixed(0)} ms, p95 ${p(a, 0.95).toFixed(0)} ms (budget 200); push: p50 ${p(b, 0.5).toFixed(0)} ms, p95 ${p(b, 0.95).toFixed(0)} ms (budget 500)`;
   assert(p(a, 0.95) <= 400 && p(b, 0.95) <= 1000, `over twice the budget: ${line}`);
   return line;
