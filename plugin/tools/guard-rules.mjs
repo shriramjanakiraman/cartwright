@@ -165,21 +165,25 @@ const shortHas = (args, letter, valueLetters = '') => args.some((w) => {
 // --- what a command writes or deletes ---------------------------------------------------------------------------
 const DEV = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
 
-// Resolve a word to an absolute path, following symlinks in the folders but not the final name. { path, glob } with
-// path null when it can't be known. A glob is judged on its fixed leading folder.
-function place(word, cwd, ctx) {
+// Resolve a word to an absolute path. Symlinks in the folders are followed; the final one only when the path goes
+// through it: a write onto it (through), a trailing "/" or "/.", or a glob under it (design 5.3). A plain "rm link"
+// judges the link's own name. { path, glob, text } with path null when it can't be known. A glob is judged on its
+// fixed leading folder, followed through.
+function place(word, cwd, ctx, through = false) {
   if (!word || word.text === null) return { path: null, raw: word };
-  let t = word.text;
-  if (word.glob) { const cut = t.search(/[*?[]/); t = t.slice(0, cut).replace(/[^/]*$/, '') || '.'; }
+  let t = word.text, thru = through || /\/\.?$/.test(t);
+  if (word.glob) { const cut = t.search(/[*?[]/); t = t.slice(0, cut).replace(/[^/]*$/, '') || '.'; thru = true; }
   if (!isAbsolute(t) && !cwd) return { path: null, raw: word };
-  return { path: ctx.realish(isAbsolute(t) ? t : resolve(cwd, t)), glob: word.glob, text: word.text };
+  const abs = isAbsolute(t) ? t : resolve(cwd, t);
+  return { path: thru ? ctx.realFull(abs) : ctx.realish(abs), glob: word.glob, text: word.text };
 }
 
 // What a shell command writes: [{ path, kind }] where kind is overwrite | append | create-or-overwrite | move-src |
 // move-dst | link. Paths are absolute (null when unknown).
 export function writeTargets(cmd, ctx) {
   const out = [];
-  const add = (w, kind, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx), kind });
+  // Writes go through a symlink to the file it points at; moving a file away takes the link itself.
+  const add = (w, kind, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, kind !== 'move-src'), kind });
   for (const r of cmd.redirects) {
     if (!r.target || ['<', '<<', '<<<', '<&', '<>'].includes(r.op)) continue;
     if (r.op === '>&' && /^(\d+|-)$/.test(r.target.text || '')) continue;
@@ -223,7 +227,7 @@ export function writeTargets(cmd, ctx) {
     const srcs = ti > 0 ? ps : ps.slice(0, -1);
     if (!dest || (!srcs.length && n !== 'ln')) return out;
     if (n === 'mv') for (const s of srcs) add(s, 'move-src');
-    const d = place(dest, cmd.cwd, ctx);
+    const d = place(dest, cmd.cwd, ctx, true);
     const intoDir = d.path && (ctx.isDir(d.path) || ti > 0 || srcs.length > 1 || dest.text?.endsWith('/'));
     const kind = n === 'mv' ? 'move-dst' : n === 'ln' ? 'link' : 'create-or-overwrite';
     if (intoDir && n !== 'rsync') for (const s of srcs) out.push({ path: s.text === null ? null : join(d.path, basename(s.text)), kind });
@@ -251,25 +255,27 @@ function patchFileTargets(cmd, ctx) {
   }
   if (text === null || text === undefined) return [{ path: null, kind: 'overwrite', unknownPatch: true }];
   const cwd = cmd.git?.cwd ?? cmd.cwd;
-  return patchTargets(text).map((t) => ({ path: cwd || isAbsolute(t.path) ? ctx.realish(resolve(cwd || '/', t.path)) : null, kind: t.op === 'delete' ? 'delete' : t.op === 'create' ? 'create-or-overwrite' : 'overwrite', patch: t }));
+  const at = (t) => { const abs = resolve(cwd || '/', t.path); return t.op === 'delete' ? ctx.realish(abs) : ctx.realFull(abs); };
+  return patchTargets(text).map((t) => ({ path: cwd || isAbsolute(t.path) ? at(t) : null, kind: t.op === 'delete' ? 'delete' : t.op === 'create' ? 'create-or-overwrite' : 'overwrite', patch: t }));
 }
 
 // What a shell command deletes: [{ path, recursive }].
 export function deleteTargets(cmd, ctx) {
   const a = cmd.argv, n = cmd.name, out = [];
-  const add = (w, recursive, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx), recursive });
+  const add = (w, recursive, through = false, cwd = cmd.cwd) => out.push({ ...place(w, cwd, ctx, through), recursive });
   if (['rm', 'rmdir', 'unlink', 'shred'].includes(n)) {
     const recursive = n === 'rmdir' || hasFlag(a, /^(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)$/);
     for (const w of positionals(a, n === 'shred' ? ['-n', '-s', '--iterations', '--size'] : [])) add(w, recursive);
   } else if (n === 'find') {
     const deletes = a.some((w, k) => w.text === '-delete' || (['-exec', '-execdir', '-ok', '-okdir'].includes(w.text) && ['rm', 'unlink', 'shred', 'rmdir'].includes(base(a[k + 1]?.text))));
-    if (deletes) { const dirs = []; for (let k = 1; k < a.length && !/^[-(!]/.test(a[k].text ?? '-'); k++) dirs.push(a[k]); for (const w of dirs.length ? dirs : [{ text: '.' }]) add(w, true); }
+    // find's start points are searched through: a symlinked start point is followed.
+    if (deletes) { const dirs = []; for (let k = 1; k < a.length && !/^[-(!]/.test(a[k].text ?? '-'); k++) dirs.push(a[k]); for (const w of dirs.length ? dirs : [{ text: '.' }]) add(w, true, true); }
   } else if (n === 'rsync' && hasFlag(a, /^--(delete|del|remove-source-files)/)) {
     const ps = positionals(a, ['-e', '--rsh', '--exclude', '--include', '--filter', '-f']).filter((w) => !/^[^/]*:/.test(w.text || ''));
-    if (ps.length) add(ps.at(-1), true);
+    if (ps.length) add(ps.at(-1), true, true);
   } else if (n === 'git' && cmd.git && (cmd.git.sub === 'clean' || (cmd.git.sub === 'reset' && cmd.git.args.some((w) => w.text === '--hard')))) {
     const tree = cmd.git.workTree || cmd.git.cwd;
-    if (cmd.git.workTree || cmd.git.cwd !== cmd.cwd) out.push({ path: tree ? ctx.realish(tree) : null, recursive: true });
+    if (cmd.git.workTree || cmd.git.cwd !== cmd.cwd) out.push({ path: tree ? ctx.realFull(tree) : null, recursive: true });
   }
   return out;
 }
@@ -471,7 +477,9 @@ export function prepare(action, ctx) {
     if (a.type === 'shell') cmds.push(...expandGit(analyse(a.command, { cwd: ctx.cwd(), env: ctx.env }), ctx));
     else if (a.type === 'edit') {
       for (const t of a.targets) {
-        const path = t.path ? ctx.realish(isAbsolute(t.path) ? t.path : resolve(ctx.cwd() || '/', t.path)) : null;
+        // An edit through a symlink changes the file it points at; deleting one removes the link.
+        const abs = t.path ? (isAbsolute(t.path) ? t.path : resolve(ctx.cwd() || '/', t.path)) : null;
+        const path = abs ? (t.op === 'delete' ? ctx.realish(abs) : ctx.realFull(abs)) : null;
         const op = t.op === 'write' ? (path && ctx.exists(path) ? 'modify' : 'create') : t.op;
         edits.push({ ...t, path, op, existed: path ? ctx.exists(path) : false });
       }

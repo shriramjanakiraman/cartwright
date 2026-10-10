@@ -9,7 +9,7 @@
 //
 // Usage: node scripts/e2e-guard.mjs [--plugin ./plugin] [--keep] [--only "<words in a case name>"]
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, halfTheCpus, harness, sh, workBase } from './e2e-lib.mjs';
@@ -153,15 +153,20 @@ function prepare(ops, dir) {
     if (kind === 'git') git(dir, ...a);
     else if (kind === 'write') { mkdirSync(dirname(join(dir, a[0])), { recursive: true }); writeFileSync(join(dir, a[0]), a[1]); }
     else if (kind === 'append') appendFileSync(join(dir, a[0]), a[1]);
+    else if (kind === 'symlink') { const link = resolve(dir, a[1]); mkdirSync(dirname(link), { recursive: true }); rmSync(link, { force: true, recursive: true }); symlinkSync(a[0], link); }
+    else if (kind === 'mkdir') mkdirSync(resolve(dir, a[0]), { recursive: true });
   }
 }
 
+// Whether this disk ignores letter case (macOS by default): the work folder answers to its upper-cased name.
+const CASE_INSENSITIVE = (() => { try { return realpathSync(WORK.toUpperCase()) !== null; } catch { return false; } })();
 const CASES = JSON.parse(readFileSync(join(ROOT, 'tests', 'guard-cases.json'), 'utf8')).cases.filter((c) => !opt('--only') || c.name.includes(opt('--only')));
 const timings = { plain: [], git: [] };
 for (const c of CASES) {
   const agents = c.agents || ['claude-code'];
   step(`${c.name}${c.via === 'hook' ? ' [hook]' : ''} (${agents.join(', ')})`, () => {
     const seen = [];
+    if (c.caseInsensitiveOnly && !CASE_INSENSITIVE) return 'skipped: this disk tells letter case apart, so the wrong case is simply another path';
     for (const agent of agents) {
       const { dir, bare } = fresh(c.setup);
       prepare(c.prepare, dir);

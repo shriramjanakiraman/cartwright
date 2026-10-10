@@ -11,7 +11,7 @@
 // Options: --dir <path> for explain and status. CARTWRIGHT_GUARD_LOG=<file> appends one line per decision (no
 // command text and no paths, so no secrets).
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { confirmAsDeny, confirmReason, decide, prepare, READINGS, RULES, ruleSettings } from './guard-rules.mjs';
@@ -73,14 +73,30 @@ class Deadline extends Error { constructor() { super('the check ran out of time'
 export function makeContext({ cwd, env = process.env, deadline = Date.now() + DEADLINE_MS }) {
   const memo = (f) => { let done = false, v; return () => { if (!done) { v = f(); done = true; } return v; }; };
   const tick = () => { if (Date.now() > deadline) throw new Deadline(); };
-  // A path with its folders' symlinks resolved and the final name kept as given (so "rm link" isn't the target).
+  // Real paths come from realpath(3) (realpathSync.native), which also gives the on-disk letter case, so GEN/api.ts
+  // can't pass for gen/api.ts on a case-insensitive disk.
+  const native = (p) => realpathSync.native(p);
+  const listings = new Map();
+  // The final name in the folder's own letter case, when it exists under another case.
+  const caseOf = (dir, name) => {
+    try { lstatSync(join(dir, name)); } catch { return name; }
+    if (!listings.has(dir)) { try { listings.set(dir, readdirSync(dir)); } catch { listings.set(dir, []); } }
+    const names = listings.get(dir);
+    return names.includes(name) ? name : names.find((n) => n.toLowerCase() === name.toLowerCase()) || name;
+  };
+  // A path with its folders' symlinks resolved and the final name kept as given (so "rm link" judges the link).
   const realish = (p) => {
     const abs = resolve(p);
     if (abs === sep) return abs;
     let dir = dirname(abs), rest = [];
-    while (true) { try { return join(realpathSync(dir), ...rest, abs.slice(abs.lastIndexOf(sep) + 1)); } catch { if (dir === dirname(dir)) return abs; rest.unshift(dir.slice(dir.lastIndexOf(sep) + 1)); dir = dirname(dir); } }
+    while (true) {
+      try { const d = native(dir); const parts = [...rest, abs.slice(abs.lastIndexOf(sep) + 1)]; return join(d, ...(parts.length === 1 ? [caseOf(d, parts[0])] : parts)); }
+      catch { if (dir === dirname(dir)) return abs; rest.unshift(dir.slice(dir.lastIndexOf(sep) + 1)); dir = dirname(dir); }
+    }
   };
-  const here = memo(() => { try { return realpathSync(cwd); } catch { return resolve(cwd); } });
+  // A path through every symlink, the final one included: for writes onto it, and paths that go through it.
+  const realFull = (p) => { try { return native(p); } catch { return realish(p); } };
+  const here = memo(() => { try { return native(cwd); } catch { return resolve(cwd); } });
   const git = (dir, ...args) => {
     tick();
     const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', timeout: Math.max(1, deadline - Date.now()), maxBuffer: 64 * 1024 * 1024, env: { ...env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' } });
@@ -102,7 +118,7 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     if (unknown || t.startsWith('~')) return null;
     return realish(isAbsolute(t) ? t : resolve(root(), t));
   };
-  const real = (p) => { try { return realpathSync(p); } catch { return null; } };
+  const real = (p) => { try { return native(p); } catch { return null; } };
   const locations = memo(() => {
     const s = settings();
     const temp = [env.TMPDIR, env.TMP, env.TEMP, ...READINGS.systemTemp].filter(Boolean).map(real).filter(Boolean);
@@ -110,7 +126,7 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     return { temp, cache, allowed: s.allowed.map(expand).filter(Boolean), protected: s.protected.map(expand).filter(Boolean) };
   });
   return {
-    env, tick, realish, git, root, settings, stored,
+    env, tick, realish, realFull, git, root, settings, stored,
     cwd: here,
     stateDir: () => real(stateDir()) || realish(stateDir()),
     locations: () => locations(),
