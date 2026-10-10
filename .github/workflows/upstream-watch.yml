@@ -51,6 +51,8 @@ jobs:
           node scripts/scrub-scan.mjs
           node scripts/sync-upstream.mjs --check
           node scripts/build.mjs --check
+          node scripts/e2e-profile.mjs --plugin ./plugin
+          node scripts/e2e-guard.mjs --plugin ./plugin
           # New or changed official skills that may repeat one of ours (scripts/similar-skills.mjs).
           CHANGED=$( { git ls-files --others --exclude-standard -- upstream; git diff --name-only -- upstream; } | grep '/SKILL.md$' || true)
           OVERLAPS=$( [ -n "$CHANGED" ] && node scripts/similar-skills.mjs --markdown $CHANGED || true)
@@ -59,7 +61,7 @@ jobs:
           # broken release is caught here, before it reaches anyone. A failure is reported in the pull request.
           printf '\n' >> upstream-report.md
           node scripts/run.mjs --smoke --markdown >> upstream-report.md || echo "::warning::A pinned tool version failed its smoke test; see the pull request."
-          printf '\n---\nChecked by upstream-watch before opening: validate, scrub-scan, sync-upstream --check, build --check.\n' >> upstream-report.md
+          printf '\n---\nChecked by upstream-watch before opening: validate, scrub-scan, sync-upstream --check, build --check, the profile and guard tests.\n' >> upstream-report.md
 
       - name: Open or refresh the review pull request into develop
         if: steps.up.outputs.code == '10'

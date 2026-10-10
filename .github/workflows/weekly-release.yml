@@ -84,6 +84,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           node scripts/cut-release.mjs "$V"
           node scripts/sync-upstream.mjs --check
+          node scripts/e2e-profile.mjs --plugin ./plugin
+          node scripts/e2e-guard.mjs --plugin ./plugin
           git push origin "release/$V"
 
       - name: Open the release pull request into main
@@ -92,5 +94,5 @@ jobs:
           V: ${{ steps.decide.outputs.version }}
         run: |
           awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > body.md
-          printf '\n---\nCut automatically by weekly-release. Checked before opening: validate, scrub-scan, sync-upstream --check, build --check, and the release-gate rules (new version, matching branch name, CHANGELOG section).\n\nPull requests opened by a workflow get no checks of their own, so `ci`, `branch-name` and `release-gate` may show as failed or missing here. That is expected; ci runs again on main after merge.\n\nMerging tags v%s, publishes the notes and opens the main → develop sync.\n' "$V" >> body.md
+          printf '\n---\nCut automatically by weekly-release. Checked before opening: validate, scrub-scan, sync-upstream --check, build --check, the profile and guard tests, and the release-gate rules (new version, matching branch name, CHANGELOG section).\n\nPull requests opened by a workflow get no checks of their own, so `ci`, `branch-name` and `release-gate` may show as failed or missing here. That is expected; ci runs again on main after merge.\n\nMerging tags v%s, publishes the notes and opens the main → develop sync.\n' "$V" >> body.md
           gh pr create --base main --head "release/$V" --title "Release $V" --body-file body.md
