@@ -34,8 +34,14 @@ export const READINGS = {
 };
 // G11 (with the team lead): what counts as switching Cartwright's guardrails off. These need the person's approval.
 export const SELF_PROTECTION = {
-  command: { agents: ['claude', 'codex', 'copilot'], verbs: ['disable', 'uninstall', 'remove'], plugin: /cartwright/i },
+  // `<agent> plugin …` commands that switch the plugin off, when they name Cartwright (or can't be read).
+  agents: ['claude', 'codex', 'copilot'],
+  commands: [/^plugin (disable|uninstall|remove|rm)( |$)/, /^plugin marketplace (remove|rm)( |$)/],
+  plugin: /cartwright/i,
+  // The project's agent settings files. An edit is judged by its content (switchOff); any shell write, append, move
+  // or delete of them needs the person, because a shell write can't be read line by line.
   settingsFiles: [/^\.claude\/settings(\.local)?\.json$/, /^\.github\/copilot\/settings\.json$/, /^\.codex\/config\.toml$/],
+  shellWritesToSettingsFiles: true,
   switchOff: [/"disableAllHooks"\s*:\s*true/, /"cartwright@[^"]*"\s*:\s*false/, /\[plugins\."cartwright@[^"]*"\][^[]*enabled\s*=\s*false/],
 };
 // File names whose commit is blocked whatever they contain (design 5.4), plus other private-key files and dw.json
@@ -608,7 +614,7 @@ const FAMILY = {
   'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push') || isGit(c, 'subtree') || (c.name === 'gh' && c.argv[1]?.text === 'api')),
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
-  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
+  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || c.name === 'gh' || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
   'project-rules': () => true,
 };
 
@@ -723,8 +729,13 @@ const CHECKS = {
       }
     }
     for (const c of A.cmds) {
-      const sp = SELF_PROTECTION.command;
-      if (sp.agents.includes(c.name) && c.argv[1]?.text === 'plugin' && sp.verbs.includes(c.argv[2]?.text) && c.argv.slice(3).some((w) => w.text === null || sp.plugin.test(w.text))) return confirm('the Cartwright plugin (it would switch its guardrails off)', 'shell');
+      const sp = SELF_PROTECTION;
+      const sub = c.argv.slice(1).map((w) => w.text ?? '').join(' ');
+      if (sp.agents.includes(c.name) && sp.commands.some((re) => re.test(sub)) && c.argv.slice(2).some((w) => w.text === null || sp.plugin.test(w.text))) return confirm('the Cartwright plugin (it would switch its guardrails off)', 'shell');
+      if (sp.shellWritesToSettingsFiles) {
+        const touched = [...writeTargets(c, ctx), ...deleteTargets(c, ctx)].find((t) => t.path && inside(t.path, root) && sp.settingsFiles.some((re) => re.test(relative(root, t.path))));
+        if (touched) return confirm(`${relative(root, touched.path)} (an agent's settings, which can switch Cartwright's hooks or plugin off)`, 'shell');
+      }
       const pm = c.argv.findIndex((w) => /(^|\/)profile\.mjs$/.test(w.text || ''));
       if (pm >= 0 && ['write', 'refresh'].includes(c.argv[pm + 1]?.text)) return confirm("the project's profile and guardrail settings", 'shell');
       const gone = [...deleteTargets(c, ctx), ...writeTargets(c, ctx).filter((t) => t.kind === 'move-src').map((t) => ({ ...t, recursive: true }))];
