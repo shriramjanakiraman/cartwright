@@ -102,18 +102,20 @@ const GIT_GLOBAL_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace',
 // git's global options and subcommand: { sub, args, cwd, workTree, aliases }. Aliases given on the command line
 // (-c alias.<x>=<v>, --config-env=alias.<x>=<ENV>) are collected, because they beat the configured ones.
 function gitCall(cmd, env = {}) {
-  const a = cmd.argv, aliases = new Map();
+  const a = cmd.argv, aliases = new Map(), pushSpecs = new Map();
   let k = 1, cwd = cmd.cwd, workTree = null;
   while (k < a.length && a[k].text !== null && a[k].text.startsWith('-')) {
     const t = a[k].text, [flag, val] = t.includes('=') ? [t.slice(0, t.indexOf('=')), t.slice(t.indexOf('=') + 1)] : [t, null];
     const value = val ?? (GIT_GLOBAL_VALUE.includes(flag) ? a[++k]?.text ?? null : null);
     if (flag === '-C') cwd = value === null ? null : cwd || isAbsolute(value) ? resolve(cwd || '/', value) : null;
     if (flag === '--work-tree') workTree = value === null ? null : cwd ? resolve(cwd, value) : isAbsolute(value) ? value : null;
-    const m = value && (flag === '-c' || flag === '--config-env') && value.match(/^alias\.([^=]+)=(.*)$/i);
-    if (m) aliases.set(m[1], flag === '-c' ? m[2] : env[m[2]] ?? null);
+    const m = value && (flag === '-c' || flag === '--config-env') && value.match(/^(alias|remote\.[^=]+)\.([^.=]+)=(.*)$/i);
+    const v = m && (flag === '-c' ? m[3] : env[m[3]] ?? null);
+    if (m && m[1].toLowerCase() === 'alias') aliases.set(m[2], v);
+    else if (m && m[2].toLowerCase() === 'push') pushSpecs.set(m[1].slice(7), [...(pushSpecs.get(m[1].slice(7)) || []), v]);
     k++;
   }
-  return { sub: a[k]?.text ?? null, args: a.slice(k + 1), cwd, workTree, aliases, unknownSub: k < a.length && a[k].text === null };
+  return { sub: a[k]?.text ?? null, args: a.slice(k + 1), cwd, workTree, aliases, pushSpecs, unknownSub: k < a.length && a[k].text === null };
 }
 
 // `git config [--local|--global|…] [set|--add] alias.<x> <value>` earlier on the same line: [name, value] or null.
@@ -124,10 +126,18 @@ function aliasSet(g) {
   const m = words[0]?.match(/^alias\.(.+)$/i);
   return m && words.length >= 2 ? [m[1], words[1]] : null;
 }
+// `git config remote.<r>.push <refspec>` earlier on the same line: [remote, refspec] or null.
+function pushSet(g) {
+  if (g.sub !== 'config') return null;
+  const words = g.args.filter((w) => !(w.text && w.text.startsWith('-'))).map((w) => w.text);
+  if (words[0] === 'set') words.shift();
+  const m = words[0]?.match(/^remote\.(.+)\.push$/i);
+  return m && words.length >= 2 ? [m[1], words[1]] : null;
+}
 
 // Expand git aliases in place: a plain alias becomes its words; a "!" alias becomes the shell commands it runs.
 // An alias given with -c, or set with `git config` earlier on the same line, wins over the configured one.
-function expandGit(cmds, ctx, lineAliases = new Map()) {
+function expandGit(cmds, ctx, lineAliases = new Map(), linePush = new Map()) {
   const out = [];
   for (let c of cmds) {
     if (c.name !== 'git') { out.push(c); continue; }
@@ -137,12 +147,16 @@ function expandGit(cmds, ctx, lineAliases = new Map()) {
     let g = gitCall(c, ctx.env), depth = 0;
     const set = aliasSet(g);
     if (set) lineAliases.set(set[0], set[1]);
+    const ps = pushSet(g);
+    if (ps) linePush.set(ps[0], [...(linePush.get(ps[0]) || []), ps[1]]);
+    // Push refspecs set on the command line or earlier on the line count like configured ones.
+    for (const [r, v] of linePush) if (!g.pushSpecs.has(r)) g.pushSpecs.set(r, v);
     while (g.sub && !GIT_BUILTINS.has(g.sub) && depth++ < 5) {
       const alias = g.aliases.has(g.sub) ? g.aliases.get(g.sub) : lineAliases.has(g.sub) ? lineAliases.get(g.sub) : g.cwd ? ctx.gitAlias(g.cwd, g.sub) : null;
       if (!alias) break;
       if (alias.startsWith('!')) {
         const rest = g.args.map((w) => (w.text === null ? '"$UNKNOWN"' : `'${w.text.replace(/'/g, "'\\''")}'`)).join(' ');
-        for (const x of analyse(`${alias.slice(1)} ${rest}`, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([{ ...x, fromAlias: g.sub }], ctx, lineAliases));
+        for (const x of analyse(`${alias.slice(1)} ${rest}`, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([{ ...x, fromAlias: g.sub }], ctx, lineAliases, linePush));
         g = null;
         break;
       }
@@ -171,12 +185,14 @@ const DEV = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
 // fixed leading folder, followed through.
 function place(word, cwd, ctx, through = false) {
   if (!word || word.text === null) return { path: null, raw: word };
-  let t = word.text, thru = through || /\/\.?$/.test(t);
-  if (word.glob) { const cut = t.search(/[*?[]/); t = t.slice(0, cut).replace(/[^/]*$/, '') || '.'; thru = true; }
+  let t = word.text, thru = through || /\/\.?$/.test(t), tail = null;
+  if (word.glob) { const cut = t.search(/[*?[]/); const head = t.slice(0, cut).replace(/[^/]*$/, ''); tail = t.slice(head.length); t = head || '.'; thru = true; }
   if (!isAbsolute(t) && !cwd) return { path: null, raw: word };
   const abs = isAbsolute(t) ? t : resolve(cwd, t);
-  return { path: thru ? ctx.realFull(abs) : ctx.realish(abs), glob: word.glob, text: word.text };
+  // tail: the glob part after the fixed folder (src/generated/*.ts → *.ts), for matching against generated globs.
+  return { path: thru ? ctx.realFull(abs) : ctx.realish(abs), glob: word.glob, text: word.text, tail };
 }
+const word = (text, glob = false) => ({ text, glob, dynamic: false, current: false });
 
 // What a shell command writes: [{ path, kind }] where kind is overwrite | append | create-or-overwrite | move-src |
 // move-dst | link. Paths are absolute (null when unknown).
@@ -222,8 +238,8 @@ export function writeTargets(cmd, ctx) {
     if (n === 'install' && hasFlag(a, /^(-d|--directory)$/)) return out;
     const values = { cp: ['-t', '--target-directory', '-S', '--suffix'], install: ['-t', '-m', '-o', '-g', '-S', '--mode', '--owner', '--group', '--target-directory'], mv: ['-t', '-S', '--target-directory', '--suffix'], ln: ['-t', '-S', '--target-directory', '--suffix'], rsync: ['-e', '--rsh', '--exclude', '--include', '--filter', '-f', '--rsync-path'] }[n];
     const ps = pos(values).filter((w) => !(n === 'rsync' && /^[^/]*:/.test(w.text || '')));
-    const ti = a.findIndex((w) => w.text === '-t' || w.text === '--target-directory');
-    const dest = ti > 0 ? a[ti + 1] : ps.at(-1);
+    const ti = a.findIndex((w) => w.text === '-t' || w.text === '--target-directory' || w.text?.startsWith('--target-directory='));
+    const dest = ti > 0 ? (a[ti].text.includes('=') ? word(a[ti].text.slice(a[ti].text.indexOf('=') + 1)) : a[ti + 1]) : ps.at(-1);
     const srcs = ti > 0 ? ps : ps.slice(0, -1);
     if (!dest || (!srcs.length && n !== 'ln')) return out;
     if (n === 'mv') for (const s of srcs) add(s, 'move-src');
@@ -232,6 +248,28 @@ export function writeTargets(cmd, ctx) {
     const kind = n === 'mv' ? 'move-dst' : n === 'ln' ? 'link' : 'create-or-overwrite';
     if (intoDir && n !== 'rsync') for (const s of srcs) out.push({ path: s.text === null ? null : join(d.path, basename(s.text)), kind });
     else out.push({ ...d, kind });
+  } else if (n === 'curl' || n === 'sort') {
+    // Output files: curl -o/--output, sort -o/--output.
+    for (let k = 1; k < a.length; k++) {
+      const t = a[k].text;
+      if (t === '-o' || t === '--output') add(a[k + 1], 'overwrite');
+      else if (t?.startsWith('--output=')) add(word(t.slice(9)), 'overwrite');
+    }
+  } else if (n === 'tar' || n === 'bsdtar' || n === 'gtar') {
+    // Extracting writes into the -C folder (or the current one).
+    const extract = a.slice(1).some((w) => w.text === '--extract' || w.text === '--get' || (w.text && /^-?[a-zA-Z]*x/.test(w.text) && !w.text.startsWith('--')));
+    if (extract) {
+      const ci = a.findIndex((w) => w.text === '-C' || w.text === '--directory' || w.text?.startsWith('--directory='));
+      const d = ci > 0 ? (a[ci].text.includes('=') ? a[ci].text.slice(a[ci].text.indexOf('=') + 1) : a[ci + 1]?.text) : '.';
+      out.push(d === null || d === undefined ? { path: null, kind: 'overwrite' } : { ...place(word(`${d.replace(/\/$/, '')}/*`, true), cmd.cwd, ctx, true), kind: 'overwrite' });
+    }
+  } else if ((n === 'prettier' && hasFlag(a, /^(--write|-w)$/)) || (n === 'eslint' && hasFlag(a, /^--fix$/))) {
+    // Formatters that rewrite files in place: each path, a folder meaning everything in it.
+    for (const w of positionals(a, ['--config', '-c', '--ignore-path', '--plugin', '--parser', '--ext', '--rule', '--format', '-f', '-o', '--output-file'])) {
+      const p = place(w, cmd.cwd, ctx, true);
+      if (p.path && !w.glob && ctx.isDir(p.path)) out.push({ ...place(word(`${w.text.replace(/\/$/, '')}/*`, true), cmd.cwd, ctx, true), kind: 'overwrite' });
+      else out.push({ ...p, kind: 'overwrite' });
+    }
   } else if (n === 'truncate') { for (const w of pos(['-s', '--size', '-r', '--reference'])) add(w, 'overwrite'); }
   else if (n === 'dd') { for (const w of a.slice(1)) if (w.text?.startsWith('of=')) add({ ...w, text: w.text.slice(3) }, 'overwrite'); else if (w.text === null && w.raw?.[0]?.lit?.startsWith('of=')) out.push({ path: null, kind: 'overwrite' }); }
   else if ((n === 'git' && cmd.git?.sub === 'apply') || n === 'patch' || n === 'apply_patch') {
@@ -302,7 +340,15 @@ function checkPush(c, ctx, s) {
     return null;
   }
   const del = flag(/^(-d|--delete)$/);
-  const refspecs = ps.slice(1);
+  let refspecs = ps.slice(1);
+  if (!refspecs.length && !flag(/^--tags$/)) {
+    // A push refspec set for the remote (-c remote.<r>.push, git config earlier on the line, or the repo's config)
+    // decides where a push without refspecs goes.
+    const remote = ps[0] ? ps[0].text : 'origin';
+    if (remote === null) return block('protected-branches', "can't tell which remote this push goes to; push with an explicit remote and branch.");
+    const specs = g.pushSpecs.get(remote) ?? (g.cwd ? ctx.gitConfigAll(g.cwd, `remote.${remote}.push`) : null);
+    if (specs?.length) refspecs = specs.map((v) => (v === null ? { text: null } : word(v)));
+  }
   if (!refspecs.length) {
     if (flag(/^--tags$/)) return null;
     const dest = g.cwd ? ctx.pushDestination(g.cwd) : null;
@@ -519,10 +565,11 @@ const CHECKS = {
   'generated-files'(A, ctx, s) {
     if (!s.generated.length) return null;
     const root = ctx.root();
-    const match = (p, text) => {
+    // A glob target matches when the generated glob covers its pattern (src/generated/*.ts under src/generated/**).
+    const match = (p, tail) => {
       if (!p || !inside(p, root)) return null;
       const rel = relative(root, p);
-      return s.generated.find((g) => globToRegExp(g.path).test(rel) || (text && globToRegExp(g.path).test(relative(root, resolve(dirname(p), basename(text))))));
+      return s.generated.find((g) => globToRegExp(g.path).test(rel) || (tail && globToRegExp(g.path).test(rel ? `${rel}/${tail}` : tail)));
     };
     const say = (rel, g) => block('generated-files', `${rel} is generated (${s.file}: ${g.path}). Don't edit it by hand: change its source and ${g.regenerate ? `run ${g.regenerate}` : "regenerate it (the regenerate command isn't recorded while the settings are broken; fix the settings)"}.`);
     for (const e of A.edits) {
@@ -535,7 +582,7 @@ const CHECKS = {
         if (t.kind === 'move-src' || t.kind === 'delete') continue;
         if (t.unknownPatch) return block('generated-files', "couldn't read the patch to check it against the generated files; apply it from a file in the project, or as a here-document.");
         if (t.path === null) continue;
-        const g = match(t.path, t.glob ? t.text : null);
+        const g = match(t.path, t.glob ? t.tail : null);
         if (g) return say(relative(root, t.path), g);
       }
     }
@@ -635,6 +682,7 @@ export function decide(action, ctx) {
     if (/\bgit\b[^\n]*\b(push|commit)\b|\b(rm|mv|cp|dd|truncate|shred)\b|>/.test(line) || action.actions.some((a) => a.type === 'edit')) return finish({ decision: 'deny', rule: 'guard', message: couldNot(e) }, s);
     return { decision: 'allow', rule: null, note: `Cartwright couldn't read this command (${e.message}); it was allowed.` };
   }
+  if (A.cmds.some((c) => c.tooDeep)) return finish({ decision: 'deny', rule: 'guard', message: "Cartwright blocked this: it's nested too deeply to check (more than six levels of sh -c, eval or command substitution). Run the inner command directly." }, s);
   let confirmed = null;
   for (const rule of ORDER) {
     if (!active(rule, s)) continue;

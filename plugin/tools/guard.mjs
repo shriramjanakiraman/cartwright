@@ -134,6 +134,7 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     isDir: (p) => { try { return statSync(p).isDirectory(); } catch { return false; } },
     readText: (p, max = 1024 * 1024) => { try { return statSync(p).size > max ? null : readFileSync(p, 'utf8'); } catch { return null; } },
     gitAlias: (dir, name) => (git(dir, 'config', '--get', `alias.${name}`) || '').trim() || null,
+    gitConfigAll: (dir, key) => { const t = git(dir, 'config', '--get-all', key); return t === null ? null : t.split('\n').filter(Boolean); },
     gitTop: (dir) => (git(dir, 'rev-parse', '--show-toplevel') || '').trim() || dir,
     currentBranch: (dir) => (git(dir, 'symbolic-ref', '--short', '-q', 'HEAD') || '').trim() || null,
     pushDestination: (dir) => {

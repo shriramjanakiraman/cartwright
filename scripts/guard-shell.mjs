@@ -166,6 +166,7 @@ const WRAPPERS = {
   time: { values: ['-f', '-o'] }, nice: { values: ['-n', '--adjustment'] }, ionice: { values: ['-c', '-n', '-p'] },
   sudo: { values: ['-u', '-g', '-h', '-p', '-C', '-D', '-r', '-t', '-U', '--user', '--group'] }, doas: { values: ['-u', '-C'] },
   timeout: { values: ['-s', '--signal', '-k', '--kill-after'], positional: 1 }, stdbuf: { values: ['-i', '-o', '-e'] },
+  npx: { values: ['-p', '--package', '-c', '--call'] }, bunx: { values: ['-p', '--package'] },
   xargs: { values: ['-I', '-i', '-n', '-P', '-d', '-s', '-L', '-l', '-E', '-e', '-a', '--arg-file', '--delimiter', '--max-args', '--max-procs', '--replace'], xargs: true },
 };
 const SHELLS = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
@@ -183,8 +184,10 @@ function printed(cmd) {
   return (a[0] || '').replace(/%%|%[sbd]|\\n/g, (m) => (m === '%%' ? '%' : m === '\\n' ? '\n' : a[i++] ?? ''));
 }
 
+export const MAX_DEPTH = 6;
 export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }) {
-  if (depth > 6) return out;
+  // Deeper than this (sh -c inside sh -c …) isn't read: a marker makes the guard deny it as too deep to check.
+  if (depth > MAX_DEPTH) { out.push({ name: '', argv: [], redirects: [], cwd, env: vars, tooDeep: true, nested: true, text: '' }); return out; }
   let prev = null;
   for (const c of parse(src)) {
     const local = new Map(vars);
@@ -231,11 +234,24 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
       for (const a of argv.slice(1)) { const m = a.text?.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/); if (m) vars.set(m[1], m[2]); }
     } else if (SHELLS.includes(name)) {
       const i = argv.findIndex((a, k) => k > 0 && a.text && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a.text));
-      if (i > 0 && argv[i + 1]) { if (argv[i + 1].text !== null) analyse(argv[i + 1].text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true; }
-      // No -c and no script file: the shell runs what it reads. From echo or printf with known text, read that.
+      const script = i > 0 ? argv[argv[i + 1]?.text === '--' ? i + 2 : i + 1] : null;
+      if (script) { if (script.text !== null) analyse(script.text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true; }
+      // No -c and no script file: the shell runs what it reads. From a here-string, a here-document, or echo or
+      // printf with known text, read that.
       else if (i < 0 && !positionals(argv, ['-o', '+o', '-O', '+O']).length) {
-        const script = printed(before);
-        if (script !== null) analyse(script, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true;
+        const fed = redirects.find((r) => r.op === '<<<' || r.op === '<<');
+        const text = fed ? (fed.op === '<<' ? fed.body : fed.target?.text ?? null) : printed(before);
+        if (text !== null && text !== undefined) analyse(text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true;
+      }
+    } else if (name === 'find') {
+      // find … -exec <command> {} ; or +: the command runs on what find finds under its start point.
+      const start = argv[1] && argv[1].text !== null && !/^[-(!]/.test(argv[1].text) ? argv[1].text : '.';
+      for (let k = 1; k < argv.length; k++) {
+        if (!['-exec', '-execdir', '-ok', '-okdir'].includes(argv[k].text)) continue;
+        const words = [];
+        for (k++; k < argv.length && ![';', '+'].includes(argv[k].text); k++) words.push(argv[k]);
+        const line = words.map((w) => (w.text === '{}' ? `${shQuote(start.replace(/\/$/, ''))}/*` : w.text === null ? '"$UNKNOWN_FIND_ARG"' : shQuote(w.text))).join(' ');
+        if (line) analyse(line, { cwd, env, vars: new Map(local), depth: depth + 1, out });
       }
     } else if (name === 'eval') {
       const parts = argv.slice(1);
