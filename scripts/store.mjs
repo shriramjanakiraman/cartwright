@@ -139,7 +139,8 @@ If the project's rules files (\`AGENTS.md\`, \`CLAUDE.md\` and similar) disagree
 `;
 
 // Write the profile and settings in one storage mode, changing only what differs. `summary` is used by the
-// AGENTS.md section. Returns the paths it created or changed (repo-relative for repo files).
+// AGENTS.md section. Without `settings` (a profile refresh) only the profile is written. Returns the paths it
+// created or changed (repo-relative for repo files).
 export function save(root, mode, { profile, settings, summary = [] }) {
   if (!MODES.includes(mode)) throw new Error(`unknown storage "${mode}"`);
   const changed = [];
@@ -151,9 +152,11 @@ export function save(root, mode, { profile, settings, summary = [] }) {
   };
   if (mode === 'folder') {
     put(folderPath(root, 'profile.json'), stableJson(profile), `${FOLDER}/profile.json`);
-    if (settings) put(folderPath(root, 'settings.json'), stableJson(settings), `${FOLDER}/settings.json`);
-    put(folderPath(root, '.gitignore'), FOLDER_IGNORE, `${FOLDER}/.gitignore`);
-    put(folderPath(root, 'README.md'), FOLDER_README, `${FOLDER}/README.md`);
+    if (settings) {
+      put(folderPath(root, 'settings.json'), stableJson(settings), `${FOLDER}/settings.json`);
+      put(folderPath(root, '.gitignore'), FOLDER_IGNORE, `${FOLDER}/.gitignore`);
+      put(folderPath(root, 'README.md'), FOLDER_README, `${FOLDER}/README.md`);
+    }
   } else if (mode === 'machine') {
     const d = machineDir(root);
     put(join(d, 'profile.json'), stableJson(profile), join(d, 'profile.json'));

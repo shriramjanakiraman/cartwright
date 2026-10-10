@@ -97,9 +97,11 @@ function remoteHost(ctx) {
 }
 
 function branchCandidates(ctx) {
-  const refs = (ctx.git('for-each-ref', '--format=%(refname)', 'refs/heads', 'refs/remotes/origin') || '').split('\n').filter(Boolean);
+  // One git call: every local and origin ref, with origin/HEAD's target (the remote's default branch).
+  const lines = (ctx.git('for-each-ref', '--format=%(refname) %(symref)', 'refs/heads', 'refs/remotes/origin') || '').split('\n').filter(Boolean);
+  const refs = lines.map((l) => l.split(' ')[0]);
   const found = new Map();
-  const head = (ctx.git('symbolic-ref', '-q', 'refs/remotes/origin/HEAD') || '').trim();
+  const head = (lines.find((l) => l.startsWith('refs/remotes/origin/HEAD ')) || '').split(' ')[1] || '';
   if (head.startsWith('refs/remotes/origin/')) found.set(head.slice('refs/remotes/origin/'.length), 'refs/remotes/origin/HEAD');
   for (const name of BRANCH_CANDIDATES) {
     if (found.has(name)) continue;

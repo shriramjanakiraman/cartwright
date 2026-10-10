@@ -40,9 +40,24 @@ const commitAll = (dir, msg = 'change') => { git(dir, 'add', '-A'); git(dir, 'co
 const clean = (dir) => git(dir, 'status', '--porcelain').trim() === '';
 
 // A fixture as a git repo: committed on main with a develop branch, pushed to a local bare remote, then cloned
-// (so origin/HEAD is set, as in a real clone). `edit` changes the files before the first commit.
+// (so origin/HEAD is set, as in a real clone). `edit` changes the files before the first commit. Each fixture is
+// built once; later calls get their own copy of the clone and of its remote.
 let seq = 0;
+const built = new Map();
 function project(fixture, edit) {
+  if (fixture && !edit && built.has(fixture)) {
+    const t = built.get(fixture), id = `${fixture}-${++seq}`;
+    const bare = join(WORK, 'remotes', `${id}.git`), dir = join(WORK, 'p', id);
+    cpSync(t.bare, bare, { recursive: true, preserveTimestamps: true });
+    cpSync(t.dir, dir, { recursive: true, preserveTimestamps: true });
+    git(dir, 'remote', 'set-url', 'origin', bare);
+    return { dir, bare };
+  }
+  const made = build(fixture, edit);
+  if (fixture && !edit) { built.set(fixture, made); return project(fixture); }
+  return made;
+}
+function build(fixture, edit) {
   const id = `${fixture || 'generated'}-${++seq}`;
   const src = join(WORK, 'src', id);
   if (fixture) cpSync(join(ROOT, 'tests', 'projects', fixture), src, { recursive: true }); else mkdirSync(src, { recursive: true });
