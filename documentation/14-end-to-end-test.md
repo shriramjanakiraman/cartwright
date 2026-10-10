@@ -4,22 +4,31 @@ The test framework checks what a developer actually gets from the plugin, at thr
 `tester` agent (`.claude/agents/tester.md`) to run it, investigate and report back.
 
 ```bash
-GH_TOKEN=$(gh auth token) npm run test:release -- --level quick     # feature/bugfix work, patch releases (~20s)
+GH_TOKEN=$(gh auth token) npm run test:release -- --level quick     # feature/bugfix work, patch releases (~1 min)
 GH_TOKEN=$(gh auth token) npm run test:release -- --level minor     # minor releases (~2 min, ~$0.25 of Claude Code)
 GH_TOKEN=$(gh auth token) npm run test:release -- --level major     # major releases (~10–15 min, ~$5–10)
 ```
 
 | Level | Checks | Bare-machine test | Real agents |
 |---|---|---|---|
-| quick | ✅ | without tool downloads | none |
-| minor | ✅ | full | Claude Code: tools without installing; Copilot: fresh install and its session-start hook |
-| major | ✅ | full, plus a real draft PR in the test client | Claude Code: tools, client not found, client found (kit and a real PR); Copilot: fresh install, its session-start hook and the teammate path. Plus a list of checks to do by hand (Codex, Claude Code's trust prompt, VS Code, Windows) |
+| quick | ✅ + the profile test | without tool downloads | none |
+| minor | ✅ + the profile test | full | Claude Code: tools without installing; Copilot: fresh install and its session-start hook |
+| major | ✅ + the profile test | full, plus a real draft PR in the test client | Claude Code: tools, client not found, client found (kit and a real PR); Copilot: fresh install, its session-start hook and the teammate path. Plus a list of checks to do by hand (Codex, Claude Code's trust prompt, VS Code, Windows) |
 
 It builds the plugin and tests that build; `--report <file>` saves the report, `--keep` keeps work folders
 and transcripts. Agents are retried once: a pass on retry is reported as ⚠️ flaky, a reliability problem
 worth fixing. `AGENT_MODEL` picks a cheaper model for Claude Code. The fixtures (a made-up client, Zephyr
 Trading `zzt`, with its private overlay and client repos) are in `tests/fixtures.json`; its registry in
 `tests/fixtures/registry.json` is used only by the tests and never ships.
+
+## The profile test
+
+`npm run e2e:profile` checks the project profiler against a copy of the built plugin, offline and with no
+agents. It turns the made-up projects in `tests/projects/` (Storefront Next, TypeScript/pnpm, Python and an
+unknown stack) into git repos with a local remote and compares each profile with `tests/expected/`. It also
+checks secrets, read-only study, reproducible writes, drift and refresh, the settings, the personal file,
+the three storage modes and broken settings. See
+[Project profile and guardrails](16-project-profile-and-guardrails.md#tests).
 
 ## The bare-machine test
 

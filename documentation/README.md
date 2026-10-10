@@ -42,6 +42,7 @@ Client-specific skills live in separate private **overlay** repos, one per engag
 | [Decision records](decisions/README.md) | ask "why did we do it this way?" |
 | [End-to-end test](14-end-to-end-test.md) | want to check what a developer gets from a build or release, on a bare machine |
 | [Run tools without installing](13-tools-without-install.md) | are on a machine without the B2C CLI, spec-kit or graphify, or write a skill that uses them |
+| [Project profile and guardrails](16-project-profile-and-guardrails.md) | want to know what Cartwright records about a project, where it keeps it, and how the team's settings and your personal file combine |
 
 ## By role
 

@@ -39,6 +39,8 @@ Run one by hand: `gh workflow run <file> --ref develop` (or `--ref main` for the
 | `node scripts/similar-skills.mjs <files>` | the duplicate check, locally |
 | `node scripts/run.mjs <tool> [args]` / `--check` / `--smoke` | run the B2C CLI, spec-kit or graphify without installing them, at the pinned version; check what's installed or outdated; smoke-test the pinned versions |
 | `npm run e2e [-- options]` | the end-to-end test on a simulated bare machine ([guide](14-end-to-end-test.md)) |
+| `npm run e2e:profile [-- --update-goldens]` | the deterministic profile test: fixtures, expected profiles, storage, settings ([guide](16-project-profile-and-guardrails.md)) |
+| `node scripts/profile.mjs <command>` | the project profiler (`study`, `write`, `diff`, `refresh`, `show`, `check`) |
 | `npm run setup -- <command>` | the client setup helper (`status`, `lookup`, `access`, `kit`, `install`, `remember`, `hook`) |
 | `npm run registry -- add --from-overlay <repo>` / `lookup "<name>"` | register a client's overlay; check what setup would find |
 | `npm run upstream` | compare the lock with the official sources |

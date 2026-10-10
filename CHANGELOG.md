@@ -5,6 +5,17 @@ All notable changes to what users receive. Newest first.
 ## [Unreleased]
 
 ### Added
+- A project profile, for projects of any stack. The plugin's `tools/profile.mjs` studies a project read-only
+  and records what it finds, each fact with the file it came from, or "not found" rather than a guess: the
+  platform (Salesforce B2C Commerce, SFRA or Storefront Next), languages, the Node or Python pin, the package
+  manager, the build, test and lint commands, the layout, conventions (`AGENTS.md`, `CLAUDE.md`,
+  `.cursor/rules`, spec-kit, decision records, pull request template, tracker) and protected-branch
+  candidates. It never opens credential files or records a secret value, and it writes the same bytes for
+  the same project. It saves the profile, the team's guardrail settings and each developer's personal file
+  (which can only add or tighten) in `.cartwright/`, in a marked section of `AGENTS.md`, or on this machine
+  only. Stack detection is one module per stack (Node/TypeScript, Python, SFCC). There's a new deterministic
+  profile test at every test level (`npm run e2e:profile`), a guide
+  (`documentation/16-project-profile-and-guardrails.md`) and proposed decision records 0011–0013.
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
   `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
   process in `documentation/15-how-we-work.md` (gates for the brief and significant designs, ask instead of
