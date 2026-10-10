@@ -128,8 +128,11 @@ function aliasSet(g) {
 // An alias given with -c, or set with `git config` earlier on the same line, wins over the configured one.
 function expandGit(cmds, ctx, lineAliases = new Map()) {
   const out = [];
-  for (const c of cmds) {
+  for (let c of cmds) {
     if (c.name !== 'git') { out.push(c); continue; }
+    // Under xargs, git gets more arguments from stdin: one unknown word stands for them, so a push can't name its
+    // destination and a commit can't name its files.
+    if (c.fromXargs) c = { ...c, argv: [...c.argv, { text: null, dynamic: true, glob: false, current: false }] };
     let g = gitCall(c, ctx.env), depth = 0;
     const set = aliasSet(g);
     if (set) lineAliases.set(set[0], set[1]);
@@ -316,10 +319,13 @@ function checkPush(c, ctx, s) {
   return null;
 }
 
+// What a commit would take can't be known (a variable, a command, xargs): a normal block, not an internal error.
+class Unclear extends Error { constructor(m) { super(m); this.unclear = true; } }
+
 // secrets: what a `git commit` would record, including files added earlier on the same line.
 function commitContent(c, adds, ctx) {
   const g = c.git;
-  if (!g.cwd) throw new Error("can't tell which folder this commit runs in");
+  if (!g.cwd) throw new Unclear("can't tell which folder this commit runs in");
   const top = ctx.gitTop(g.cwd);
   const lines = [], names = new Set();
   const diff = (args) => {
@@ -340,9 +346,9 @@ function commitContent(c, adds, ctx) {
   const ps = positionals([{ text: 'commit' }, ...args], ['-m', '--message', '-F', '--file', '-C', '--reuse-message', '-c', '--reedit-message', '--author', '--date', '-t', '--template', '--cleanup', '--trailer', '--fixup', '--squash', '--pathspec-from-file']);
   diff(['--cached']);
   if (all && !diff(['HEAD'])) diff([]);
-  if (ps.length) { if (ps.some((w) => w.text === null)) throw new Error("can't tell which files this commit takes"); if (!diff(['HEAD', '--', ...ps.map((w) => w.text)])) diff(['--', ...ps.map((w) => w.text)]); }
+  if (ps.length) { if (ps.some((w) => w.text === null)) throw new Unclear("can't tell which files this commit takes"); if (!diff(['HEAD', '--', ...ps.map((w) => w.text)])) diff(['--', ...ps.map((w) => w.text)]); }
   for (const a of adds.filter((x) => x.cwd === g.cwd)) {
-    if (a.paths === null) throw new Error("can't tell which files were added before this commit");
+    if (a.paths === null) throw new Unclear("can't tell which files were added before this commit");
     const paths = a.paths.length ? a.paths : ['.'];
     if (!diff(['HEAD', '--', ...paths])) diff(['--', ...paths]);
     const untracked = (ctx.git(g.cwd, 'ls-files', '-o', '--exclude-standard', '--full-name', '-z', '--', ...paths) || '').split('\0').filter(Boolean);
@@ -358,7 +364,9 @@ function commitContent(c, adds, ctx) {
 }
 
 function checkCommit(c, adds, ctx, s) {
-  const { lines, names } = commitContent(c, adds, ctx);
+  let content;
+  try { content = commitContent(c, adds, ctx); } catch (e) { if (e.unclear) return block('secrets', `${e.message} (it depends on a variable, a command or xargs), so it can't be checked for secrets; name the files explicitly.`); throw e; }
+  const { lines, names } = content;
   const allowed = (f) => LOCKFILES.has(basename(f)) || s.secretsAllow.some((p) => globToRegExp(p).test(f));
   const named = names.find((f) => !allowed(f) && COMMIT_SECRET_FILES.some((re) => re.test(basename(f))));
   if (named) return block('secrets', `${named} would be committed, and files named like this hold credentials. Unstage it (git restore --staged ${named}), add it to .gitignore, and commit again.`);
