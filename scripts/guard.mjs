@@ -55,7 +55,8 @@ export function normalise(p, env = process.env) {
   } else if (t === 'apply_patch') {
     const c = input.command ?? input.input ?? input.patch;
     const text = Array.isArray(c) ? c.find((x) => typeof x === 'string' && x.includes('*** Begin Patch')) ?? c.join('\n') : str(c);
-    actions.push({ type: 'shell', command: `apply_patch <<'CARTWRIGHT_PATCH'\n${text ?? ''}\nCARTWRIGHT_PATCH` });
+    // Read as a shell apply_patch with the patch as a here-document, so shell and tool patches share one reader.
+    actions.push({ type: 'shell', command: `apply_patch <<'CARTWRIGHT_PATCH'\n${text ?? ''}\nCARTWRIGHT_PATCH`, tool: 'apply_patch' });
   } else if (EDIT_TOOLS.includes(t)) {
     const path = str(input.file_path, input.path, input.filePath, input.notebook_path) ?? null;
     if (t === 'multiedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: (Array.isArray(input.edits) ? input.edits : []).map((e) => ({ before: e.old_string ?? e.old_str ?? '', after: e.new_string ?? e.new_str ?? '' })) }] });
@@ -154,7 +155,8 @@ export function respond(payload, env = process.env) {
   if (r.decision === 'deny') return { exit: 2, stderr: r.message, decision: 'deny', rule: r.rule };
   if (r.decision === 'confirm') {
     if (ASK_VERIFIED[action.agent]) return { exit: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: confirmReason(r) } }), decision: 'confirm', rule: r.rule };
-    const command = action.actions.find((a) => a.type === 'shell')?.command;
+    // Only a real shell command is offered for the person to run; an edit tool's change is theirs to make.
+    const command = action.actions.find((a) => a.type === 'shell' && !a.tool)?.command;
     return { exit: 2, stderr: confirmAsDeny(r, { command, store: ctx.stored().mode, plugin: PLUGIN }), decision: 'deny', rule: r.rule };
   }
   return { exit: 0, stderr: r.note, decision: 'allow', rule: null };
