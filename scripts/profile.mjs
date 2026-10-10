@@ -395,11 +395,11 @@ function cli(argv) {
   const r = resolveSettings({ team: stored.settings, personal: stored.personal, profile });
   const settings = { status: r.status, file: stored.settings.file, message: r.message, loosening: r.loosening, warnings: r.warnings, effective: r.settings };
   if (cmd === 'show') {
-    out({ store: stored.mode, found: stored.found, profile, profileStatus: stored.profile.status === 'ok' && !profile ? 'broken' : stored.profile.status, settings });
+    out({ store: stored.mode, found: stored.found, ...(stored.notes.length ? { notes: stored.notes } : {}), profile, profileStatus: stored.profile.status === 'ok' && !profile ? 'broken' : stored.profile.status, settings });
     return;
   }
   // check: the cheap version the session start uses (no generated-file search).
-  if (!stored.mode) { out({ profiled: false, settings: 'none' }); return; }
+  if (!stored.mode) { out({ profiled: false, settings: 'none', ...(stored.notes.length ? { notes: stored.notes } : {}) }); return; }
   const changes = profile ? compare(profile, detect(root, { suggestions: false }), { quick: true }) : [];
   out({ profiled: !!profile, store: stored.mode, found: stored.found, upToDate: !!profile && !changes.length, changed: changes.map((c) => c.key), settings: r.status, message: r.message });
   process.exit((profile && changes.length) || r.status === 'broken' || (stored.profile.status !== 'none' && !profile) ? 1 : 0);

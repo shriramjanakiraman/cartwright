@@ -109,10 +109,21 @@ Setup asks. Cartwright looks them up in this order, and the first one found wins
 | `AGENTS.md` section | one section between `<!-- cartwright:begin … -->` and `<!-- cartwright:end -->`, with a short summary and two fenced blocks (`json cartwright-profile`, `json cartwright-settings`) | on this machine | only that section. Nothing outside the markers changes, including line endings |
 | This machine only | `<state>/projects/<key>/` | the same folder | none; teammates' clones are unprofiled |
 
-In `AGENTS.md`, a marker counts only as a whole line outside code fences, so a file that merely mentions
-the markers isn't Cartwright storage. A symlinked `AGENTS.md` (for example to `CLAUDE.md`) stays a symlink: the
-section is written into the file it points at, and a link that leads outside the project is refused. A folder or `AGENTS.md` that exists but can't be read counts as found,
-with broken settings (stricter, and loud), never as "unprofiled".
+Notes on the storage choices:
+
+- **Markers in `AGENTS.md`** count only as whole lines outside code blocks (fenced, or indented by four spaces),
+  so a file that merely mentions them isn't Cartwright storage.
+- **An unclosed code fence** in `AGENTS.md` makes `write` stop ("unclosed code fence at line N; close it and run
+  again"), because a section appended after it would sit inside the fence. After writing, Cartwright reads the
+  section back and fails if it can't find it.
+- **The name must be exactly `AGENTS.md`.** With only `Agents.md`, Cartwright neither reads nor writes it, on any
+  disk: `write` asks you to rename it (`git mv Agents.md AGENTS.md`), and `show` notes the mismatch.
+- **A symlinked file stays a symlink.** For example `AGENTS.md` → `CLAUDE.md`: the section is written into the
+  file the link points at. A link that leads outside the project is refused.
+- **Writes keep each file's permissions** and replace the file in one step (a temporary file, then a rename).
+- **Unreadable storage.** An unreadable `.cartwright/` folder or settings file counts as found, with broken
+  settings (stricter, and loud), because the folder is the evidence that the project was profiled. An unreadable
+  `AGENTS.md` on its own isn't such evidence: the project stays unprofiled, and `show` and `check` add a note.
 
 `<state>` is `$CARTWRIGHT_STATE_DIR` or `~/.cartwright`. `<key>` is the first 16 hex characters of the sha256 of
 the project's real path, and the folder's `root` file names the project for people.

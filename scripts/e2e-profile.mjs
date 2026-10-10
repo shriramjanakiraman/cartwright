@@ -8,7 +8,7 @@
 // Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens]
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, harness, json, sh } from './e2e-lib.mjs';
@@ -613,6 +613,55 @@ step('no unsourced defaults (A5, P8): no lockfile means no guessed npm; an engin
   assert(p.facts.node.value === '>=20' && p.facts.node.kind === 'range' && p.facts.node.source === 'package.json#engines.node', `node: ${JSON.stringify(p.facts.node)}`);
   assert(!JSON.stringify(p).includes('npm '), 'npm assumed somewhere');
   return 'build recorded as defined with no run command; Node >=20 (range)';
+});
+
+step('AGENTS.md: an unclosed code fence is refused; markers in an indented code block don\'t count', () => {
+  const unclosed = '# Rules\n\n```sh\nnpm test\n';
+  const { dir } = project('ts', (d) => put(d, 'AGENTS.md', unclosed));
+  const r = profile(dir, ['write', '--store', 'agents-md', ...LISTS]);
+  assert(r.status === 1 && /unclosed code fence at line 3; close it and run again/.test(r.stderr) && read(join(dir, 'AGENTS.md')) === unclosed, `exit ${r.status}: ${r.stderr.trim()}`);
+  const indented = '# Rules\n\nAn example:\n\n    <!-- cartwright:begin. Example -->\n    <!-- cartwright:end -->\n';
+  const i = project('ts', (d) => put(d, 'AGENTS.md', indented)).dir;
+  assert(ok(i, ['show']).store === null, 'markers in an indented code block counted as storage');
+  ok(i, ['write', '--store', 'agents-md', ...LISTS]);
+  assert(read(join(i, 'AGENTS.md')).startsWith(indented) && profile(i, ['check']).status === 0 && ok(i, ['write', '--store', 'agents-md']).changed.length === 0, 'section not added after the indented example, or not idempotent');
+  return 'unclosed fence: refused, file untouched; indented markers ignored, real section added once';
+});
+
+step('AGENTS.md exact name: with only Agents.md, Cartwright neither reads nor writes it, and says so', () => {
+  const { dir } = project('ts', (d) => renameSync(join(d, 'AGENTS.md'), join(d, 'Agents.md')));
+  const before = read(join(dir, 'Agents.md'));
+  const r = profile(dir, ['write', '--store', 'agents-md', ...LISTS]);
+  assert(r.status === 1 && /has Agents\.md, not AGENTS\.md/.test(r.stderr) && /git mv Agents\.md AGENTS\.md/.test(r.stderr), `exit ${r.status}: ${r.stderr.trim()}`);
+  assert(read(join(dir, 'Agents.md')) === before, 'Agents.md was written');
+  const s = ok(dir, ['show']);
+  assert(s.store === null && s.notes?.some((n) => n.includes('Agents.md')), JSON.stringify({ store: s.store, notes: s.notes }));
+  return 'write refused with the rename to make; show notes the mismatch';
+});
+
+step('unreadable AGENTS.md on its own: the project stays unprofiled (Q1), with a note', () => {
+  if (process.getuid?.() === 0) return 'skipped: running as root, so file permissions don\'t stop reads';
+  const { dir } = project('ts');
+  const file = join(dir, 'AGENTS.md');
+  chmodSync(file, 0o000);
+  try {
+    const s = ok(dir, ['show']);
+    assert(s.store === null && s.settings.status === 'none' && s.notes?.some((n) => /AGENTS\.md can't be read/.test(n)), JSON.stringify({ store: s.store, settings: s.settings.status, notes: s.notes }));
+    assert(profile(dir, ['check']).status === 0, 'check failed on an unprofiled project');
+    assert(profile(dir, ['write', '--store', 'agents-md', ...LISTS]).status === 1, 'wrote over an unreadable AGENTS.md');
+  } finally { chmodSync(file, 0o644); }
+  return 'unprofiled with a note; write into it refused';
+});
+
+step('writes keep each file\'s mode (a 600 settings file stays 600)', () => {
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const file = join(dir, '.cartwright', 'settings.json');
+  chmodSync(file, 0o600);
+  const w = ok(dir, ['write', '--store', 'folder', '--protected', 'main']);
+  const mode = statSync(file).mode & 0o777;
+  assert(w.changed.includes('.cartwright/settings.json') && mode === 0o600, `mode ${mode.toString(8)} after ${JSON.stringify(w.changed)}`);
+  return '600 kept';
 });
 
 // --- broken settings: fail safe, loud, and never quoting the file -------------------------------------------
