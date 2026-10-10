@@ -4,6 +4,11 @@
 // $(…) and backticks so they can be resolved (or flagged as unknown) later. Shipped in the plugin as
 // tools/guard-shell.mjs. No dependencies. It is command matching, not a shell: a guardrail, not a boundary.
 
+// Reserved words that open or close a compound command: at the start of a command they're skipped, so
+// `if true; then git push; fi` is read as `true` and `git push`. A for, select or case header is a word list, not a
+// command, so it's dropped whole.
+const RESERVED = new Set(['if', 'then', 'else', 'elif', 'fi', 'do', 'done', 'while', 'until', 'in', 'esac', 'function', '{', '}', '!', '[[', ']]']);
+const HEADERS = new Set(['for', 'select', 'case']);
 const OUT_OPS = ['&>>', '&>', '>>', '>|', '>&', '<<<', '<<-', '<<', '<>', '<&', '>', '<'];
 const CTL_OPS = ['&&', '||', '|&', ';;', '|', '&', ';', '(', ')'];
 const PLAIN_END = /[\s'"\\$`<>&|;()]/;
@@ -117,10 +122,15 @@ export function parse(src) {
     if (tk.t === 'op') { end(); if (tk.op === '|' || tk.op === '|&') cur.piped = true; continue; }
     if (tk.t === 'h') { cur.redirects.push({ op: '<<', body: tk }); continue; }
     if (tk.t === 'r') { const target = toks[k + 1]?.t === 'w' ? toks[++k].segs : null; cur.redirects.push({ op: tk.op, fd: tk.fd, target }); continue; }
+    if (cur.header) continue;
     const first = tk.segs[0];
+    const word = tk.segs.length === 1 && first.lit !== undefined && !first.q ? first.lit : null;
+    if (!cur.words.length && !cur.assigns.length && word !== null) {
+      if (RESERVED.has(word)) continue;
+      if (HEADERS.has(word)) { cur.header = true; continue; }
+    }
     const m = !cur.words.length && first?.lit !== undefined && !first.q ? first.lit.match(/^([A-Za-z_][A-Za-z0-9_]*)=/) : null;
     if (m) { cur.assigns.push({ name: m[1], segs: [{ lit: first.lit.slice(m[0].length), q: false }, ...tk.segs.slice(1)] }); continue; }
-    if (!cur.words.length && tk.segs.length === 1 && ['{', '}', '!'].includes(tk.segs[0].lit) && !tk.segs[0].q) continue;
     cur.words.push(tk.segs);
   }
   end();
