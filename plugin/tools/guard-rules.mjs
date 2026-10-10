@@ -402,14 +402,39 @@ function destructive(p, verb, ctx, s) {
 }
 
 // Guardrail files: the settings and profile, the .cartwright/ folder, the AGENTS.md section, the machine-mode files.
-function guardrailPath(p, ctx, { recursive = false } = {}) {
+// A write onto one of them, by exact path.
+function guardrailPath(p, ctx) {
   if (!p) return null;
-  const root = ctx.root(), cw = join(root, '.cartwright');
+  const cw = join(ctx.root(), '.cartwright');
   for (const f of ['settings.json', 'profile.json']) if (p === join(cw, f)) return `.cartwright/${f}`;
-  if (p === cw || (recursive && inside(cw, p))) return 'the .cartwright/ folder';
-  const projects = join(ctx.stateDir(), 'projects');
-  if (inside(p, projects) && /\/(settings|profile)\.json$/.test(p)) return p;
-  if (recursive && inside(projects, p)) return `${p} (Cartwright's machine-only settings)`;
+  if (p === cw) return 'the .cartwright/ folder';
+  if (inside(p, join(ctx.stateDir(), 'projects')) && /\/(settings|profile)\.json$/.test(p)) return p;
+  return null;
+}
+// The glob part of a pattern: the name segment holding its first wildcard.
+const globSegment = (text) => { const cut = text.search(/[*?[]/); return text.slice(text.lastIndexOf('/', cut) + 1).split('/')[0]; };
+// Would deleting (or moving away) target t remove the file or folder at x? A folder goes only with a recursive
+// delete or a move; a glob covers a name only if it matches it, and a hidden name only if the pattern starts with
+// "." (as the shell does).
+function removes(t, x) {
+  if (!t.path || !x) return false;
+  if (t.path === x) return true;
+  if (!inside(x, t.path)) return false;
+  const rel = relative(t.path, x), name = rel.split(sep)[0];
+  if (t.glob) {
+    const seg = globSegment(t.text || '');
+    if ((name.startsWith('.') && !seg.startsWith('.')) || !globToRegExp(seg).test(name)) return false;
+    return rel === name || !!t.recursive;
+  }
+  return !!t.recursive;
+}
+// What a delete or move would take away of the guardrail files, or null. Folders count only if they exist.
+function guardrailRemoved(t, ctx) {
+  const cw = join(ctx.root(), '.cartwright'), projects = join(ctx.stateDir(), 'projects');
+  for (const f of ['settings.json', 'profile.json']) if (removes(t, join(cw, f)) && ctx.exists(join(cw, f))) return `.cartwright/${f}`;
+  if (ctx.exists(cw) && removes(t, cw)) return 'the .cartwright/ folder';
+  if (ctx.exists(projects) && removes(t, projects)) return `${projects} (Cartwright's machine-only settings)`;
+  if (t.path && inside(t.path, projects) && /\/(settings|profile)\.json$/.test(t.path)) return t.path;
   return null;
 }
 const confirm = (what, how) => ({ decision: 'confirm', rule: 'guardrail-files', what, how });
@@ -546,7 +571,7 @@ const CHECKS = {
     const root = ctx.root();
     const sec = agentsSection(ctx);
     for (const e of A.edits) {
-      const g = guardrailPath(e.path, ctx, { recursive: e.op === 'delete' || e.op === 'move' });
+      const g = guardrailPath(e.path, ctx);
       if (g) return confirm(g, 'edit');
       if (sec && e.path === sec.path && editTouchesSection(e, sec)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'edit');
       if (e.path && inside(e.path, root) && SELF_PROTECTION.settingsFiles.some((re) => re.test(relative(root, e.path)))) {
@@ -559,13 +584,15 @@ const CHECKS = {
       if (sp.agents.includes(c.name) && c.argv[1]?.text === 'plugin' && sp.verbs.includes(c.argv[2]?.text) && c.argv.slice(3).some((w) => w.text === null || sp.plugin.test(w.text))) return confirm('the Cartwright plugin (it would switch its guardrails off)', 'shell');
       const pm = c.argv.findIndex((w) => /(^|\/)profile\.mjs$/.test(w.text || ''));
       if (pm >= 0 && ['write', 'refresh'].includes(c.argv[pm + 1]?.text)) return confirm("the project's profile and guardrail settings", 'shell');
-      for (const t of deleteTargets(c, ctx)) { const g = guardrailPath(t.path, ctx, t); if (g) return confirm(g, 'shell'); }
+      const gone = [...deleteTargets(c, ctx), ...writeTargets(c, ctx).filter((t) => t.kind === 'move-src').map((t) => ({ ...t, recursive: true }))];
+      for (const t of gone) { const g = guardrailRemoved(t, ctx); if (g) return confirm(g, 'shell'); }
       for (const t of writeTargets(c, ctx)) {
-        const g = guardrailPath(t.path, ctx, { recursive: t.kind === 'move-src' });
+        if (t.kind === 'move-src') continue;
+        const g = guardrailPath(t.path, ctx);
         if (g) return confirm(g, 'shell');
         if (sec && t.path === sec.path) return confirm(`the Cartwright section of ${relative(root, sec.path)} (a shell write to it counts as changing the section)`, 'shell');
       }
-      if (sec) for (const t of deleteTargets(c, ctx)) if (t.path === sec.path || (t.recursive && inside(sec.path, t.path) && t.path !== root)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'shell');
+      if (sec) for (const t of gone) if (removes(t, sec.path)) return confirm(`the Cartwright section of ${relative(root, sec.path)}`, 'shell');
     }
     return null;
   },
