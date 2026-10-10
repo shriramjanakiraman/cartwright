@@ -27,6 +27,7 @@
     "registry": "node scripts/registry.mjs",
     "setup": "node scripts/setup.mjs",
     "e2e": "node scripts/e2e.mjs",
+    "e2e:profile": "node scripts/e2e-profile.mjs",
     "test:release": "node scripts/test-release.mjs",
     "test:agents": "node scripts/agent-e2e.mjs"
   }

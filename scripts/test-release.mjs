@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // One command for testing a change or a release, at the depth it deserves (see documentation/14).
 //
-//   quick  feature and bugfix work, patch releases:  checks + the bare-machine test without tool downloads
+//   quick  feature and bugfix work, patch releases:  checks + the profile test + the bare-machine test without
+//                                                     tool downloads
 //   minor  minor releases:                            + tool downloads and smoke test, Claude Code's tools
 //                                                       scenario, a fresh Copilot install and its session start
 //   major  major releases:                            + a real pull request in the test client, Claude Code
@@ -25,15 +26,18 @@ const keep = args.includes('--keep') ? ['--keep'] : [];
 const PLANS = {
   quick: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
+    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep]],
     ['Bare-machine test (no tool downloads)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--fast', ...keep]],
   ],
   minor: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
+    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep]],
     ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep]],
     ['Agents: Claude Code tools, Copilot install and session start', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--scenarios', 'claude-tools,copilot-install,copilot-session-start', ...keep]],
   ],
   major: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
+    ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-profile.mjs', '--plugin', './plugin', ...keep]],
     ['Bare-machine test (full, with a real pull request)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--pr', ...keep]],
     ['Agents: every scenario', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', ...keep]],
   ],

@@ -17,11 +17,10 @@
 //                          (closed and the branch deleted afterwards unless --keep)
 //   --keep                 keep the work folder (and the pull request) for inspection
 // Needs git credentials that can read the core, overlay and client repos (and push, with --pr).
-import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, existsSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assert, harness, json, sh, which } from './e2e-lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -33,30 +32,15 @@ const ALIAS = opt('--alias', FX.alias);
 const UNKNOWN = opt('--unknown', FX.unknown);
 const REGISTRY = args.includes('--no-fixture-registry') ? null : opt('--registry', join(ROOT, FX.registry));
 const FAST = args.includes('--fast');
-// Real path for the work folder (macOS's tmpdir is behind a symlink); symlinked starts are tested on purpose below.
-const WORK = mkdtempSync(join(realpathSync(tmpdir()), 'cartwright-e2e-'));
-const HOME = join(WORK, 'home');
-mkdirSync(HOME);
-
-// A bare PATH: just the runtimes a developer must have. uv is a separate PATH for the steps that need it.
-const which = (c) => { const r = spawnSync('/usr/bin/which', [c], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : null; };
-const binDir = (name, cmds) => { const d = join(WORK, name); mkdirSync(d); for (const c of cmds) if (which(c)) symlinkSync(which(c), join(d, c)); return d; };
-const BARE = `${binDir('bin-bare', ['node', 'npx', 'npm', 'git', 'gh'])}:/usr/bin:/bin`;
+// A throwaway work folder and home, and a bare PATH: just the runtimes a developer must have (e2e-lib.mjs).
+// uv is a separate PATH for the steps that need it.
+const { WORK, HOME, BARE, binDir, step, report } = harness('cartwright-e2e-');
 const WITH_UV = `${binDir('bin-uv', ['uv', 'uvx'])}:${BARE}`;
 // The throwaway home has no git or gh sign-in, so with GH_TOKEN set, git gets it straight from the
 // environment (the same way CI would); otherwise the machine's own git credentials apply.
 const gitAuth = process.env.GH_TOKEN ? { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '',
   GIT_CONFIG_KEY_1: 'credential.helper', GIT_CONFIG_VALUE_1: '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' } : {};
 const env = (path, extra = {}) => ({ ...process.env, ...gitAuth, HOME, PATH: path, NO_COLOR: '1', ...extra });
-const sh = (cmd, a, o = {}) => spawnSync(cmd, a, { encoding: 'utf8', timeout: 600000, ...o });
-
-const results = [];
-function step(name, fn) {
-  try { const detail = fn(); results.push({ name, ok: true, detail: detail || '' }); }
-  catch (e) { results.push({ name, ok: false, detail: String(e.message || e).split('\n').slice(0, 3).join(' ') }); }
-}
-const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
-const json = (r) => { assert(r.status === 0, `exit ${r.status}: ${(r.stderr || r.stdout || '').trim().slice(0, 300)}`); return JSON.parse(r.stdout); };
 
 // --- the plugin under test ----------------------------------------------------------------------------
 let PLUGIN, coreDir;
@@ -284,10 +268,4 @@ if (args.includes('--pr')) {
 if (prUrl && !args.includes('--keep')) {
   sh('gh', ['pr', 'close', prUrl, '--delete-branch', '--comment', 'Closed by scripts/e2e.mjs.'], { env: { ...process.env } });
 }
-console.log(`## Cartwright end-to-end test\n`);
-console.log('| | Step | Result |\n|---|---|---|');
-for (const r of results) console.log(`| ${r.ok ? '✅' : '❌'} | ${r.name} | ${r.detail.replace(/\|/g, '\\|')} |`);
-const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} passed${args.includes('--keep') ? `; work folder kept: ${WORK}` : ''}`);
-if (!args.includes('--keep')) rmSync(WORK, { recursive: true, force: true });
-process.exit(failed ? 1 : 0);
+process.exit(report('Cartwright end-to-end test', { keep: args.includes('--keep') }));
