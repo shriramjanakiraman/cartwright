@@ -3,10 +3,10 @@
 //
 //   quick  feature and bugfix work, patch releases:  checks + the bare-machine test without tool downloads
 //   minor  minor releases:                            + tool downloads and smoke test, Claude Code's tools
-//                                                       scenario, a fresh Copilot install
+//                                                       scenario, a fresh Copilot install and its session start
 //   major  major releases:                            + a real pull request in the test client, Claude Code
 //                                                       through both client-setup conversations, Copilot's
-//                                                       teammate path, and the manual checks to do by hand
+//                                                       session start and teammate path, and the manual checks
 //
 // Usage: node scripts/test-release.mjs --level quick|minor|major [--report <file>] [--keep]
 // Builds the plugin first and tests that build. Env: GH_TOKEN (needed from "quick" up: the bare-machine test
@@ -30,7 +30,7 @@ const PLANS = {
   minor: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep]],
-    ['Agents: Claude Code tools, Copilot install', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--scenarios', 'claude-tools,copilot-install', ...keep]],
+    ['Agents: Claude Code tools, Copilot install and session start', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--scenarios', 'claude-tools,copilot-install,copilot-session-start', ...keep]],
   ],
   major: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
@@ -47,7 +47,8 @@ These need an interactive prompt or an agent this framework can't drive here:
 - [ ] **Claude Code, teammate prompt:** clone the test client project with the kit, open it, trust the folder;
       Claude Code offers both plugins. (Headless runs can't answer the trust prompt.)
 - [ ] **VS Code:** *Install Plugin From Source* with the core repo works (workspace recommendations are still
-      ignored by VS Code, microsoft/vscode#327404).
+      ignored by VS Code, microsoft/vscode#327404), and a new chat in a fresh git folder gets the \`[cartwright]\`
+      session-start context (the setup offer, the missing-tools note).
 - [ ] **Windows**, if anyone on the team uses it: \`node tools/run.mjs --check\` and one tool run.
 `;
 

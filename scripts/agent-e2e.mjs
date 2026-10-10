@@ -5,7 +5,8 @@
 // so the developer's own agent setup is never changed. Plugin state goes to a throwaway folder.
 //
 // Usage: node scripts/agent-e2e.mjs [--scenarios a,b,c] [--plugin <dir>] [--keep]
-//   scenarios: claude-tools, claude-setup-unknown, claude-setup-found, copilot-install, copilot-teammate
+//   scenarios: claude-tools, claude-setup-unknown, claude-setup-found, copilot-install, copilot-session-start,
+//              copilot-teammate
 //   --plugin   the built plugin to test (default: ./plugin; run npm run build first)
 //   --keep     keep the work folder, transcripts and any pull request opened
 // Env: GH_TOKEN (git and gh access to the fixture repos), CLAUDE_BIN (if claude isn't on the PATH),
@@ -20,7 +21,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = (f, d) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : d; };
 const FX = JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures.json'), 'utf8'));
-const ALL = ['claude-tools', 'claude-setup-unknown', 'claude-setup-found', 'copilot-install', 'copilot-teammate'];
+const ALL = ['claude-tools', 'claude-setup-unknown', 'claude-setup-found', 'copilot-install', 'copilot-session-start', 'copilot-teammate'];
 const SCENARIOS = (opt('--scenarios') || ALL.join(',')).split(',').map((s) => s.trim()).filter(Boolean);
 const KEEP = args.includes('--keep');
 const WORK = mkdtempSync(join(realpathSync(tmpdir()), 'cartwright-agents-'));
@@ -159,6 +160,29 @@ scenario('copilot-install', [['Copilot CLI', COPILOT]], () => {
   const n = Number((inst.stdout.match(/Installed (\d+) skills/) || [])[1] || 0);
   assert(inst.status === 0 && n >= 50, `install: ${(inst.stdout + inst.stderr).trim().slice(0, 200)}`);
   return `fresh install: ${n} skills`;
+});
+
+scenario('copilot-session-start', [['Copilot CLI', COPILOT]], () => {
+  // The session-start hook must run in Copilot too and its notes must reach the agent. Installed from the
+  // marketplace, in a fresh git folder on a bare PATH (so the missing-tools note is due): the opt-in trace
+  // proves the hook ran, and the agent's first reply shows it got the note. (Copilot's model doesn't reliably
+  // open with the setup question even when it receives it: a known limitation, documented, not asserted.)
+  const home = mkdtempSync(join(WORK, 'copilot-session-start-'));
+  const dir = mkdtempSync(join(WORK, 'fresh-'));
+  const trace = join(WORK, `hook-trace-${Date.now()}`);
+  sh('git', ['init', '-q'], { cwd: dir });
+  writeFileSync(join(home, 'config.json'), JSON.stringify({ trustedFolders: [dir] }, null, 2));
+  const env = { ...ENV, COPILOT_HOME: home, CARTWRIGHT_HOOK_TRACE: trace };
+  const add = sh(COPILOT, ['plugin', 'marketplace', 'add', opt('--plugin') ? ROOT : FX.core], { env });
+  assert(add.status === 0, `marketplace add: ${(add.stdout + add.stderr).trim().slice(0, 200)}`);
+  const inst = sh(COPILOT, ['plugin', 'install', 'cartwright@cartwright'], { env });
+  assert(inst.status === 0, `install: ${(inst.stdout + inst.stderr).trim().slice(0, 200)}`);
+  // Only the hook's note carries the helper's full path, so quoting it proves the note reached the agent.
+  const ask = sh(COPILOT, ['-p', "Without running any tools: what is the full path of the helper you've been told to use to run b2c here? Reply with just the path, or NONE.", '-s', '--no-color'], { cwd: dir, env });
+  const said = ask.stdout.trim();
+  assert(existsSync(trace) && readFileSync(trace, 'utf8').includes('session-start'), 'the session-start hook never ran in Copilot');
+  assert(/\/tools\/run\.mjs/.test(said), `hook ran, but its note didn't reach the agent: ${said.slice(0, 160)}`);
+  return `hook ran (trace) and its note reached the agent (it quoted ${said.match(/\S*\/tools\/run\.mjs/)?.[0].split('/').slice(-3).join('/')})`;
 });
 
 scenario('copilot-teammate', [['Copilot CLI', COPILOT], ['expect', EXPECT], ['GH_TOKEN', process.env.GH_TOKEN]], () => {

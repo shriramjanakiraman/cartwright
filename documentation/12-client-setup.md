@@ -90,7 +90,9 @@ plugins with no setup of their own. Setup also lists the commands to install bot
 developer's own machine straight away.
 
 GitHub Copilot CLI installs the declared plugins when an interactive session starts in the project (after
-the folder is trusted); a headless `copilot -p` run doesn't. VS Code doesn't yet act on workspace plugin settings
+the folder is trusted); a headless `copilot -p` run doesn't. In Copilot, the session-start note reaches the agent (so the
+missing-tools note works), but Copilot's model doesn't reliably open with the setup question; ask it to
+"set up this project's skills" instead. VS Code doesn't yet act on workspace plugin settings
 ([microsoft/vscode#327404](https://github.com/microsoft/vscode/issues/327404)); VS Code users install the two
 plugins once with *Install Plugin From Source*.
 

@@ -21,6 +21,15 @@ import { applyKit, CORE_REPO, gitUrl, names, readKit } from './kit.mjs';
 import { lookup } from './registry-core.mjs';
 import { TOOLS, which } from './run.mjs';
 
+// Session-start notes. The setup offer goes first (agents act on what comes first). Claude Code and Codex
+// take plain text on stdout as context; GitHub Copilot only takes JSON {"additionalContext": "..."}.
+const notes = { setup: '', tools: '' };
+const IN_COPILOT = !!(process.env.COPILOT_PLUGIN_ROOT || process.env.COPILOT_CLI);
+function flushNotes() {
+  const ctx = [notes.setup, notes.tools].filter(Boolean).join('\n\n');
+  if (ctx) process.stdout.write(IN_COPILOT ? JSON.stringify({ additionalContext: ctx }) : `${ctx}\n`);
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 // Per-user state; CARTWRIGHT_STATE_DIR moves it (the end-to-end tests use a throwaway folder).
@@ -53,19 +62,19 @@ const [cmd] = args;
 
 if (cmd === 'hook') {
   // Must stay fast and silent unless there is something to offer: no network, no key derivation.
+  // CARTWRIGHT_HOOK_TRACE (tests only): append a line to that file, so a test can prove the hook ran.
+  if (process.env.CARTWRIGHT_HOOK_TRACE) { try { writeFileSync(process.env.CARTWRIGHT_HOOK_TRACE, `session-start ${dir}\n`, { flag: 'a' }); } catch { /* tracing is optional */ } }
   // 1. Tools the skills use that aren't installed here: tell the agent how to run them anyway.
   try {
     const RUN = join(HERE, 'run.mjs');
     const missing = Object.values(TOOLS).filter((t) => !which(t.bin)).map((t) => t.bin);
-    if (missing.length && existsSync(RUN)) console.log(`[cartwright] Not installed on this machine: ${missing.join(', ')}. When a skill or the user says to run one of them, don't install it: run node "${RUN}" <tool> <same arguments> instead (for example node "${RUN}" ${missing[0]} --help). It fetches the team's pinned version on first use. Check prerequisites with node "${RUN}" --check; the tools-without-install skill has the details.`);
+    if (missing.length && existsSync(RUN)) notes.tools = (`[cartwright] Not installed on this machine: ${missing.join(', ')}. When a skill or the user says to run one of them, don't install it: run node "${RUN}" <tool> <same arguments> instead (for example node "${RUN}" ${missing[0]} --help). It fetches the team's pinned version on first use. Check prerequisites with node "${RUN}" --check; the tools-without-install skill has the details.`);
   } catch { /* never block a session */ }
   // 2. Client setup, for projects not connected yet.
   try {
     const root = projectRoot(dir);
-    if (!root || isLibraryRepo(root) || readKit(root)) process.exit(0);
-    const s = loadState()[root];
-    if (s && (s.choice !== 'later' || Date.now() - s.at < ASK_AGAIN_DAYS * 864e5)) process.exit(0);
-    console.log(`[cartwright] This project (${root}) isn't set up for client project skills yet.
+    const s = root ? loadState()[root] : null;
+    if (root && !isLibraryRepo(root) && !readKit(root) && !(s && (s.choice !== 'later' || Date.now() - s.at < ASK_AGAIN_DAYS * 864e5))) notes.setup = (`[cartwright] This project (${root}) isn't set up for client project skills yet.
 REQUIRED: begin your very first reply in this session with this one line, before answering anything else:
 "Is this project for a client? I can connect it to that client's project skills: reply set up, not now, or no client."
 Then answer the user's message as usual.
@@ -74,6 +83,7 @@ Then answer the user's message as usual.
 - "no client": run node "${SELF}" remember no-client --dir "${root}"
 Then carry on with what the user asked. Don't raise it again in this session.`);
   } catch { /* never block a session */ }
+  flushNotes();
   process.exit(0);
 }
 

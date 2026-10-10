@@ -16,6 +16,12 @@ All notable changes to what users receive. Newest first.
   employees, profile and guardrails for its own development as each phase ships.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
 
+### Fixed
+- The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
+  manifest didn't declare it, and Copilot only takes session-start context as JSON. Copilot users now get the
+  missing-tools note; the setup offer reaches Copilot too, but its model doesn't reliably ask it, so ask for
+  "set up this project's skills". The setup offer now comes before the tools note in every agent.
+
 ## [2.1.0] - 2026-10-09
 
 ### Added

@@ -6,8 +6,8 @@
 //   .claude-plugin/marketplace.json    so the repo installs as a Claude Code plugin marketplace
 //   plugin/.codex-plugin/plugin.json   the same plugin for Codex (skills/ and .mcp.json are shared)
 //   .agents/plugins/marketplace.json   so the repo installs as a Codex plugin marketplace
-//   plugin/plugin.json, plugin/mcp.json  the Agent Plugins 1.0 manifest and MCP file (GitHub Copilot CLI,
-//                                      VS Code); Claude Code and Codex use their own manifests above
+//   plugin/plugin.json, plugin/mcp.json  the manifest and MCP file GitHub Copilot CLI and VS Code read, in
+//                                      Copilot's format; Claude Code and Codex use their own manifests above
 //   plugin/tools/                      client setup helper (setup.mjs, kit.mjs, registry-core.mjs), the
 //                                      encrypted overlay registry (registry.json), and run.mjs with the
 //                                      pinned tool versions (versions.json) to run tools without installing
@@ -67,13 +67,16 @@ out.set('plugin/hooks/hooks.json', JSON.stringify({
   hooks: { SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }] },
 }, null, 2) + '\n');
 
-// GitHub Copilot (CLI and VS Code) prefers the Agent Plugins 1.0 format: a plugin.json at the plugin root,
-// skills in skills/, and MCP servers in mcp.json at the root (its locations can't be overridden).
+// GitHub Copilot (CLI and VS Code) reads the plugin.json at the plugin root. It must be in Copilot's own
+// format (no $schema) and declare its parts: in the Agent Plugins 1.0 format Copilot loads no hooks, so the
+// session-start hook never ran. Declared like this, Copilot runs the same hooks/hooks.json as Claude Code.
 out.set('plugin/plugin.json', JSON.stringify({
-  $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
   name: 'cartwright', version: pkg.version, description: pkg.description, author: { name: pkg.author },
   repository: 'https://github.com/shriramjanakiraman/cartwright',
   keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
+  skills: './skills/',
+  hooks: './hooks/hooks.json',
+  ...(Object.keys(servers).length ? { mcpServers: './mcp.json' } : {}),
 }, null, 2) + '\n');
 if (Object.keys(servers).length) out.set('plugin/mcp.json', JSON.stringify({ mcpServers: servers }, null, 2) + '\n');
 
