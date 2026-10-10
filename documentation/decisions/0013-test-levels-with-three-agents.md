@@ -12,7 +12,7 @@ Phase 1 (issue #43) needs more:
 - real-agent grounding and guardrail scenarios must run in Claude Code, Codex and Copilot "at every release" (C28,
   Q6).
 
-Codex isn't installed on the release machine.
+Codex runs through npx (`@openai/codex`) at a pinned version in an isolated `CODEX_HOME`; no global install.
 
 ## Decision
 - **`quick`** (feature and bugfix work) stays agent-free. It adds the deterministic profile and guard suites
@@ -21,8 +21,11 @@ Codex isn't installed on the release machine.
   blocks: D29, D32–D34, D38, with a no-workaround check) in **Claude Code, Copilot CLI and Codex**:
   - Copilot is driven through `copilot -p` with the plugin **installed** in an isolated `COPILOT_HOME`. The spike
     showed `--plugin-dir` loads no hooks in Copilot, and that installed plugin hooks do run in `-p`;
-  - Codex is driven through `codex exec` in an isolated `CODEX_HOME`, with the hooks pre-trusted (if the spike shows
-    that's possible);
+  - Codex is driven through `codex exec` in an isolated `CODEX_HOME`, with the hooks' trust pre-seeded. The test
+    writes `[hooks.state."cartwright@cartwright:hooks/hooks.json:pre_tool_use:0:0"] trusted_hash = "sha256:…"` with
+    the hash Codex computes. The hash is captured once whenever `hooks.json` changes, which is rare by design, and
+    a quick-level check fails if `hooks.json` changes without a recaptured hash. Tests stop the isolated home's
+    Codex app-server daemon between steps, because it caches the hook configuration;
   - agents run in parallel, one stream per agent.
 - **`major`** adds the long setup conversations, including the first run with a real pull request.
 - **Manual checks stay** for VS Code, Windows and Claude Code's interactive trust and approval prompts.
