@@ -16,6 +16,18 @@ branch and arrives through a pull request. Never push to `main` or `develop`, ne
 unless a core owner or project lead explicitly tells you to, and never use a branch name outside the four
 types below. The pre-push hook and CI refuse anything else.
 
+## Guardrails: `.cartwright/`
+
+`.cartwright/settings.json` holds this repo's guardrail settings, and Cartwright's hooks enforce them in Claude
+Code, Codex and Copilot:
+- your pushes to `main` and `develop` are blocked;
+- so are hand edits to the build output (`plugin/`, `INDEX.md`, the two marketplace manifests, `client-project/`).
+  Regenerate them with `node ../cartwright/scripts/build-overlay.mjs .` instead.
+
+The settings themselves are guarded: changing anything in `.cartwright/` needs the person's approval, and goes
+through a pull request. If something is blocked, don't try another way; tell the person, who can run it
+themselves.
+
 ## Check the open pull requests first
 
 `gh pr list --state open`, in **this** repo only. If one is related (same skill or area, same kind of

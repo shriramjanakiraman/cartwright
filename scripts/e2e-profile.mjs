@@ -892,6 +892,27 @@ step('the plugin-root cache, and "guardrails are inactive" when the guard can\'t
   return 'cache written once; inactive without the guard and without node';
 });
 
+step('overlay template (F49): starter settings protect main and develop and mark the build output; it validates, builds, and is never offered setup', () => {
+  const d = join(WORK, `overlay-${process.pid}`);
+  cpSync(join(ROOT, 'templates', 'overlay'), d, { recursive: true });
+  editJson(join(d, 'overlay.json'), (o) => { Object.assign(o, { project: 'tst', client: 'Test Client', aliases: ['TC'], repo: 'example/tst-cartwright', owner: 'Test Lead', lead: '@test-lead' }); });
+  git(d, 'init', '-q', '-b', 'main'); commitAll(d, 'from the template');
+  const v = sh(NODE, [join(ROOT, 'scripts', 'validate.mjs'), '--overlay', d], { env: env() });
+  const b = sh(NODE, [join(ROOT, 'scripts', 'build-overlay.mjs'), d], { env: env() });
+  assert(v.status === 0 && b.status === 0, `validate: ${v.stderr.trim().slice(0, 200)} build: ${b.stderr.trim().slice(0, 200)}`);
+  const s = ok(d, ['show']).settings;
+  assert(s.status === 'ok' && s.effective.protectedBranches.join() === 'main,develop', `settings: ${JSON.stringify(s).slice(0, 200)}`);
+  const gen = s.effective.generated.map((g) => g.path).join();
+  assert(gen === 'plugin/**,INDEX.md,.claude-plugin/marketplace.json,.agents/plugins/marketplace.json,client-project/**', `generated: ${gen}`);
+  assert(git(d, 'check-ignore', '.cartwright/personal.json').trim() === '.cartwright/personal.json', 'the personal file is not ignored');
+  const out = session(d);
+  assert(!offered(out), 'an overlay repo was offered setup');
+  const g = (cmd) => JSON.parse(sh(NODE, [join(PLUGIN, 'tools', 'guard.mjs'), 'explain', cmd], { cwd: d, env: env() }).stdout);
+  const push = g('git push origin main'), edit = g('echo x >> INDEX.md');
+  assert(push.decision === 'deny' && edit.decision === 'deny' && /build-overlay\.mjs/.test(edit.message), `push: ${push.decision}; INDEX.md: ${edit.message}`);
+  return 'settings valid; validate and build-overlay pass; no offer; push to main and an INDEX.md edit blocked';
+});
+
 step('Copilot gets the same session start as JSON additionalContext', () => {
   const { dir } = project('ts');
   ok(dir, ['write', '--store', 'folder', ...LISTS]);
