@@ -17,16 +17,23 @@ Codex runs through npx (`@openai/codex`) at a pinned version in an isolated `COD
 ## Decision
 - **`quick`** (feature and bugfix work) stays agent-free. It adds the deterministic profile and guard suites
   (`e2e-profile.mjs`, `e2e-guard.mjs`), run on a copy of the built plugin.
-- **`minor`** is now used for **patch and minor releases**. It adds the phase 1 agent scenarios (grounding: C23–C27;
-  blocks: D29, D32–D34, D38, with a no-workaround check) in **Claude Code, Copilot CLI and Codex**:
+- **`quick`** also checks that the Codex trust hashes match `hooks.json` (`scripts/codex-trust.mjs check`).
+- **`minor`** is used for **patch and minor releases**. It adds the phase 1 agent scenarios (grounding: C23–C27;
+  blocks: D29, D32–D34, D38, with a no-workaround check for D39 and D41) in **Claude Code, Copilot CLI and Codex**:
   - Copilot is driven through `copilot -p` with the plugin **installed** in an isolated `COPILOT_HOME`. The spike
     showed `--plugin-dir` loads no hooks in Copilot, and that installed plugin hooks do run in `-p`;
-  - Codex is driven through `codex exec` in an isolated `CODEX_HOME`, with the hooks' trust pre-seeded. The test
-    writes `[hooks.state."cartwright@cartwright:hooks/hooks.json:pre_tool_use:0:0"] trusted_hash = "sha256:…"` with
-    the hash Codex computes. The hash is captured once whenever `hooks.json` changes, which is rare by design, and
-    a quick-level check fails if `hooks.json` changes without a recaptured hash. Tests stop the isolated home's
-    Codex app-server daemon between steps, because it caches the hook configuration;
-  - agents run in parallel, one stream per agent.
+  - Codex is driven through `codex exec --json` in an isolated `CODEX_HOME`, with the hooks' trust pre-seeded and
+    never `--dangerously-bypass-hook-trust`. The test writes
+    `[hooks.state."cartwright@cartwright:hooks/hooks.json:<event>:0:0"] trusted_hash = "sha256:…"` for each hook,
+    with the hash Codex computes. `scripts/codex-trust.mjs capture` gets the hashes from Codex's app server
+    (`hooks/list`, no model call and no sign-in) whenever `hooks.json` changes, which is rare by design, and stores
+    them in `tests/codex-hook-trust.json`. Before the scenarios, the test asks the app server again and fails
+    unless every hook is reported trusted. Tests stop the isolated home's Codex app-server daemon before each
+    scenario, because it caches the hook configuration. Codex signs in with a copy of the person's
+    `~/.codex/auth.json`, deleted at the end of the run;
+  - agents run in parallel, one stream (one `agent-e2e.mjs --agent <name>` process) per agent;
+  - `agent-e2e.mjs --dry-run` prepares every scenario without calling an agent, so the harness can be checked
+    for free.
 - **`major`** adds the long setup conversations, including the first run with a real pull request.
 - **Manual checks stay** for VS Code, Windows and Claude Code's interactive trust and approval prompts.
 - **The report records** each agent CLI's version.
