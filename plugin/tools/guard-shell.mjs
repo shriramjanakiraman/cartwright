@@ -106,14 +106,15 @@ export function lex(src) {
   return toks;
 }
 
-// Simple commands: { words, assigns: [{ name, segs }], redirects: [{ op, fd, target, body }] }.
+// Simple commands: { words, assigns: [{ name, segs }], redirects: [{ op, fd, target, body }], piped } where piped
+// means the command reads the previous one's output through a pipe.
 export function parse(src) {
   const toks = lex(src), cmds = [];
   let cur = { words: [], assigns: [], redirects: [] };
   const end = () => { if (cur.words.length || cur.assigns.length || cur.redirects.length) cmds.push(cur); cur = { words: [], assigns: [], redirects: [] }; };
   for (let k = 0; k < toks.length; k++) {
     const tk = toks[k];
-    if (tk.t === 'op') { end(); continue; }
+    if (tk.t === 'op') { end(); if (tk.op === '|' || tk.op === '|&') cur.piped = true; continue; }
     if (tk.t === 'h') { cur.redirects.push({ op: '<<', body: tk }); continue; }
     if (tk.t === 'r') { const target = toks[k + 1]?.t === 'w' ? toks[++k].segs : null; cur.redirects.push({ op: tk.op, fd: tk.fd, target }); continue; }
     const first = tk.segs[0];
@@ -163,8 +164,18 @@ export const base = (p) => String(p || '').split('/').pop().toLowerCase();
 // Analyse a command line in order: variables set earlier on the line, `cd`, wrappers (env, sudo, xargs, …), and
 // commands inside sh -c, eval, $(…) and backticks. Returns the flat list of commands with their words evaluated:
 // { name, argv: [word values], redirects, cwd (null when unknown), env, fromXargs, nested, text }.
+// What echo or printf prints, when every argument is known: the script a shell reading the pipe would run.
+function printed(cmd) {
+  if (!cmd || !['echo', 'printf'].includes(cmd.name) || cmd.argv.some((a) => a.text === null)) return null;
+  const a = cmd.argv.slice(1).map((w) => w.text);
+  if (cmd.name === 'echo') { while (/^-[neE]+$/.test(a[0] || '')) a.shift(); return a.join(' ').replace(/\\n/g, '\n'); }
+  let i = 1;
+  return (a[0] || '').replace(/%%|%[sbd]|\\n/g, (m) => (m === '%%' ? '%' : m === '\\n' ? '\n' : a[i++] ?? ''));
+}
+
 export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }) {
   if (depth > 6) return out;
+  let prev = null;
   for (const c of parse(src)) {
     const local = new Map(vars);
     for (const a of c.assigns) {
@@ -195,10 +206,12 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
       }
       argv = argv.slice(k);
     }
-    if (!argv.length && !redirects.length) continue;
+    if (!argv.length && !redirects.length) { prev = null; continue; }
     const name = argv.length ? base(argv[0].text) : '';
     const text = argv.map((a) => (a.text === null ? '$?' : a.text)).join(' ');
-    const cmd = { name, argv, redirects, cwd, env: local, fromXargs, nested: depth > 0, text };
+    const cmd = { name, argv, redirects, cwd, env: local, fromXargs, nested: depth > 0, text, piped: !!c.piped };
+    const before = c.piped ? prev : null;
+    prev = cmd;
     out.push(cmd);
     // cd changes the folder for the rest of the line; export sets variables.
     if (name === 'cd') {
@@ -209,6 +222,11 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [] }
     } else if (SHELLS.includes(name)) {
       const i = argv.findIndex((a, k) => k > 0 && a.text && /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a.text));
       if (i > 0 && argv[i + 1]) { if (argv[i + 1].text !== null) analyse(argv[i + 1].text, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true; }
+      // No -c and no script file: the shell runs what it reads. From echo or printf with known text, read that.
+      else if (i < 0 && !positionals(argv, ['-o', '+o', '-O', '+O']).length) {
+        const script = printed(before);
+        if (script !== null) analyse(script, { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true;
+      }
     } else if (name === 'eval') {
       const parts = argv.slice(1);
       if (parts.every((a) => a.text !== null)) analyse(parts.map((a) => a.text).join(' '), { cwd, env, vars: new Map(local), depth: depth + 1, out }); else cmd.unknownScript = true;
