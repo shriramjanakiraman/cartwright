@@ -1,7 +1,7 @@
 // What a secret looks like, in one place. Used by scrub-scan.mjs (this repo's leak check) and, shipped in the
 // plugin as tools/secret-rules.mjs, by the project profiler, which hides any value that matches. No dependencies.
 
-// Patterns for secret values in text.
+// Patterns for secret values in text: the scrub and the guard's commit check use these.
 export const SECRET_RULES = [
   ['private key', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
   ['GitHub token', /\bgh[pousr]_[A-Za-z0-9]{30,}\b/],
@@ -9,17 +9,27 @@ export const SECRET_RULES = [
   ['Slack token', /\bxox[abpr]-[A-Za-z0-9-]{10,}\b/],
   ['JWT', /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/],
   ['hard-coded secret', /\b(api[_-]?key|client[_-]?secret|secret|password|passwd|token)\b["']?\s*[:=]\s*["'][^"'<>{}$\s]{8,}["']/i],
+  ['API key', /\b(sk_(live|test)_[A-Za-z0-9]{8,}|npm_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{30,}|glpat-[A-Za-z0-9_-]{20,})/],
 ];
 
-// More shapes, for values a tool copies out of a project (a package.json script, a pin): broader than the scrub
-// needs, because hiding a harmless value there costs little and showing a real one costs a lot.
+// More shapes, for values a tool copies out of a project (a package.json script, a pin). These are heuristics: too
+// broad for the scrub and the guard, which would flag ordinary code, but right for copied values, where hiding a
+// harmless one costs little and showing a real one costs a lot.
+// A name counts as secret-looking when one of its parts (split on _ or -) ends in key, token, secret, pass, password,
+// passwd, pwd or credential(s): API_KEY, GITHUB_TOKEN, DB_PASS and apiKey do; KEYCLOAK_URL doesn't.
+const NAME = '(?:[A-Za-z0-9]+[_-])*[A-Za-z0-9]*(?:KEY|TOKEN|SECRET|PASS(?:WORD|WD)?|PWD|CREDENTIALS?)(?:[_-][A-Za-z0-9]+)*';
 export const VALUE_SECRET_RULES = [
   ...SECRET_RULES,
   ['password in a URL', /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:[^\s@/]+@/i],
   ['bearer token', /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/i],
-  ['secret assignment', /\b[A-Za-z0-9_-]*(KEY|TOKEN|SECRET|PASS(WORD|WD)?)[A-Za-z0-9_]*=[^\s"'$<{%][^\s"']{5,}/i],
+  ['basic authorization', /Authorization:\s*Basic\s+[A-Za-z0-9+/=]{8,}/i],
+  ['secret assignment', new RegExp(`(?:^|[\\s;&|("'])-{0,2}${NAME}=(?:"[^"\\s$]{6,}"|'[^'\\s]{6,}'|[^\\s"'$<{%][^\\s"';&|]{5,})`, 'i')],
+  ['secret option', /(?:^|\s)--?(?:[A-Za-z0-9]+-)*(?:token|password|passwd|pass|secret|api-?key|access-key|secret-key|auth-token)\s+(?!-)[^\s$<{%]{6,}/i],
   ['database password option', /\b(mysql|mysqldump|mysqladmin)\b[^|;&]*\s-p[^\s-]\S*/],
-  ['API key', /\b(sk_live_[A-Za-z0-9]{8,}|npm_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{30,})/],
+  ['password option', /\b(docker\s+login|sshpass)\b[^|;&]*\s-p\s*(?!-)[^\s$]{4,}|\bredis-cli\b[^|;&]*\s-a\s+(?!-)[^\s$]{4,}/],
+  ['user and password', /\bcurl\b[^|;&]*\s(?:-u|--user)\s*(?!-)[^\s:$]+:[^\s$]{4,}/],
+  ['AWS secret key', /aws_secret_access_key\s*[=:]\s*["']?[A-Za-z0-9/+=]{20,}/i],
+  ['webhook or DSN', /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{10,}|https?:\/\/[0-9a-f]{20,}(?::[0-9a-f]+)?@[^\s/]+\/\d+/i],
 ];
 
 // Files that hold credentials by convention, as globs on the file name. Tools that study a project never open them.

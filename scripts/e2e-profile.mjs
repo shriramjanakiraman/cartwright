@@ -209,6 +209,26 @@ step('secrets (A7): credential files are never read and secret-looking values ne
   return `no value in ${files.length} files, the state folder or any output (URL password, Bearer, sk_live_, mysql -p, ${CRED_FILES.length + 4} credential files); commands shown as "${HIDDEN}"`;
 });
 
+step('secrets (A7): each secret shape in a script is hidden, and ordinary scripts are not', () => {
+  const hex = (n) => randomBytes(n).toString('hex');
+  const v = () => `v${hex(6)}`;
+  const hide = [
+    () => `API_KEY="${v()}" node x`, () => `TOKEN='${v()}' node x`, () => `npm publish --token ${v()}`, () => `psql --password ${v()}`,
+    () => `docker login -p ${v()} registry`, () => `sshpass -p ${v()} ssh host`, () => `redis-cli -a ${v()} ping`,
+    () => `curl -u admin:${v()} https://example.com`, () => `curl -H "Authorization: Basic ${Buffer.from(v()).toString('base64')}" x`,
+    () => `aws_secret_access_key = ${hex(12)}abcdefgh`, () => `curl https://hooks.slack.com/services/T0/B0/${hex(8)}`,
+    () => `SENTRY_DSN=https://${hex(16)}@o1.ingest.sentry.io/123 node x`, () => `echo sk_${'test'}_${hex(8)}`, () => `echo glpat-${hex(12)}`,
+  ];
+  const keep = ['jest --passWithNoTests', 'eslint --max-warnings=0 .', 'PASSWORD_MIN_LENGTH=12 node x', 'KEYCLOAK_URL=http://localhost:8080 node x', 'npm publish --token $NPM_TOKEN'];
+  const { dir } = project('ts');
+  const testOf = (script) => { editJson(join(dir, 'package.json'), (j) => { j.scripts.test = script; }); return ok(dir, ['study']).profile.facts.commands.test.defined; };
+  const shown = hide.map((f) => f()).filter((script) => testOf(script) !== HIDDEN);
+  assert(!shown.length, `shown as written: ${shown.length} of ${hide.length} shapes`);
+  const hidden = keep.filter((script) => testOf(script) !== script);
+  assert(!hidden.length, `ordinary scripts hidden: ${hidden.join(' | ')}`);
+  return `${hide.length} shapes hidden; ${keep.length} ordinary scripts kept`;
+});
+
 // --- A8, A9: reproducible and read-only ----------------------------------------------------------------------
 function snapshot(dir) {
   const out = {};
