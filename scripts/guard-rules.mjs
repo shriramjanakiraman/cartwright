@@ -487,7 +487,7 @@ const FAMILY = {
   'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push')),
   'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
-  'guardrail-files': () => true,
+  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot)$/.test(c.name) || /profile\.mjs/.test(c.text) || isGit(c, 'clean') || isGit(c, 'apply')),
   'project-rules': () => true,
 };
 

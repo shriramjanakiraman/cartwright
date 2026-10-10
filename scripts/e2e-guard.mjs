@@ -35,7 +35,8 @@ const env = (extra = {}) => ({ HOME, PATH: BARE, TMPDIR: TMP, CARTWRIGHT_STATE_D
   GIT_AUTHOR_NAME: 'fixture', GIT_AUTHOR_EMAIL: 'fixture@example.com', GIT_COMMITTER_NAME: 'fixture', GIT_COMMITTER_EMAIL: 'fixture@example.com', ...extra });
 // The in-process guard reads the state folder from the environment, like the hook does.
 Object.assign(process.env, { CARTWRIGHT_STATE_DIR: STATE, HOME });
-const { respond } = await import(pathToFileURL(join(PLUGIN, 'tools', 'guard.mjs')));
+const { respond, makeContext, normalise } = await import(pathToFileURL(join(PLUGIN, 'tools', 'guard.mjs')));
+const { decide } = await import(pathToFileURL(join(PLUGIN, 'tools', 'guard-rules.mjs')));
 const { machineDir } = await import(pathToFileURL(join(PLUGIN, 'tools', 'store.mjs')));
 const HOOK = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks.PreToolUse[0].hooks[0].command;
 const NODE = join(BARE.split(':')[0], 'node');
@@ -216,6 +217,27 @@ step('a malformed payload or an empty one is allowed, never an error exit', () =
   assert(exits.slice(0, 3).every((x) => x === 0), `exits: ${exits.join(', ')}`);
   assert(exits[3] === 2, `a string tool_input should still be read as a command (exit ${exits[3]})`);
   return `exits ${exits.join(', ')}`;
+});
+
+step('failing safe (5.7): a rule that fails denies only actions in its family; an expired deadline denies "too large"', () => {
+  const { dir } = fresh('profiled');
+  const e = env({ CLAUDE_PLUGIN_ROOT: PLUGIN });
+  const run = (command, patch = {}, ctxOpts = {}) => {
+    const action = normalise({ tool_name: 'Bash', tool_input: { command }, cwd: dir }, e);
+    const ctx = { ...makeContext({ cwd: dir, env: e, ...ctxOpts }), ...patch };
+    return decide(action, ctx);
+  };
+  const boom = { agentsSection: () => { throw new Error('boom'); }, pushDestination: () => { throw new Error('boom'); } };
+  const outside = run('ls -la && git status', boom);
+  assert(outside.decision === 'allow', `an action outside the failing rules' families: ${outside.decision} ${outside.message || ''}`);
+  const write = run('echo x > notes.txt', boom);
+  assert(write.decision === 'deny' && /couldn't check this safely \(guardrail-files\) \(boom\)/.test(write.message), `a write while guardrail-files fails: ${write.decision} ${write.message || ''}`);
+  const push = run('git push', boom);
+  assert(push.decision === 'deny' && /couldn't check this safely \(protected-branches\) \(boom\)/.test(push.message), `a push while its rule fails: ${push.message || push.decision}`);
+  prepare([['write', 'big.txt', 'x\n'], ['git', 'add', 'big.txt']], dir);
+  const late = run('git commit -m big', {}, { deadline: Date.now() - 1 });
+  assert(late.decision === 'deny' && /too large to check in time; commit in smaller parts/.test(late.message), `an expired deadline: ${late.message || late.decision}`);
+  return 'unrelated action allowed; write and push denied with the error; deadline → "too large to check in time"';
 });
 
 step('timing (5.9): p50 and p95 through the hook, within twice the budget', () => {
