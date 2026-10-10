@@ -34,7 +34,7 @@ export function stableJson(value) {
 export function parseJson(text) {
   try { return { ok: true, data: JSON.parse(text) }; } catch (e) {
     const m = String(e.message).match(/position (\d+)/);
-    if (!m) return { ok: false, error: 'not valid JSON' };
+    if (!m) return { ok: false, error: /end of JSON/i.test(e.message) ? `not valid JSON (it ends too early, at line ${text.split('\n').length})` : 'not valid JSON' };
     const before = text.slice(0, Number(m[1])).split('\n');
     return { ok: false, error: `not valid JSON (line ${before.length}, column ${before.at(-1).length + 1})` };
   }
@@ -106,8 +106,8 @@ export function withSection(text, parts) {
   if (!parts.settings && cur.settings?.status !== 'ok') throw new Error(`${AGENTS_FILE} has no readable cartwright-settings block to keep`);
   if (!parts.settings) parts = { ...parts, settingsRaw: cur.settings.raw };
   if (text === null) return renderSection(parts) + '\n';
-  // Appended after a code fence that's never closed, the section would sit inside it and never be found again.
-  const open = cur.status === 'none' && findMarkers(text).openFence;
+  // A code fence that's never closed, anywhere in the file, would swallow the section (or what follows it).
+  const open = findMarkers(text).openFence;
   if (open) throw new Error(`${AGENTS_FILE} has an unclosed code fence at line ${open}; close it and run again.`);
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
   const section = renderSection(parts, eol);
@@ -209,6 +209,13 @@ export function save(root, mode, { profile, settings, summary = [] }) {
     changed.push(label);
   };
   if (mode === 'folder') {
+    // A .cartwright folder that is a symlink leading outside the project is refused, like a file symlink.
+    try {
+      if (lstatSync(join(root, FOLDER)).isSymbolicLink()) {
+        const target = realpathSync(join(root, FOLDER));
+        if (target !== real && !target.startsWith(real + sep)) throw new Error(`${FOLDER} is a symlink to a folder outside the project (${target}). Cartwright won't write through it: replace the link with a folder, or choose --store machine.`);
+      }
+    } catch (e) { if (e.code !== 'ENOENT') throw e; }
     put(folderPath(root, 'profile.json'), stableJson(profile), `${FOLDER}/profile.json`);
     if (settings) {
       put(folderPath(root, 'settings.json'), stableJson(settings), `${FOLDER}/settings.json`);

@@ -680,6 +680,37 @@ step('writes keep each file\'s mode (a 600 settings file stays 600)', () => {
   return '600 kept';
 });
 
+step('profile and storage details: no settings, a folder link leading outside, floating Node pins, fences, truncated JSON', () => {
+  // A profile with no guardrail settings: check exits 0 but says the profiled rules are off.
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  rmSync(join(dir, '.cartwright', 'settings.json'));
+  const c = profile(dir, ['check']);
+  assert(c.status === 0 && /no guardrail settings: the protected-branch and generated-file rules are off/.test(c.stdout), `check: exit ${c.status} ${c.stdout.slice(0, 200)}`);
+  // A .cartwright folder that's a symlink leading outside the project is refused, and nothing is written there.
+  const out = project('ts').dir, elsewhere = join(WORK, `elsewhere-${process.pid}`);
+  mkdirSync(elsewhere, { recursive: true }); symlinkSync(elsewhere, join(out, '.cartwright'));
+  const w = profile(out, ['write', '--store', 'folder', ...LISTS]);
+  assert(w.status === 1 && /symlink to a folder outside the project/.test(w.stderr) && readdirSync(elsewhere).length === 0, `exit ${w.status}: ${w.stderr.trim()}`);
+  // Floating Node pins are recorded as aliases, not pins.
+  const lts = project('ts', (d) => put(d, '.nvmrc', 'lts/iron\n')).dir;
+  const node = ok(lts, ['study']).profile.facts.node;
+  assert(node.value === 'lts/iron' && node.kind === 'alias', JSON.stringify(node));
+  // An unclosed fence after an existing section is refused too.
+  const f = project('ts').dir;
+  ok(f, ['write', '--store', 'agents-md', ...LISTS]);
+  writeFileSync(join(f, 'AGENTS.md'), `${read(join(f, 'AGENTS.md'))}\n\`\`\`sh\nnpm test\n`);
+  const r = profile(f, ['write', '--store', 'agents-md', '--protected', 'main']);
+  assert(r.status === 1 && /unclosed code fence/.test(r.stderr), `exit ${r.status}: ${r.stderr.trim()}`);
+  // Truncated settings say where they end.
+  const t = project('ts').dir;
+  ok(t, ['write', '--store', 'folder', ...LISTS]);
+  writeFileSync(join(t, '.cartwright', 'settings.json'), '{ "cartwright": "settings", "version": 1, "rules": [');
+  const msg = ok(t, ['show']).settings.message;
+  assert(/not valid JSON \((it ends too early, at line 1|line 1, column \d+)\)/.test(msg), msg);
+  return 'check notes missing settings; outside folder link refused; lts/iron is an alias; fence refused; truncation located';
+});
+
 // --- broken settings: fail safe, loud, and never quoting the file -------------------------------------------
 step('broken settings: malformed, newer version or a schema error all fail safe and say where, never what', () => {
   const { dir } = project('storefront-next');
@@ -791,6 +822,8 @@ step('the offer when the client is known: profile only (kit, no-client, done, cl
   // no-client survives a later "not now", once its 7 days are over.
   const { dir: d } = project('ts'); setupCmd(d, 'remember', 'no-client'); setupCmd(d, 'remember', 'later'); backdate(d, 8);
   results.push(['no-client then later', session(d)]);
+  const { dir: dd } = project('ts'); setupCmd(dd, 'remember', 'done'); setupCmd(dd, 'remember', 'later'); backdate(dd, 8);
+  results.push(['done then later', session(dd)]);
   const bad = results.filter(([, out]) => !PROFILE_ONLY.test(out) || /client's project skills/.test(out)).map(([k]) => k);
   assert(!bad.length, `not the profile-only line: ${bad.join(', ')}`);
   const p = project('ts').dir; ok(p, ['write', '--store', 'folder', ...LISTS, '--client-project', 'no']);

@@ -479,7 +479,9 @@ function cli(argv) {
   // check: the cheap version the session start uses (no generated-file search).
   if (!stored.mode) { out({ profiled: false, settings: 'none', ...(stored.notes.length ? { notes: stored.notes } : {}) }); return; }
   const changes = profile ? compare(profile, detect(root, { suggestions: false }), { quick: true }) : [];
-  out({ profiled: !!profile, store: stored.mode, found: stored.found, upToDate: !!profile && !changes.length, changed: changes.map((c) => c.key), settings: r.status, message: r.message });
+  // A profile with no guardrail settings is fine (exit 0), but the profiled rules are off: say so.
+  const note = profile && r.status === 'none' ? 'profile present, no guardrail settings: the protected-branch and generated-file rules are off' : undefined;
+  out({ profiled: !!profile, store: stored.mode, found: stored.found, upToDate: !!profile && !changes.length, changed: changes.map((c) => c.key), settings: r.status, message: r.message, ...(note ? { note } : {}) });
   process.exit((profile && changes.length) || r.status === 'broken' || (stored.profile.status !== 'none' && !profile) ? 1 : 0);
 }
 

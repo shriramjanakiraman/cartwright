@@ -154,7 +154,7 @@ if (cmd === 'hook') {
     if (root && !isLibraryRepo(root) && !quiet) {
       const profiled = !!st && st.profile.status !== 'none';
       const team = st?.settings.status === 'ok' ? st.settings.data : null;
-      const clientKnown = !!readKit(root) || team?.clientProject === false || !!s?.noClient || ['no-client', 'done'].includes(s?.choice);
+      const clientKnown = !!readKit(root) || team?.clientProject === false || !!s?.noClient || !!s?.done || ['no-client', 'done'].includes(s?.choice);
       // clientProject: true with no kit: it's recorded as a client project, so offer to connect it, not ask again.
       const line = !profiled ? (clientKnown ? 'profile' : 'combined') : clientKnown ? null : team?.clientProject === true ? 'connect' : 'client';
       if (line) notes.setup = (`[cartwright] ${line === 'client' ? `This project (${root}) has a Cartwright profile but isn't connected to a client's project skills, and it isn't recorded whether it's for a client.` : line === 'connect' ? `This project (${root}) is recorded as a client project (clientProject in its settings) but has no client project kit yet.` : `This project (${root}) isn't set up with Cartwright yet.`}
@@ -245,10 +245,11 @@ if (cmd === 'remember') {
   if (!['done', 'later', 'never', 'no-client'].includes(choice)) { console.error('setup: remember done | later | never | no-client'); process.exit(2); }
   const root = projectRoot(dir) || dir;
   const s = loadState();
-  // "No client" is kept when a later answer (not now, never here) replaces the choice, so the client question
+  // "No client" and "done" are kept when a later answer (not now, never here) replaces the choice, so the client question
   // isn't asked again.
   const noClient = choice === 'no-client' || !!s[root]?.noClient;
-  s[root] = { choice, at: Date.now(), ...(noClient ? { noClient: true } : {}) };
+  const done = choice === 'done' || !!s[root]?.done;
+  s[root] = { choice, at: Date.now(), ...(noClient ? { noClient: true } : {}), ...(done ? { done: true } : {}) };
   mkdirSync(dirname(STATE), { recursive: true });
   writeFileSync(STATE, JSON.stringify(s, null, 2) + '\n');
   out({ projectRoot: root, remembered: choice });

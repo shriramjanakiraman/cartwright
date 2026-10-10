@@ -14,6 +14,8 @@ const NPM_PLACEHOLDER = /^echo "Error: no test specified" && exit 1$/;
 // What a pin or a range has to look like; anything else (a mistake, or a secret in the wrong file) is "not found".
 export const NODE_PIN = /^v?\d+(\.\d+){0,2}(-[0-9A-Za-z.-]+)?$|^lts\/(\*|[a-z-]+)$|^(node|stable|latest)$/;
 export const VERSION_RANGE = /^[\dvxX*.\s<>=^~|-]+$/;
+// Names that float to whatever release they mean today (lts/*, lts/iron, node, stable, latest): kind "alias".
+const FLOATING = /^(lts\/(\*|[a-z-]+)|node|stable|latest)$/;
 const firstLine = (t) => (t || '').split(/\r?\n/).map((l) => l.trim()).find(Boolean) || '';
 
 // How a package manager runs one of the project's scripts; null when the package manager isn't known.
@@ -47,10 +49,10 @@ export default {
 
     for (const f of ['.nvmrc', '.node-version']) {
       const v = firstLine(ctx.text(f));
-      if (NODE_PIN.test(v)) { r.node = { value: v.replace(/^v(?=\d)/, ''), kind: 'pinned', source: f }; break; }
+      if (NODE_PIN.test(v)) { r.node = { value: v.replace(/^v(?=\d)/, ''), kind: FLOATING.test(v) ? 'alias' : 'pinned', source: f }; break; }
     }
     const tv = toolVersion(ctx, ['nodejs', 'node']);
-    if (!r.node && NODE_PIN.test(tv || '')) r.node = { value: tv, kind: 'pinned', source: '.tool-versions' };
+    if (!r.node && NODE_PIN.test(tv || '')) r.node = { value: tv, kind: FLOATING.test(tv) ? 'alias' : 'pinned', source: '.tool-versions' };
     if (!r.node && typeof pkg.engines?.node === 'string' && VERSION_RANGE.test(pkg.engines.node.trim())) r.node = { value: pkg.engines.node.trim(), kind: 'range', source: 'package.json#engines.node' };
 
     const lock = LOCKFILES.find(([f]) => ctx.exists(f));
