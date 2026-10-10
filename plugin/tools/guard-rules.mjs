@@ -98,32 +98,47 @@ const GIT_BUILTINS = new Set(('add am annotate apply archive bisect blame branch
   + 'stash status submodule switch symbolic-ref tag update-index update-ref var verify-commit version whatchanged worktree write-tree').split(' '));
 const GIT_GLOBAL_VALUE = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix', '--exec-path'];
 
-// git's global options and subcommand: { sub, args, cwd, workTree }.
-function gitCall(cmd) {
-  const a = cmd.argv;
+// git's global options and subcommand: { sub, args, cwd, workTree, aliases }. Aliases given on the command line
+// (-c alias.<x>=<v>, --config-env=alias.<x>=<ENV>) are collected, because they beat the configured ones.
+function gitCall(cmd, env = {}) {
+  const a = cmd.argv, aliases = new Map();
   let k = 1, cwd = cmd.cwd, workTree = null;
   while (k < a.length && a[k].text !== null && a[k].text.startsWith('-')) {
     const t = a[k].text, [flag, val] = t.includes('=') ? [t.slice(0, t.indexOf('=')), t.slice(t.indexOf('=') + 1)] : [t, null];
     const value = val ?? (GIT_GLOBAL_VALUE.includes(flag) ? a[++k]?.text ?? null : null);
     if (flag === '-C') cwd = value === null ? null : cwd || isAbsolute(value) ? resolve(cwd || '/', value) : null;
     if (flag === '--work-tree') workTree = value === null ? null : cwd ? resolve(cwd, value) : isAbsolute(value) ? value : null;
+    const m = value && (flag === '-c' || flag === '--config-env') && value.match(/^alias\.([^=]+)=(.*)$/i);
+    if (m) aliases.set(m[1], flag === '-c' ? m[2] : env[m[2]] ?? null);
     k++;
   }
-  return { sub: a[k]?.text ?? null, args: a.slice(k + 1), cwd, workTree, unknownSub: k < a.length && a[k].text === null };
+  return { sub: a[k]?.text ?? null, args: a.slice(k + 1), cwd, workTree, aliases, unknownSub: k < a.length && a[k].text === null };
+}
+
+// `git config [--local|--global|…] [set|--add] alias.<x> <value>` earlier on the same line: [name, value] or null.
+function aliasSet(g) {
+  if (g.sub !== 'config') return null;
+  const words = g.args.filter((w) => !(w.text && w.text.startsWith('-'))).map((w) => w.text);
+  if (words[0] === 'set') words.shift();
+  const m = words[0]?.match(/^alias\.(.+)$/i);
+  return m && words.length >= 2 ? [m[1], words[1]] : null;
 }
 
 // Expand git aliases in place: a plain alias becomes its words; a "!" alias becomes the shell commands it runs.
-function expandGit(cmds, ctx) {
+// An alias given with -c, or set with `git config` earlier on the same line, wins over the configured one.
+function expandGit(cmds, ctx, lineAliases = new Map()) {
   const out = [];
   for (const c of cmds) {
     if (c.name !== 'git') { out.push(c); continue; }
-    let g = gitCall(c), depth = 0;
+    let g = gitCall(c, ctx.env), depth = 0;
+    const set = aliasSet(g);
+    if (set) lineAliases.set(set[0], set[1]);
     while (g.sub && !GIT_BUILTINS.has(g.sub) && depth++ < 5) {
-      const alias = g.cwd ? ctx.gitAlias(g.cwd, g.sub) : null;
+      const alias = g.aliases.has(g.sub) ? g.aliases.get(g.sub) : lineAliases.has(g.sub) ? lineAliases.get(g.sub) : g.cwd ? ctx.gitAlias(g.cwd, g.sub) : null;
       if (!alias) break;
       if (alias.startsWith('!')) {
         const rest = g.args.map((w) => (w.text === null ? '"$UNKNOWN"' : `'${w.text.replace(/'/g, "'\\''")}'`)).join(' ');
-        for (const x of analyse(`${alias.slice(1)} ${rest}`, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([{ ...x, fromAlias: g.sub }], ctx));
+        for (const x of analyse(`${alias.slice(1)} ${rest}`, { cwd: g.cwd, env: ctx.env })) out.push(...expandGit([{ ...x, fromAlias: g.sub }], ctx, lineAliases));
         g = null;
         break;
       }
