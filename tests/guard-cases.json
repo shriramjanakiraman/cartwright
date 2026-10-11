@@ -281,6 +281,14 @@
     {"name": "Q2 printf with a width", "setup": "profiled", "shell": "printf 'git push origin %6s\\n' main | bash", "expect": "deny", "rule": "protected-branches"},
     {"name": "Q2 printf with a conversion the analyser can't render, into a shell", "setup": "profiled", "shell": "printf '%5.1f' 3 | bash", "expect": "deny", "rule": "guard"},
     {"name": "Q2 printf of a harmless command is fine", "setup": "profiled", "shell": "printf 'echo %d %s\\n' 42 done | bash", "expect": "allow"},
-    {"name": "Q2 printf -v prints nothing", "setup": "profiled", "shell": "printf -v X 'git push origin main' | bash", "expect": "allow"}
+    {"name": "Q2 printf -v prints nothing", "setup": "profiled", "shell": "printf -v X 'git push origin main' | bash", "expect": "allow"},
+    {"name": "Q3 a link made on the line into .cartwright, then a delete through it", "setup": "profiled", "shell": "ln -s .cartwright lA; rm -rf lA/settings.json", "expect": "deny", "rule": "guardrail-files"},
+    {"name": "Q3 a link into .cartwright, then a move through it", "setup": "profiled", "shell": "ln -s .cartwright lA && mv lA/profile.json /tmp/x", "expect": "deny", "rule": "guardrail-files"},
+    {"name": "Q3 a link into .cartwright, then chmod through it", "setup": "profiled", "shell": "ln -s .cartwright lA; chmod 000 lA/settings.json", "expect": "deny", "rule": "guardrail-files"},
+    {"name": "Q3 a link to a link into .cartwright", "setup": "profiled", "shell": "ln -s .cartwright lA; ln -s lA lC; rm lC/settings.json", "expect": "deny", "rule": "guardrail-files"},
+    {"name": "Q3 a link into a generated folder, then a write through it", "setup": "profiled", "shell": "ln -s src/generated lG; echo x > lG/api.ts", "expect": "deny", "rule": "generated-files"},
+    {"name": "Q3 a link into a generated folder, then sed -i through it", "setup": "profiled", "shell": "ln -s src/generated lG && sed -i '' s/a/b/ lG/api.ts", "expect": "deny", "rule": "generated-files"},
+    {"name": "Q3 a link outside the project, then a delete under it", "setup": "profiled", "shell": "ln -s ~/precious lO; rm -rf lO/notes", "expect": "deny", "rule": "destructive-outside-project"},
+    {"name": "Q3 a link inside the project, then a delete under it, is fine", "setup": "profiled", "shell": "ln -s src lS; rm -rf lS/scratch", "expect": "allow"}
   ]
 }

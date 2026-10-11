@@ -259,9 +259,16 @@ function place(word, cwd, ctx, through = false, links = null) {
   if (word.glob) { const cut = t.search(/[*?[]/); const head = t.slice(0, cut).replace(/[^/]*$/, ''); tail = t.slice(head.length); t = head || '.'; thru = true; }
   if (!isAbsolute(t) && !cwd) return { path: null, raw: word };
   let abs = isAbsolute(t) ? t : resolve(cwd, t);
-  // Through a symlink made earlier on the same line (ln -s … && rm -rf link/): follow it as the shell would.
-  if (thru && links) for (const [link, target] of links) {
-    if (abs === link || abs.startsWith(link + sep)) { if (target === null) return { path: null, raw: word }; abs = target + abs.slice(link.length); break; }
+  // Through a symlink made earlier on the same line, as the shell would: always when the link is a folder on the way
+  // (ln -s .cartwright l && rm l/settings.json), and for the link itself only when the path goes through it. A link
+  // to another such link is followed too.
+  for (let hops = 0, moved = true; links && moved && hops < 8; hops++) {
+    moved = false;
+    for (const [link, target] of links) {
+      if (!(abs.startsWith(link + sep) || (thru && abs === link))) continue;
+      if (target === null) return { path: null, raw: word };
+      abs = target + abs.slice(link.length); moved = true; break;
+    }
   }
   // tail: the glob part after the fixed folder (src/generated/*.ts → *.ts), for matching against generated globs.
   return { path: thru ? ctx.realFull(abs) : ctx.realish(abs), glob: word.glob, text: word.text, tail };
@@ -336,13 +343,13 @@ export function writeTargets(cmd, ctx) {
     if (extract) {
       const ci = a.findIndex((w) => w.text === '-C' || w.text === '--directory' || w.text?.startsWith('--directory='));
       const d = ci > 0 ? (a[ci].text.includes('=') ? a[ci].text.slice(a[ci].text.indexOf('=') + 1) : a[ci + 1]?.text) : '.';
-      out.push(d === null || d === undefined ? { path: null, kind: 'overwrite' } : { ...place(word(`${d.replace(/\/$/, '')}/*`, true), cmd.cwd, ctx, true), kind: 'overwrite' });
+      out.push(d === null || d === undefined ? { path: null, kind: 'overwrite' } : { ...place(word(`${d.replace(/\/$/, '')}/*`, true), cmd.cwd, ctx, true, cmd.links), kind: 'overwrite' });
     }
   } else if ((n === 'prettier' && hasFlag(a, /^(--write|-w)$/)) || (n === 'eslint' && hasFlag(a, /^--fix$/))) {
     // Formatters that rewrite files in place: each path, a folder meaning everything in it.
     for (const w of positionals(a, ['--config', '-c', '--ignore-path', '--plugin', '--parser', '--ext', '--rule', '--format', '-f', '-o', '--output-file'])) {
-      const p = place(w, cmd.cwd, ctx, true);
-      if (p.path && !w.glob && ctx.isDir(p.path)) out.push({ ...place(word(`${w.text.replace(/\/$/, '')}/*`, true), cmd.cwd, ctx, true), kind: 'overwrite' });
+      const p = place(w, cmd.cwd, ctx, true, cmd.links);
+      if (p.path && !w.glob && ctx.isDir(p.path)) out.push({ ...place(word(`${w.text.replace(/\/$/, '')}/*`, true), cmd.cwd, ctx, true, cmd.links), kind: 'overwrite' });
       else out.push({ ...p, kind: 'overwrite' });
     }
   } else if (n === 'truncate') { for (const w of pos(['-s', '--size', '-r', '--reference'])) add(w, 'overwrite'); }
@@ -363,7 +370,7 @@ function patchFileTargets(cmd, ctx) {
     const args = cmd.name === 'git' ? cmd.git.args : cmd.argv.slice(1);
     const iOpt = args.findIndex((w) => w.text === '-i' || w.text === '--input');
     const file = from || (iOpt >= 0 ? args[iOpt + 1] : cmd.name === 'git' ? args.find((w) => w.text && !w.text.startsWith('-')) : null);
-    const p = file ? place(file, cmd.git?.cwd ?? cmd.cwd, ctx).path : null;
+    const p = file ? place(file, cmd.git?.cwd ?? cmd.cwd, ctx, false, cmd.links).path : null;
     text = p && inside(p, ctx.root()) ? ctx.readText(p) : null;
   }
   if (text === null || text === undefined) return [{ path: null, kind: 'overwrite', unknownPatch: true }];
@@ -601,7 +608,7 @@ function guardrailByGitOrPermissions(c, ctx, sec) {
   const label = (p) => (p === cw ? 'the .cartwright/ folder' : p === md ? `${md} (Cartwright's machine-only settings)` : `the Cartwright section of ${relative(root, sec.path)}`);
   // A path names a guardrail path exactly or inside it ("explicit"), or is a folder above one ("above").
   const hit = (p) => { for (const g of paths) { if (p && (p === g || inside(p, g))) return { g, explicit: true }; if (p && inside(g, p)) return { g, explicit: false }; } return null; };
-  const at = (w, cwd) => place(w, cwd, ctx).path;
+  const at = (w, cwd) => place(w, cwd, ctx, false, c.links).path;
   // Would the command destroy content in the guardrail paths that isn't committed? One git status, on those paths only.
   const dirty = (cwd, kinds) => {
     const out = ctx.git(cwd, 'status', '--porcelain', '--ignored', '--untracked-files=all', '--', ...paths);

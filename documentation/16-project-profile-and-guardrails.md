@@ -290,9 +290,21 @@ follows:
   or here-document fed to a shell, `echo …| sh`, `find -exec`, `git rebase -x` and `git submodule foreach`;
 - git aliases: configured ones, ones given with `-c`, and ones set earlier on the line.
 
+What `echo` or `printf` feeds a shell is worked out the way the shell would print it:
+- `printf` with its real rules: `%s`, `%b`, `%c`, `%d`/`%i`/`%u`/`%x`/`%o`, `%%`, flags, width and precision, and
+  the format reused until the arguments run out;
+- backslash escapes (`\NNN`, `\0NNN`, `\xHH`, `\uHHHH`, `\UHHHHHHHH`, `\c`). Shells and versions read these
+  differently (bash's `echo -e`, `printf` and `%b` each differ, and `sh`, `zsh` and `dash` decode `echo` without
+  `-e`), so every reading is checked, and any of them being blocked blocks the command.
+
+Anything it can't work out exactly is blocked when it's fed to a shell ("what this shell would run can't be worked
+out exactly"): a `printf` conversion it doesn't render, such as `%f`, or a `$'…'` that shells read differently. A
+`$'…'` like that elsewhere, as a branch for example, counts as unknown.
+
 Paths are followed through symlinks when the path goes through the link (a trailing `/`, a glob under it, or a
-write onto it), and compared in the disk's own letter case. A command nested more than six levels deep is blocked
-as too deep to check.
+write onto it), and compared in the disk's own letter case. A symlink made earlier on the same line
+(`ln -s .cartwright l; rm l/settings.json`) is followed the same way by every rule that judges paths. A command
+nested more than six levels deep is blocked as too deep to check.
 
 ### `protected-branches`
 
