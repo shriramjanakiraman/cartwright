@@ -876,6 +876,8 @@ export function decide(action, ctx) {
     if (/\bgit\b[^\n]*\b(push|commit)\b|\b(rm|mv|cp|dd|truncate|shred)\b|>/.test(line) || action.actions.some((a) => a.type === 'edit')) return finish({ decision: 'deny', rule: 'guard', message: couldNot(e) }, s);
     return { decision: 'allow', rule: null, note: `Cartwright couldn't read this command (${e.message}); it was allowed.` };
   }
+  const unrenderable = A.cmds.find((c) => c.unrenderable);
+  if (unrenderable) return finish({ decision: 'deny', rule: 'guard', message: `Cartwright blocked this: what this shell would run can't be worked out exactly (${unrenderable.unrenderable}), so it can't be checked. Run the commands directly.` }, s);
   if (A.cmds.some((c) => c.unknownHereDoc)) return finish({ decision: 'deny', rule: 'guard', message: "Cartwright blocked this: the here-document fed to this shell uses a variable whose value isn't known, so what it runs can't be checked. Run the commands directly." }, s);
   if (A.cmds.some((c) => c.tooDeep)) return finish({ decision: 'deny', rule: 'guard', message: "Cartwright blocked this: it's nested too deeply to check (more than six levels of sh -c, eval or command substitution). Run the inner command directly." }, s);
   let confirmed = null;

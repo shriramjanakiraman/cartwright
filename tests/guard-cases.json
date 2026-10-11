@@ -263,6 +263,24 @@
     { "name": "5.7 unknown tools are allowed", "setup": "profiled", "via": "hook", "agents": ["claude-code"], "payload": { "tool_name": "WebFetch", "tool_input": { "url": "https://example.com" }, "cwd": "{PROJECT}" }, "expect": "allow" },
     { "name": "5.7 an edit tool with no path near generated files is denied", "setup": "profiled", "payload": { "tool_name": "Edit", "tool_input": { "old_string": "a", "new_string": "b" }, "cwd": "{PROJECT}" }, "expect": "deny", "rule": "generated-files", "includes": ["couldn't tell which file"] },
     { "name": "5.3 Copilot's camelCase payload", "setup": "profiled", "agents": ["copilot-camel"], "shell": "git push origin main", "expect": "deny", "rule": "protected-branches" },
-    { "name": "5.3 Codex exec_command with an argument list", "setup": "profiled", "agents": ["codex-exec"], "shell": "git push origin main", "expect": "deny", "rule": "protected-branches" }
+    { "name": "5.3 Codex exec_command with an argument list", "setup": "profiled", "agents": ["codex-exec"], "shell": "git push origin main", "expect": "deny", "rule": "protected-branches" },
+    {"name": "Q1 echo -e with an 8-digit \\U escape piped to bash", "setup": "profiled", "shell": "echo -e 'git push origin \\U0000006dain' | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 printf %b with an 8-digit \\U escape piped to bash", "setup": "profiled", "shell": "printf '%b' 'git push origin \\U0000006dain' | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 printf format with \\u and \\U escapes piped to bash", "setup": "profiled", "shell": "printf 'git push origin \\u006d\\U00000061in' | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 echo -e with \\0NNN octal piped to bash", "setup": "profiled", "shell": "echo -e 'git push origin \\0155ain' | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 echo without -e, octal (sh and zsh decode it)", "setup": "profiled", "shell": "echo 'git push origin \\155ain' | sh", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 printf format with \\NNN octal and \\xHH", "setup": "profiled", "shell": "printf 'git push origin \\155\\x61in' | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 $'…' with \\xHH and \\0NNN as the branch", "setup": "profiled", "shell": "git push origin $'\\x6d\\141in'", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 $'…' with \\U, which bash versions read differently", "setup": "profiled", "shell": "git push origin $'\\U0000006dain'", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q1 sh -c with a $'…' that shells read differently", "setup": "profiled", "shell": "bash -c $'git push origin \\U0000006dain'", "expect": "deny", "rule": "guard"},
+    {"name": "Q1 a variable from such a $'…', echoed into bash", "setup": "profiled", "shell": "B=$'\\U0000006d'; echo \"git push origin ${B}ain\" | bash", "expect": "deny", "rule": "guard"},
+    {"name": "Q1 harmless escapes into bash are fine", "setup": "profiled", "shell": "echo -e 'echo one\\necho two' | bash", "expect": "allow"},
+    {"name": "Q2 printf reuses its format for the remaining arguments", "setup": "profiled", "shell": "printf '%s ' git push origin main | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q2 printf with several %s", "setup": "profiled", "shell": "printf '%s %s %s %s\\n' git push origin main | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q2 printf %c and precision", "setup": "profiled", "shell": "printf 'git push origin %c%c%.2s\\n' m a inx | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q2 printf with a width", "setup": "profiled", "shell": "printf 'git push origin %6s\\n' main | bash", "expect": "deny", "rule": "protected-branches"},
+    {"name": "Q2 printf with a conversion the analyser can't render, into a shell", "setup": "profiled", "shell": "printf '%5.1f' 3 | bash", "expect": "deny", "rule": "guard"},
+    {"name": "Q2 printf of a harmless command is fine", "setup": "profiled", "shell": "printf 'echo %d %s\\n' 42 done | bash", "expect": "allow"},
+    {"name": "Q2 printf -v prints nothing", "setup": "profiled", "shell": "printf -v X 'git push origin main' | bash", "expect": "allow"}
   ]
 }
