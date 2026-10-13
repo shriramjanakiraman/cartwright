@@ -93,7 +93,7 @@ out.set('plugin/hooks/hooks.json', JSON.stringify({
 out.set('plugin/plugin.json', JSON.stringify({
   name: 'cartwright', version: pkg.version, description: pkg.description, author: { name: pkg.author },
   repository: 'https://github.com/shriramjanakiraman/cartwright',
-  keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
+  keywords: ['skills', 'agents', 'project-profile', 'guardrails', 'claude-code', 'codex', 'copilot', 'salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next'],
   skills: './skills/',
   hooks: './hooks/hooks.json',
   ...(Object.keys(servers).length ? { mcpServers: './mcp.json' } : {}),
@@ -114,20 +114,20 @@ out.set('.agents/plugins/marketplace.json', JSON.stringify({
 }, null, 2) + '\n');
 out.set('plugin/.codex-plugin/plugin.json', JSON.stringify({
   name: 'cartwright', version: pkg.version, description: pkg.description, author: { name: pkg.author },
-  keywords: ['salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next', 'skills'],
+  keywords: ['skills', 'agents', 'project-profile', 'guardrails', 'claude-code', 'codex', 'copilot', 'salesforce', 'b2c-commerce', 'commerce-cloud', 'sfra', 'storefront-next'],
   skills: './skills/',
   ...(Object.keys(servers).length ? { mcpServers: './.mcp.json' } : {}),
   interface: {
     displayName: 'Cartwright',
-    shortDescription: 'Our B2C Commerce skills plus every official Salesforce skill and the B2C MCP server.',
+    shortDescription: 'A profile and guardrails for any project, our shared skills, and every official Salesforce B2C skill.',
     longDescription: pkg.description,
     developerName: pkg.author,
     category: 'Developer Tools',
     capabilities: ['Read', 'Write'],
     defaultPrompt: [
+      'Set up this project',
+      'Why was that blocked?',
       'Make what we just did into a skill',
-      'Something is broken on the sandbox, check the logs',
-      'I need a shopper token for my storefront',
     ],
   },
 }, null, 2) + '\n');

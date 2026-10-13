@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "cartwright",
-      "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+      "description": "Shared, agent-agnostic skills for delivery teams, on any stack. One install gives agents a profile of each project (its real commands and rules), guardrails that block risky actions in Claude Code, Codex and Copilot, our core skills, and every official Salesforce B2C Commerce skill with the B2C MCP server.",
       "version": "2.1.0",
       "source": "./plugin"
     }
