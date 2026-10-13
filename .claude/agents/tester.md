@@ -56,6 +56,9 @@ chose and why, in one line.
 npm run test:release -- --level <quick|minor|major> --report <scratch folder>/report.md
 ```
 
+Every level ends with a Timing step. If it shows ⚠️ "too busy to judge timing", the machine was loaded: re-run
+`npm run test:release -- --timing-only` on a quiet machine before a release, and report the numbers.
+
 Add `--keep` when you need transcripts or work folders to investigate (they're printed at the end). The
 parts can also be run alone: `npm run e2e -- --plugin ./plugin [--fast] [--pr]` and
 `npm run test:agents -- --plugin ./plugin --scenarios <names>` (or `--set minor --agent codex`).

@@ -21,6 +21,22 @@ pull request work, and every release, patch included, runs the agents. The estim
 `AGENT_MODEL`), about 26 Copilot premium requests and $2–4 of Codex usage; `major` takes about 45 minutes.
 The report records each agent CLI's version and the usage it saw.
 
+### Timing
+
+Every level ends with one **Timing** step, run alone after everything else, agents included. It measures what the
+session-start hook adds to starting node (E45, budget 100 ms) and what the guard adds (5.9: 100 ms without git,
+400 ms for a push). Each is judged on the median of paired differences and fails at twice the budget. The suites
+leave these steps out when `test-release` runs them (`--no-timing`). If starting node alone through `sh` takes
+over 250 ms (p50), before or during the step, the machine is too busy to judge: the step shows ⚠️, neither pass
+nor fail. Re-run it alone on a quiet machine before a release:
+
+```bash
+npm run test:release -- --timing-only
+```
+
+A ⚠️ part (timing too busy to judge, or agent scenarios that stayed inconclusive) doesn't fail the run; the report
+says what to re-run.
+
 It builds the plugin and tests that build; `--report <file>` saves the report, `--keep` keeps work folders
 and transcripts. Agents are retried once: a pass on retry is reported as ⚠️ flaky, a reliability problem
 worth fixing. `AGENT_MODEL` picks a cheaper model for Claude Code, and `CODEX_MODEL` one for Codex. The fixtures (a made-up client, Zephyr
@@ -47,8 +63,9 @@ shapes of Claude Code, Copilot and Codex:
 Allowed pushes and commits are then run. It also covers the trampoline without node, the cached plugin root,
 malformed payloads, and the time the guard adds, measured alone after the other steps: p50 and p95 are
 reported, and the step fails when the median of 30 paired differences is more than twice the budget (100 ms
-without git, 400 ms for a push).
-`test-release` runs it after the profile and bare-machine tests, which run at the same time. The steps of the
+without git, 400 ms for a push). `--no-timing` leaves that step out and `--timing-only` runs only it (the profile
+test takes the same options for E45); `test-release` measures both in its final Timing step.
+`test-release` runs the guard test after the profile and bare-machine tests, which run at the same time. The steps of the
 profile and guard tests run concurrently, in about half the machine's CPUs (`CARTWRIGHT_E2E_CONCURRENCY` sets
 the number). See
 [Project profile and guardrails](16-project-profile-and-guardrails.md#tests).

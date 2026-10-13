@@ -7,7 +7,7 @@
 // trampoline without node or with only the cached plugin root, a malformed payload, the decision log, and p50/p95
 // timings against the budget (design 5.9). Offline; no agents; free.
 //
-// Usage: node scripts/e2e-guard.mjs [--plugin ./plugin] [--keep] [--only "<words in a case name>"]
+// Usage: node scripts/e2e-guard.mjs [--plugin ./plugin] [--keep] [--only "<words in a case name>"] [--no-timing | --timing-only]
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -299,6 +299,6 @@ step('timing (5.9): the guard\'s overhead above starting node, through the hook'
   const line = `node alone: p50 ${p(bare, 0.5).toFixed(0)} ms, p95 ${p(bare, 0.95).toFixed(0)} ms; no git: p50 ${p(a, 0.5).toFixed(0)} ms, p95 ${p(a, 0.95).toFixed(0)} ms (adds ${addA.toFixed(0)}, budget 100); push: p50 ${p(b, 0.5).toFixed(0)} ms, p95 ${p(b, 0.95).toFixed(0)} ms (adds ${addB.toFixed(0)}, budget 400); median of 30 paired differences`;
   assert(addA <= 200 && addB <= 800, `the guard adds more than twice its budget: ${line}`);
   return line;
-}, { alone: true });
+}, { alone: true, timing: true });
 
 process.exit(await report('Cartwright guard test', { keep: KEEP }));

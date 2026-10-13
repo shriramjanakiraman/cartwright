@@ -7,6 +7,9 @@
 // the steps in its own work folder, and prints the results in the declared order. A step declared with { alone: true }
 // (a timing measurement) runs afterwards, in the main process, with nothing else running. Without concurrency, each
 // step runs at once, as declared (e2e.mjs relies on that order).
+//
+// Timing: a step declared with { timing: true } measures speed. --no-timing leaves those out (test-release measures
+// timing in one final step, alone), and --timing-only runs only them.
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { availableParallelism, homedir, tmpdir } from 'node:os';
@@ -18,6 +21,7 @@ export const json = (r) => { assert(r.status === 0, `exit ${r.status}: ${(r.stde
 export const which = (c) => { const r = spawnSync('/usr/bin/which', [c], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : null; };
 const SHARD = process.env.CARTWRIGHT_E2E_SHARD; // "<index>/<count>" in a child running a share of the steps
 const MARK = '\u0001cartwright-e2e-results ';
+const TIMING = process.argv.includes('--timing-only') ? 'only' : process.argv.includes('--no-timing') ? 'skip' : 'all';
 
 // A folder for test work that isn't inside the system's temporary folders, for suites that must tell "outside the
 // project and outside temp" apart (on Linux the default temp folder is /tmp itself).
@@ -46,7 +50,8 @@ export function harness(prefix, { concurrency = 1, base } = {}) {
     try { const detail = fn() || ''; return { name, ok: true, skipped: /^skipped\b/.test(detail), detail }; }
     catch (e) { return { name, ok: false, detail: String(e.message || e).split('\n').slice(0, 3).join(' ') }; }
   };
-  function step(name, fn, { alone = false } = {}) {
+  function step(name, fn, { alone = false, timing = false } = {}) {
+    if ((timing && TIMING === 'skip') || (!timing && TIMING === 'only')) return;
     if (deferred) declared.push({ name, fn, alone }); else results.push(run(name, fn));
   }
   const print = (title, list, keep) => {

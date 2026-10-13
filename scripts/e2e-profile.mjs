@@ -5,7 +5,7 @@
 // leaking, reproducible output, read-only study, drift and refresh, the settings content, the personal file and
 // its merge rules, the three storage modes, and broken settings. Offline; no agents; free.
 //
-// Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens]
+// Usage: node scripts/e2e-profile.mjs [--plugin ./plugin] [--keep] [--update-goldens] [--no-timing | --timing-only]
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
@@ -984,6 +984,6 @@ step('session start time (E45): what the hook adds to starting node, with no net
   const line = `session start p50 ${q(hook, 0.5).toFixed(0)} ms, p95 ${q(hook, 0.95).toFixed(0)} ms; node alone p50 ${q(bare, 0.5).toFixed(0)} ms, p95 ${q(bare, 0.95).toFixed(0)} ms; the hook adds ${adds.toFixed(0)} ms (median of 20 paired differences; budget 100)`;
   assert(adds <= 200, `the session start adds more than twice its budget: ${line}`);
   return line;
-}, { alone: true });
+}, { alone: true, timing: true });
 
 process.exit(await report('Cartwright profile test', { keep: KEEP }));
