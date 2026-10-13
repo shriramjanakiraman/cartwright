@@ -154,7 +154,7 @@ function prepare(ops, dir) {
   for (const op of ops || []) {
     const [kind, ...a] = fill(op, dir);
     if (kind === 'git') git(dir, ...a);
-    else if (kind === 'write') { mkdirSync(dirname(join(dir, a[0])), { recursive: true }); writeFileSync(join(dir, a[0]), a[1]); }
+    else if (kind === 'write') { const f = resolve(dir, a[0]); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, a[1]); }
     else if (kind === 'append') appendFileSync(join(dir, a[0]), a[1]);
     else if (kind === 'symlink') { const link = resolve(dir, a[1]); mkdirSync(dirname(link), { recursive: true }); rmSync(link, { force: true, recursive: true }); symlinkSync(a[0], link); }
     else if (kind === 'mkdir') mkdirSync(resolve(dir, a[0]), { recursive: true });

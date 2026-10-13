@@ -322,6 +322,51 @@ function printed(cmd) {
   return { texts: [...texts] };
 }
 
+// Interpreters whose script text the guard reads for writes to guardrail (and generated) files: the text given with
+// -c/-e/-p/-r/--eval, a here-document or here-string, a literal echo/printf pipe, or a script file. For a file it gives
+// the text written by a here-document earlier on the line, or else the file's path for the rules to read.
+const INTERPRETER = /^(python(\d+(\.\d+)*)?|node|nodejs|deno|bun|ruby|perl|php)$/;
+const LANG = (n) => (/^python/.test(n) ? 'python' : n === 'nodejs' ? 'node' : n);
+const CODE_OPTS = { python: ['-c'], node: ['-e', '--eval', '-p', '--print'], bun: ['-e', '--eval', '-p', '--print'], ruby: ['-e'], perl: ['-e', '-E'], php: ['-r'], deno: [] };
+const VALUE_OPTS = { python: ['-W', '-X'], node: ['-r', '--require', '--import', '--loader', '--experimental-loader', '-C', '--conditions', '--input-type', '--env-file'], ruby: ['-I', '-r', '-C'], perl: ['-I', '-M', '-m'], php: ['-d', '-c', '-z'], bun: ['--cwd', '-r', '--preload'], deno: [] };
+function interpreterScript(cmd, c, before, local, env, cwd, written) {
+  const lang = LANG(cmd.name), a = cmd.argv;
+  const texts = [];
+  let file = null, code = false, module = false, stdin = false, k = 1;
+  // deno eval <code> / deno run <file>; bun run <file> / bun <file>.
+  if (lang === 'deno' || lang === 'bun') {
+    const sub = a[1]?.text;
+    if (lang === 'deno' && sub === 'eval') { const ps = positionals(a.slice(1), ['--ext']); if (ps[0]?.text != null) texts.push(ps[0].text); return { lang, texts, file: null, fileText: null }; }
+    if (sub === 'run') k = 2; else if (lang === 'deno') return { lang, texts, file: null, fileText: null };
+  }
+  for (; k < a.length; k++) {
+    const t = a[k].text;
+    if (t === null) break;
+    if (CODE_OPTS[lang].includes(t) || ((lang === 'perl' || lang === 'ruby') && /^-[a-zA-Z]*[eE]$/.test(t))) { if (a[k + 1]?.text != null) texts.push(a[k + 1].text); code = true; k++; continue; }
+    const joined = CODE_OPTS[lang].find((o) => o.length === 2 && t.startsWith(o) && t.length > 2);
+    if (joined) { texts.push(t.slice(2)); code = true; continue; }
+    if (lang === 'python' && t === '-m') { module = true; break; }
+    if (VALUE_OPTS[lang].includes(t)) { k++; continue; }
+    if (t === '-') { stdin = true; break; }
+    if (t.startsWith('-') && t.length > 1) continue;
+    if (!code) file = t;
+    break;
+  }
+  if (!code && !file && !module) stdin = true;
+  if (stdin) {
+    const fed = c.redirects.find((r) => r.op === '<<' || r.op === '<<<');
+    if (fed) {
+      let t = fed.op === '<<' ? fed.body.body : evalWord(fed.target || [], local, env).text;
+      // An unquoted here-document's known $VAR and ${VAR} are filled in; unknown ones stay as written.
+      if (fed.op === '<<' && !fed.body.quoted && t) t = t.replace(/\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)/g, (m, x, y) => { const v = local.has(x || y) ? local.get(x || y) : env[x || y]; return typeof v === 'string' ? v : m; });
+      if (t !== null && t !== undefined) texts.push(t);
+    } else { const pr = printed(before); if (pr?.texts) texts.push(...pr.texts); }
+  }
+  let fileText = null, path = null;
+  if (file && cwd) { const abs = resolvePath(cwd, file); if (written.has(abs)) fileText = written.get(abs); else path = abs; }
+  return { lang, texts, file: path, fileText };
+}
+
 export const MAX_DEPTH = 6;
 export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [], links = new Map() }) {
   // Deeper than this (sh -c inside sh -c …) isn't read: a marker makes the guard deny it as too deep to check.
@@ -385,6 +430,14 @@ export function analyse(src, { cwd, env, vars = new Map(), depth = 0, out = [], 
     const before = c.piped ? prev : null;
     prev = cmd;
     out.push(cmd);
+    // A file written here from a here-document (cat > fix.py <<EOF … EOF), for an interpreter later on the line.
+    const written = (out.written ??= new Map());
+    const doc = c.redirects.find((r) => r.op === '<<' && r.body);
+    if (doc && cwd) {
+      const targets = [...redirects.filter((r) => ['>', '>>', '>|'].includes(r.op) && r.target?.text).map((r) => r.target.text), ...(name === 'tee' ? positionals(argv, []).map((w) => w.text).filter(Boolean) : [])];
+      for (const t of targets) written.set(resolvePath(cwd, t), doc.body.body);
+    }
+    if (INTERPRETER.test(name)) cmd.interp = interpreterScript(cmd, c, before, local, env, cwd, written);
     // cd changes the folder for the rest of the line; export sets variables.
     if (name === 'pushd') {
       const to = argv[1];

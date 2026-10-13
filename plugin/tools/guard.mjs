@@ -135,6 +135,8 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     env, tick, realish, realFull, git, root, settings, stored,
     cwd: here,
     stateDir: () => real(stateDir()) || realish(stateDir()),
+    // The plugin this guard runs from: its own tools are Cartwright's sanctioned writers, not agent scripts.
+    pluginRoot: () => real(PLUGIN) || PLUGIN,
     // This project's folder in the machine-only store.
     machineDir: memo(() => { try { const d = machineDir(root()); return real(d) || realish(d); } catch { return null; } }),
     locations: () => locations(),

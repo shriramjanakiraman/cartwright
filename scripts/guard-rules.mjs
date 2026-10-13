@@ -44,6 +44,27 @@ export const SELF_PROTECTION = {
   shellWritesToSettingsFiles: true,
   switchOff: [/"disableAllHooks"\s*:\s*true/, /"cartwright@[^"]*"\s*:\s*false/, /\[plugins\."cartwright@[^"]*"\][^[]*enabled\s*=\s*false/],
 };
+// Interpreter scripts (the architect's decision within D38 and G11): script text that names a guardrail path and contains
+// one of these write operations is a change to that path (confirm). Literal text only, for generated files.
+export const INTERPRETER_WRITES = {
+  python: [/\.write_(text|bytes)\s*\(/, /\bopen\s*\(.*?,\s*(mode\s*=\s*)?['"][rwaxbt+]*[wax+][rwaxbt+]*['"]/, /\bjson\.dump\s*\(/, /\bos\.(remove|unlink|rename|replace|chmod|rmdir)\s*\(/, /\bshutil\./, /\brmtree\s*\(/, /\.truncate\s*\(/, /\.(chmod|unlink|rename|rmdir|touch)\s*\(/],
+  node: [/\b(writeFile|appendFile|rm|rmdir|unlink|rename|copyFile|cp|truncate|chmod|createWriteStream|writeTextFile|remove)(Sync)?\s*\(/, /\bBun\.write\s*\(/],
+  ruby: [/\bFile\.(write|delete|unlink|rename|chmod|truncate)\b/, /\bFile\.open\s*\(?[^)\n]*['"][rwab+]*[wa+]/, /\bFileUtils\./, /\bIO\.write\b/],
+  perl: [/\bopen\s*\(?[^;]*?['"]\s*\+?>{1,2}/, /\bopen\s*\(?[^;]*?,\s*['"]\+?[>]/, /\bunlink\b/, /\brename\b/, /\bchmod\b/],
+  php: [/\bfile_put_contents\s*\(/, /\bfopen\s*\([^)]*['"][rwaxc+b]*[waxc+]/, /\bunlink\s*\(/, /\brename\s*\(/, /\bcopy\s*\(/, /\bchmod\s*\(/],
+};
+INTERPRETER_WRITES.deno = INTERPRETER_WRITES.node;
+INTERPRETER_WRITES.bun = INTERPRETER_WRITES.node;
+// The agent settings files named in script text (G11 item 2).
+const AGENT_SETTINGS_NAMES = ['.claude/settings.json', '.claude/settings.local.json', '.github/copilot/settings.json', '.codex/config.toml'];
+// A script file is read only when it's at most this big, inside the project or the temporary folder.
+const MAX_SCRIPT_BYTES = 64 * 1024;
+// The .cartwright folder named in script text: its settings or profile, the machine store's default home, or the folder
+// itself (followed by a quote, bracket, space or the end, as in Path('.cartwright') or a rename). Not other files that
+// live under a .cartwright folder, such as the plugin-root cache.
+const CARTWRIGHT_NAMED = /\.cartwright(\/(settings|profile)\.json|\/projects\b|(?=['"`)\]\s,;]|$))/m;
+const writesIn = (lang, text) => (INTERPRETER_WRITES[lang] || []).some((re) => re.test(text));
+
 // File names whose commit is blocked whatever they contain (design 5.4), plus other private-key files and dw.json
 // (B2C Commerce's instance credentials).
 const COMMIT_SECRET_FILES = [/^dw\.json$/, /^\.env$/, /^\.env\.(?!(example|sample|template)$)/, /\.pem$/, /\.key$/, /^id_(rsa|dsa|ecdsa|ed25519)/, /\.p12$/, /\.pfx$/, /\.jks$/, /\.keystore$/];
@@ -597,6 +618,17 @@ function guardrailRemoved(t, ctx) {
   return null;
 }
 const confirm = (what, how) => ({ decision: 'confirm', rule: 'guardrail-files', what, how });
+// Which guardrail path a script's text names, by literal substring, or null: the .cartwright folder and its files
+// (the machine store's default home included), AGENTS.md in AGENTS.md mode, the machine store, the agent settings files.
+function guardrailNamed(text, ctx, sec) {
+  if (CARTWRIGHT_NAMED.test(text)) return 'the .cartwright/ guardrail files';
+  if (sec) for (const p of [sec.path, sec.real]) if (p && text.includes(basename(p))) return `the Cartwright section of ${basename(p)}`;
+  const store = join(ctx.stateDir(), 'projects');
+  if (text.includes(store)) return `${store} (Cartwright's machine-only settings)`;
+  const agent = AGENT_SETTINGS_NAMES.find((n) => text.includes(n));
+  if (agent) return `${agent} (an agent's settings, which can switch Cartwright's hooks or plugin off)`;
+  return null;
+}
 
 // G5: guardrail paths changed through git or permissions. The guardrail paths: the .cartwright/ folder (when it
 // exists) and, in AGENTS.md mode, AGENTS.md. Returns what a command would change, or null.
@@ -705,9 +737,9 @@ const isGit = (c, sub) => c.name === 'git' && c.git?.sub === sub;
 const FAMILY = {
   secrets: (A) => A.cmds.some((c) => isGit(c, 'commit')),
   'protected-branches': (A) => A.cmds.some((c) => isGit(c, 'push') || (c.name === 'git' && c.git?.unresolved) || isGit(c, 'subtree') || (c.name === 'gh' && c.argv[1]?.text === 'api')),
-  'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
+  'generated-files': (A) => A.edits.length > 0 || A.cmds.some((c) => (c.interp && c.interp.texts.length > 0) || c.redirects.length || /^(tee|sed|perl|awk|cp|mv|install|ln|rsync|truncate|dd|patch|apply_patch|ex|ed)$/.test(c.name) || isGit(c, 'apply')),
   'destructive-outside-project': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || /^(rm|rmdir|unlink|shred|trash|rmtrash|trash-put|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl)$/.test(c.name) || isGit(c, 'clean') || isGit(c, 'reset')),
-  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => c.redirects.length || c.name === 'gh' || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
+  'guardrail-files': (A) => A.edits.length > 0 || A.cmds.some((c) => (c.interp && [...c.interp.texts, c.interp.fileText || ''].some((t) => CARTWRIGHT_NAMED.test(t) || /AGENTS\.md|\.claude\/settings|copilot\/settings|\.codex\/config/.test(t))) || c.redirects.length || c.name === 'gh' || /^(rm|rmdir|unlink|shred|find|rsync|mv|cp|install|ln|dd|truncate|tee|sed|perl|awk|patch|apply_patch|ex|ed|claude|codex|copilot|chmod|chown|chgrp|chflags|setfacl|xattr)$/.test(c.name) || /profile\.mjs/.test(c.text) || ['clean', 'apply', 'rm', 'mv', 'restore', 'checkout', 'stash', 'reset'].some((x) => isGit(c, x))),
   // A project rule fails safe for any command when it has a shell pattern; with only paths, for writes.
   'project-rules': (A, s) => (s.rules.some((r) => r.shell) ? A.cmds.length > 0 || A.edits.length > 0 : FAMILY['generated-files'](A)),
 };
@@ -771,6 +803,18 @@ const CHECKS = {
     // Running a recorded regenerate command, exactly as recorded, isn't hand-editing (D33), even when it visibly
     // writes the generated output.
     if (A.edits.length === 0 && s.generated.some((g) => g.regenerate && g.regenerate.trim() === A.line.trim())) return null;
+    // Interpreter code given as literal text (not a script file: real generators run from files, through the regenerate
+    // command): a quoted path that's generated, in text that writes.
+    for (const c of A.cmds) {
+      if (!c.interp || !c.cwd) continue;
+      for (const text of c.interp.texts) {
+        if (!writesIn(c.interp.lang, text)) continue;
+        for (const m of text.matchAll(/(['"`])((?:\\.|(?!\1)[^\n])+)\1/g)) {
+          const p = ctx.realish(resolve(c.cwd, m[2])), g = match(p);
+          if (g) return say(relative(root, p), g);
+        }
+      }
+    }
     for (const c of A.cmds) {
       for (const t of writeTargets(c, ctx)) {
         if (t.kind === 'move-src' || t.kind === 'delete') continue;
@@ -817,9 +861,27 @@ const CHECKS = {
     }
     return null;
   },
-  'guardrail-files'(A, ctx) {
+  'guardrail-files'(A, ctx, s) {
     const root = ctx.root();
     const sec = agentsSection(ctx);
+    // Interpreter scripts that name a guardrail path and write: literal text, a script written earlier on the line, or a
+    // readable script file of at most 64 KB inside the project or the temporary folder.
+    for (const c of A.cmds) {
+      if (!c.interp) continue;
+      const texts = [...c.interp.texts, ...(c.interp.fileText !== null && c.interp.fileText !== undefined ? [c.interp.fileText] : [])];
+      if (c.interp.file) {
+        const f = ctx.realish(c.interp.file), L = ctx.locations(s);
+        // An agent's script: in the temporary folder, or in the project and not committed as it is (untracked or changed;
+        // a committed, unchanged file has been through review). Never Cartwright's own tools.
+        const own = inside(f, ctx.pluginRoot());
+        const agentMade = () => { if (L.temp.some((d) => inside(f, d))) return true; const st = ctx.git(root, 'status', '--porcelain', '--untracked-files=all', '--', f); return st === null || st.trim() !== ''; };
+        if (!own && (inside(f, root) || L.temp.some((d) => inside(f, d))) && ctx.exists(f) && agentMade()) { const t = ctx.readText(f, MAX_SCRIPT_BYTES); if (t !== null) texts.push(t); }
+      }
+      for (const text of texts) {
+        const named = guardrailNamed(text, ctx, sec);
+        if (named && writesIn(c.interp.lang, text)) return confirm(`${named} (a ${c.name} script that writes it)`, 'shell');
+      }
+    }
     for (const e of A.edits) {
       const g = guardrailPath(e.path, ctx);
       if (g) return confirm(g, 'edit');

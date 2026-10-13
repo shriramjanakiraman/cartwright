@@ -372,7 +372,10 @@ a generated path, are blocked. The shell writes include:
 - the destination of `cp`, `mv`, `install`, `ln` and `rsync` (also `--target-directory=`);
 - `truncate`, `dd of=`, `curl -o`, `sort -o`, and `tar -x -C <folder>`;
 - `prettier --write` and `eslint --fix` on generated paths;
-- `git apply` and `patch`.
+- `git apply` and `patch`;
+- interpreter code given as literal text (`python -c`, `node -e`, a here-document, a literal `echo … | python3`) that
+  names a generated file and writes it. Script files aren't read for this: real generators run from files, through the
+  regenerate command.
 
 Commands inside `sh -c`, `eval` and `$(…)` count too. Reading, `git checkout -- <file>`, `git restore` and
 deleting aren't blocked, and neither is running the recorded regenerate command exactly as the settings give it,
@@ -409,6 +412,12 @@ Changing the guardrail settings needs the person's approval at that moment. That
   links to when it's a symlink);
 - the machine-mode files and the project's machine-mode folder;
 - running `profile.mjs write` or `refresh`;
+- interpreter scripts (python, node, deno, bun, ruby, perl, php) whose text names one of these paths (or an agent
+  settings file) and contains a write: `.write_text(`, `open(…, 'w')`, `writeFileSync(`, `File.write`,
+  `file_put_contents(`, deleting or renaming, and so on. The text can be given with `-c`/`-e`/`-p`/`-r`/`--eval`, in a
+  here-document or here-string, through a literal `echo … |`, or as a script file the agent wrote: one written earlier
+  on the same line, or an untracked or changed file of at most 64 KB in the project or the temporary folder. A file
+  committed as it is, and Cartwright's own tools, aren't read. Reading these files without writing stays allowed;
 - `git rm`, `git mv` (from or onto these paths), `git checkout -- <path>` and `git restore <path>` on these paths (putting back an older
   settings file can loosen the rules);
 - `git stash`, `git clean -f`, `git reset --hard`, `git checkout -f` and `git checkout -- .`, **only when** they would
@@ -453,7 +462,10 @@ settings they use.
 These are guardrails, not a complete boundary, as the agent vendors themselves say of hooks.
 
 - **Command matching.** Phase 3's auditor closes the loop on what it can't see:
-  - writes made inside a script or an interpreter (`node -e`, `python -c`, `npm run x` that pushes);
+  - writes made inside a script or an interpreter (`node -e`, `python -c`, `npm run x` that pushes), except the
+    guardrail and generated-file writes the guard reads in interpreter scripts (see `guardrail-files`). It can't see
+    path names put together at run time, `python -m`, scripts it can't read or over 64 KB, committed scripts, or
+    compiled programs;
   - scripts assembled at run time (`sh -c "$CMD"`, `eval "$X"`, `eval "$(printf …)"`);
   - a shell reading its script from a file or from a pipe that isn't literal `echo`/`printf` text;
   - `xargs rm` and `xargs sed -i` with paths from stdin;
