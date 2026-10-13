@@ -6,7 +6,7 @@ version: 0.1.0
 status: active
 applies-to: [any]
 depends-on: [client-setup, tool:node, tool:git]
-agents-tested: [none-yet]
+agents-tested: [claude-code, codex]
 last-reviewed: 2026-10-10
 ---
 
