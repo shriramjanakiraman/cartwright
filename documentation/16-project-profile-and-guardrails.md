@@ -415,9 +415,14 @@ Changing the guardrail settings needs the person's approval at that moment. That
 - interpreter scripts (python, node, deno, bun, ruby, perl, php) whose text names one of these paths (or an agent
   settings file) and contains a write: `.write_text(`, `open(…, 'w')`, `writeFileSync(`, `File.write`,
   `file_put_contents(`, deleting or renaming, and so on. The text can be given with `-c`/`-e`/`-p`/`-r`/`--eval`, in a
-  here-document or here-string, through a literal `echo … |`, or as a script file the agent wrote: one written earlier
-  on the same line, or an untracked or changed file of at most 64 KB in the project or the temporary folder. A file
-  committed as it is, and Cartwright's own tools, aren't read. Reading these files without writing stays allowed;
+  here-document or here-string, through a literal `echo … |`, or as a script file of at most 64 KB in the project or
+  the temporary folder (never Cartwright's own tools). A script file that names these paths and writes is allowed only
+  when it's on a protected branch's remote and identical there (`origin/main`, `origin/develop` or the settings'
+  protected branches), because a reviewed, merged script is the team's. A script committed only locally still needs
+  the person. A script that doesn't name them runs with no extra check, and so does reading these files without
+  writing. In this repo, run the tests through their npm scripts (`npm run test:release`, `npm run e2e:*`). The guard
+  doesn't see npm's child processes, while a direct `node scripts/e2e-*.mjs` on a branch that changes those scripts
+  needs the person;
 - `git rm`, `git mv` (from or onto these paths), `git checkout -- <path>` and `git restore <path>` on these paths (putting back an older
   settings file can loosen the rules);
 - `git stash`, `git clean -f`, `git reset --hard`, `git checkout -f` and `git checkout -- .`, **only when** they would
@@ -475,6 +480,9 @@ These are guardrails, not a complete boundary, as the agent vendors themselves s
     reset to a commit).
 - **Windows.** The hooks run through `sh`, so there are no hard blocks on Windows. The guard does nothing there
   and says so.
+- **VS Code** is checked by hand at the end of phase 1. That check confirms whether its session start reaches the
+  chat, and which variables it sets for plugin hooks. The session-start hook recognises Codex by `PLUGIN_ROOT` without
+  a Copilot variable, so if VS Code sets only `PLUGIN_ROOT`, it gets Codex's JSON shape.
 - **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
   Approving once covers updates, because the hook entries never change.
 - **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The budgets for what the guard adds on

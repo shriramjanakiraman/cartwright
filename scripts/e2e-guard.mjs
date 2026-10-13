@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto';
 import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { assert, halfTheCpus, harness, sh, workBase } from './e2e-lib.mjs';
+import { assert, halfTheCpus, harness, sh, which, workBase } from './e2e-lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -225,6 +225,25 @@ step('a malformed payload or an empty one is allowed, never an error exit', () =
   assert(exits.slice(0, 3).every((x) => x === 0), `exits: ${exits.join(', ')}`);
   assert(exits[3] === 2, `a string tool_input should still be read as a command (exit ${exits[3]})`);
   return `exits ${exits.join(', ')}`;
+});
+
+step('an interpreter script that doesn\'t name a guardrail path is allowed with no git call', () => {
+  // A git on the PATH that records every call, so the check can prove the guard ran none for this script.
+  const { dir } = fresh('profiled');
+  writeFileSync(join(dir, 'server.js'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('out.txt', 'x');\n");
+  const spy = join(dir, '..', 'git-spy'), calls = join(dir, '..', 'git-calls.log');
+  mkdirSync(spy, { recursive: true });
+  writeFileSync(join(spy, 'git'), `#!/bin/sh\necho "$*" >> "${calls}"\nexec "${which('git')}" "$@"\n`, { mode: 0o755 });
+  const e = env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: `${spy}:${BARE}` });
+  const r = respond({ tool_name: 'Bash', tool_input: { command: 'node server.js' }, cwd: dir }, e);
+  assert(r.exit === 0, `node server.js: exit ${r.exit} ${r.stderr || ''}`);
+  const seen = existsSync(calls) ? readFileSync(calls, 'utf8').trim() : '';
+  assert(seen === '', `the guard ran git: ${seen.slice(0, 200)}`);
+  // And the spy does see git when the script names and writes the settings (the merged-version check).
+  writeFileSync(join(dir, 'fix.py'), "from pathlib import Path\nPath('.cartwright/settings.json').write_text('{}')\n");
+  respond({ tool_name: 'Bash', tool_input: { command: 'python3 fix.py' }, cwd: dir }, e);
+  assert(existsSync(calls) && /cat-file -e origin\//.test(readFileSync(calls, 'utf8')), 'the spy never saw the merged-version check');
+  return 'node server.js allowed with no git call; a script that writes the settings is checked against origin';
 });
 
 step('a handled tool whose input has no command or path logs its field names, never their values', () => {

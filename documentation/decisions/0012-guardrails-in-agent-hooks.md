@@ -74,7 +74,8 @@ The team lead's decisions shape the rules:
     delete of `.claude/settings*.json`, `.github/copilot/settings.json` or `.codex/config.toml`.
   - interpreter scripts (python, node, deno, bun, ruby, perl, php) whose readable text names one of these paths and
     contains a write operation: literal `-c`/`-e` text, here-documents, literal pipes, or a script the agent wrote
-    (earlier on the line, or an untracked or changed file of at most 64 KB in the project or temp). Literal interpreter
+    (earlier on the line, or a file of at most 64 KB in the project or temp, trusted only when it's identical to its
+    version on a protected branch's remote). Literal interpreter
     text that writes a generated file is denied under `generated-files`.
 
   The guard only sees the agent's own tool calls, so a developer turning Cartwright off themselves (in their

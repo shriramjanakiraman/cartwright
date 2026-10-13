@@ -60,9 +60,10 @@ const AGENT_SETTINGS_NAMES = ['.claude/settings.json', '.claude/settings.local.j
 // A script file is read only when it's at most this big, inside the project or the temporary folder.
 const MAX_SCRIPT_BYTES = 64 * 1024;
 // The .cartwright folder named in script text: its settings or profile, the machine store's default home, or the folder
-// itself (followed by a quote, bracket, space or the end, as in Path('.cartwright') or a rename). Not other files that
+// itself, with or without a trailing slash (followed by a quote, bracket, space or the end, as in Path('.cartwright') or
+// '.cartwright/' + name). Not other files that
 // live under a .cartwright folder, such as the plugin-root cache.
-const CARTWRIGHT_NAMED = /\.cartwright(\/(settings|profile)\.json|\/projects\b|(?=['"`)\]\s,;]|$))/m;
+const CARTWRIGHT_NAMED = /\.cartwright(\/(settings|profile)\.json|\/projects\b|\/?(?=['"`)\]\s,;]|$))/m;
 const writesIn = (lang, text) => (INTERPRETER_WRITES[lang] || []).some((re) => re.test(text));
 
 // File names whose commit is blocked whatever they contain (design 5.4), plus other private-key files and dw.json
@@ -869,13 +870,23 @@ const CHECKS = {
     for (const c of A.cmds) {
       if (!c.interp) continue;
       const texts = [...c.interp.texts, ...(c.interp.fileText !== null && c.interp.fileText !== undefined ? [c.interp.fileText] : [])];
+      // A script file is read when it's at most 64 KB, inside the project or the temporary folder, and not one of
+      // Cartwright's own tools. It's trusted only if it names a guardrail path and writes, and is identical to its version
+      // on a protected branch's remote (reviewed and merged), so a fresh local commit doesn't count.
+      let fileText = null, filePath = null;
       if (c.interp.file) {
         const f = ctx.realish(c.interp.file), L = ctx.locations(s);
-        // An agent's script: in the temporary folder, or in the project and not committed as it is (untracked or changed;
-        // a committed, unchanged file has been through review). Never Cartwright's own tools.
-        const own = inside(f, ctx.pluginRoot());
-        const agentMade = () => { if (L.temp.some((d) => inside(f, d))) return true; const st = ctx.git(root, 'status', '--porcelain', '--untracked-files=all', '--', f); return st === null || st.trim() !== ''; };
-        if (!own && (inside(f, root) || L.temp.some((d) => inside(f, d))) && ctx.exists(f) && agentMade()) { const t = ctx.readText(f, MAX_SCRIPT_BYTES); if (t !== null) texts.push(t); }
+        if (!inside(f, ctx.pluginRoot()) && (inside(f, root) || L.temp.some((d) => inside(f, d))) && ctx.exists(f)) { fileText = ctx.readText(f, MAX_SCRIPT_BYTES); filePath = f; }
+      }
+      if (fileText !== null) {
+        const named = guardrailNamed(fileText, ctx, sec);
+        if (named && writesIn(c.interp.lang, fileText)) {
+          const branches = (s.protectedBranches?.length ? s.protectedBranches : ['main', 'develop']).filter((b) => !/[*?[]/.test(b));
+          // On the remote branch, and the same there as here (git diff alone ignores files that aren't tracked).
+          const rel = relative(root, filePath).split(sep).join('/');
+          const merged = inside(filePath, root) && branches.some((b) => ctx.git(root, 'cat-file', '-e', `origin/${b}:${rel}`) !== null && ctx.git(root, 'diff', '--quiet', `origin/${b}`, '--', filePath) !== null);
+          if (!merged) return confirm(`${named} (a ${c.name} script that writes it)`, 'shell');
+        }
       }
       for (const text of texts) {
         const named = guardrailNamed(text, ctx, sec);
