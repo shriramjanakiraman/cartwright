@@ -101,7 +101,9 @@ const WHO = { GIT_AUTHOR_NAME: 'fixture', GIT_AUTHOR_EMAIL: 'fixture@example.com
 const gitAuth = process.env.GH_TOKEN ? { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '',
   GIT_CONFIG_KEY_1: 'credential.helper', GIT_CONFIG_VALUE_1: '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' } : {};
 const TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'COPILOT_GITHUB_TOKEN'];
-const BASE = { ...process.env, ...WHO, PATH: `${BIN}:/usr/bin:/bin`, SHELL: '/bin/sh', CARTWRIGHT_STATE_DIR: STATE, NO_COLOR: '1',
+// Inherited git credential settings (a GIT_CONFIG_* credential helper, GIT_ASKPASS) never reach the agents either.
+const INHERITED = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)$|^GIT_ASKPASS$|^SSH_ASKPASS$/.test(k)));
+const BASE = { ...INHERITED, ...WHO, PATH: `${BIN}:/usr/bin:/bin`, SHELL: '/bin/sh', CARTWRIGHT_STATE_DIR: STATE, NO_COLOR: '1',
   GIT_CONFIG_GLOBAL: GITCONFIG, GIT_CONFIG_NOSYSTEM: '1', CARTWRIGHT_STANDIN_LOG: STANDIN_LOG };
 const ENV = { ...BASE, ...gitAuth };
 const AGENT_ENV = Object.fromEntries(Object.entries(BASE).filter(([k]) => !TOKENS.includes(k)));
