@@ -57,14 +57,24 @@ The team lead's decisions shape the rules:
   | Rule | Scope |
   |---|---|
   | `secrets` (at commit; patterns shared with `scrub-scan` in `secret-rules.mjs`) | universal |
-  | `destructive-outside-project` (project, temp and Cartwright's cache resolved per call) | universal |
+  | `destructive-outside-project` (deleting, or overwriting an existing path, outside the project, the temporary folders, Cartwright's cache and the agents' plugin-data folders, all resolved per call; creating new files and appending outside the project are allowed, G10) | universal |
   | `protected-branches` (every push form, including a bare push through `@{push}`) | when settings exist |
   | `generated-files` (edit tools **and** shell writes: redirections including `>>`, `tee`, `cp`/`mv` destinations, `sed -i` and other in-place edits, `git apply`; each message gives the entry's regenerate command) | when settings exist |
   | the project's own rules | when settings are valid |
   | `guardrail-files`, a built-in rule that can't be switched off | always |
 
-  `guardrail-files` makes every change to the settings, the profile or the `AGENTS.md` section, deleting
-  `.cartwright/`, and disabling the plugin or its hooks need the person's approval.
+  `guardrail-files` makes these need the person's approval (G11):
+  - every change to the settings, the profile or the `AGENTS.md` section, and the machine-mode files; deleting or
+    moving `.cartwright/`; `profile.mjs write` and `refresh`;
+  - git's file-level changes to them (`git rm`, `git mv`, `git checkout --`, `git restore`); `chmod`, `chown`,
+    `chgrp`, `chflags`, `setfacl` and `xattr` on them; and sweeping commands (`git stash`, `git clean -f`,
+    `git reset --hard`, `git checkout -f`) only when they'd destroy uncommitted guardrail content;
+  - disabling, uninstalling or removing the plugin, and `plugin marketplace remove`;
+  - switching its hooks off in an agent's settings file (judged by what an edit writes), and any shell write, move or
+    delete of `.claude/settings*.json`, `.github/copilot/settings.json` or `.codex/config.toml`.
+
+  The guard only sees the agent's own tool calls, so a developer turning Cartwright off themselves (in their
+  terminal, the agent's menu, or by editing the file by hand) is never blocked.
 - **Broken settings.** All four rules stay on, using `main`, `develop` and the profile's detected candidates. The
   project's own rules and allowlists pause. The session-start hook says so, and so does every block.
 - **No exits other than 0 and 2.** Internal errors deny only actions that matched a rule family. An internal deadline
@@ -89,7 +99,8 @@ The team lead's decisions shape the rules:
 - **Coverage:** command matching can't see actions hidden in scripts. The docs say so, and phase 3's auditor closes
   the loop.
 - **Codex (verified on 0.162.1):** grounding and blocks work only after the user trusts the hooks in `/hooks`; until
-  then they silently don't run. This release asks once, for the new PreToolUse hook only.
+  then they silently don't run. Codex asks once, for both hooks together: the new PreToolUse hook and the updated
+  SessionStart entry, finalised at the end of phase 1.
 - **VS Code:** to check by hand once the manifest fix is in. Any gap goes to the team lead.
 - **"Ask" support** in each agent is still to check interactively. Until it's verified for an agent, "confirm" there
   is a deny with "the person runs it".

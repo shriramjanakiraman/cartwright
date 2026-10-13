@@ -412,6 +412,9 @@ Changing the guardrail settings needs the person's approval at that moment. That
   `"cartwright@…": false`); any shell write, move or delete of `.claude/settings*.json`,
   `.github/copilot/settings.json` or `.codex/config.toml` needs the person.
 
+The guard only sees the agent's own tool calls, so a developer turning Cartwright off themselves (in their terminal,
+the agent's menu, or by editing the file by hand) is never blocked.
+
 Switching or checking out branches, pulling, merging, rebasing and `git reset <commit>` without `--hard` stay
 allowed. The personal file is in the folder, so it's covered by deleting or moving the folder, but editing it is
 the developer's own business: it can only tighten.

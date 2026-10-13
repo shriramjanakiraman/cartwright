@@ -48,7 +48,12 @@ Codex runs through npx (`@openai/codex`) at a pinned version in an isolated `COD
 - **Per release run:** about 25–30 minutes and about $4–6 of Claude Code usage (about $1.5–2 with a cheaper
   `AGENT_MODEL`), about 26 Copilot premium requests, and $2–4 of Codex usage. Codex and Copilot figures are
   unverified.
-- **A Codex CLI install and a paid account** are needed (a cost decision).
+- **No Codex install:** Codex runs through npx on the team lead's account (G6).
+- **The app server's `hooks/list`** that captures the trust hashes is an internal Codex protocol, pinned with
+  `CODEX_VERSION`; a version bump means recapturing the hashes.
+- **Timing** is one final step at every level, run alone after the agents, with a load guard: if starting node
+  through `sh` takes over 250 ms (p50), it reports "too busy to judge" instead of passing or failing.
+  `--timing-only` re-runs it on a quiet machine before a release.
 - **VS Code** remains a manual check. That is a known shortfall against "each of the three agents".
 - **To update:** the tester agent's level table, `test-release.mjs` and the end-to-end guide change.
 
