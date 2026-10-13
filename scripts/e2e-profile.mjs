@@ -993,6 +993,21 @@ step('Copilot gets the same session start as JSON additionalContext', () => {
   return 'offer and grounding in additionalContext';
 });
 
+step('each agent gets the session start in the shape it reads: Claude Code text, Copilot and Codex JSON', () => {
+  // Codex 0.162.1 drops plain text ("invalid session start JSON output"): it reads hookSpecificOutput.additionalContext.
+  // Each agent is recognised by its variables (Codex: PLUGIN_ROOT and CLAUDE_PLUGIN_ROOT, no Copilot variable).
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const run = (vars) => { const r = sh('/bin/sh', ['-c', SESSION], { cwd: dir, input: JSON.stringify({ cwd: dir, hook_event_name: 'SessionStart', source: 'startup' }), env: env(vars) }); assert(r.status === 0, r.stderr); return r.stdout; };
+  const claude = run({ CLAUDE_PLUGIN_ROOT: PLUGIN });
+  assert(claude.startsWith('[cartwright]') && claude.includes('Test: pnpm test'), `Claude Code: ${claude.slice(0, 120)}`);
+  const copilot = JSON.parse(run({ COPILOT_PLUGIN_ROOT: PLUGIN, PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN }));
+  assert(Object.keys(copilot).join() === 'additionalContext' && copilot.additionalContext.includes('Test: pnpm test'), `Copilot: ${JSON.stringify(copilot).slice(0, 120)}`);
+  const codex = JSON.parse(run({ PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN }));
+  assert(codex.hookSpecificOutput?.hookEventName === 'SessionStart' && codex.hookSpecificOutput.additionalContext.includes('Test: pnpm test') && Object.keys(codex).join() === 'hookSpecificOutput', `Codex: ${JSON.stringify(codex).slice(0, 120)}`);
+  return 'Claude Code: plain text; Copilot: {additionalContext}; Codex: {hookSpecificOutput: {hookEventName: SessionStart, additionalContext}}';
+});
+
 step('status.profile (C27): where the profile is, the host, PR template, client and default branch', () => {
   const { dir } = project('ts');
   assert(setupCmd(dir, 'status').profile === null, 'an unprofiled project has a profile in status');

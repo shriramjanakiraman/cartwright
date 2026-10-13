@@ -26,15 +26,21 @@ import { resolveSettings } from './settings.mjs';
 import { load, stateDir } from './store.mjs';
 
 // Session-start notes, in the order the agent sees them: the setup offer first (agents act on what comes first),
-// then warnings about the guardrails, the project's profile and whether it's out of date, and the tools note. Claude
-// Code and Codex take plain text on stdout as context; GitHub Copilot only takes JSON {"additionalContext": "..."}.
+// then warnings about the guardrails, the project's profile and whether it's out of date, and the tools note. Each
+// agent reads it in its own shape: Claude Code takes plain text on stdout; GitHub Copilot only JSON
+// {"additionalContext": "..."}; Codex only JSON {"hookSpecificOutput": {"hookEventName": "SessionStart",
+// "additionalContext": "..."}} (0.162.1 rejects plain text as "invalid session start JSON output" and drops it).
 const notes = { setup: '', guard: '', grounding: '', drift: '', tools: '' };
 const IN_COPILOT = !!(process.env.COPILOT_PLUGIN_ROOT || process.env.COPILOT_CLI);
+// Codex sets PLUGIN_ROOT (and CLAUDE_PLUGIN_ROOT), but no Copilot variable; Claude Code sets only CLAUDE_PLUGIN_ROOT. The
+// guard tells the agents apart the same way.
+const IN_CODEX = !IN_COPILOT && !!process.env.PLUGIN_ROOT;
 // The project the session-start hook chose, for the trace.
 let traceRoot = null;
 function flushNotes() {
   const ctx = [notes.setup, notes.guard, notes.grounding, notes.drift, notes.tools].filter(Boolean).join('\n\n');
-  if (ctx) process.stdout.write(IN_COPILOT ? JSON.stringify({ additionalContext: ctx }) : `${ctx}\n`);
+  if (ctx) process.stdout.write(IN_COPILOT ? JSON.stringify({ additionalContext: ctx })
+    : IN_CODEX ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: ctx } }) : `${ctx}\n`);
   // CARTWRIGHT_HOOK_TRACE (tests only): also record the project chosen and exactly what the agent was given.
   if (process.env.CARTWRIGHT_HOOK_TRACE) { try { writeFileSync(process.env.CARTWRIGHT_HOOK_TRACE, `${JSON.stringify({ event: 'session-context', root: traceRoot, context: ctx })}\n`, { flag: 'a' }); } catch { /* tracing is optional */ } }
 }

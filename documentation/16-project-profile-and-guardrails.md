@@ -238,6 +238,9 @@ or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't kno
 Full profile: node "<plugin>/tools/profile.mjs" show --json
 ```
 
+- **In each agent's shape.** Claude Code reads the context as plain text, Copilot as JSON `{"additionalContext": …}`,
+  and Codex as JSON `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": …}}`. Codex drops
+  plain text without telling the agent. Codex runs the session-start hook when the first turn starts.
 - **Which project.** The hook takes the session's folder from the agent's hook input (`cwd`; every agent sends it),
   then `CLAUDE_PROJECT_DIR` or `COPILOT_PROJECT_DIR`, then the folder it runs in, but never the plugin's own folder.
   An agent may start plugin hooks there, which would otherwise ground the session in the wrong project. The guard
