@@ -1,0 +1,14 @@
+# A made-up API description for Cartwright's tests. `pnpm generate:api` turns it into src/generated/api.ts.
+openapi: 3.0.3
+info:
+  title: Sample orders API (test fixture)
+  version: 0.1.0
+paths: {}
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
