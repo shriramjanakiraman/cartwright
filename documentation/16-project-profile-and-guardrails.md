@@ -226,7 +226,8 @@ Wherever a profile exists, in any of the three storage choices, each session sta
 uses instead of guessing:
 
 ```
-[cartwright] Project profile (.cartwright/profile.json). Use these facts instead of guessing. If AGENTS.md, CLAUDE.md
+[cartwright] Project profile (.cartwright/profile.json). These facts were checked against the project at the start
+of this session; use them instead of guessing or re-reading the files they came from. If AGENTS.md, CLAUDE.md
 or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.
 - Platform: Salesforce B2C Commerce, SFRA (package.json#paths.base). Prefer b2c-controllers, b2c-forms, b2c-isml; don't use sfnext-* skills
 - Languages: JavaScript (package.json), ISML (…) · Node 18.19.0 (.nvmrc) · Python not found · package manager npm (package-lock.json)

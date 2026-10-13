@@ -892,7 +892,7 @@ export function decide(action, ctx) {
     if (!active(rule, s)) continue;
     let r;
     try { r = CHECKS[rule](A, ctx, s); } catch (e) {
-      if (FAMILY[rule](A, s)) r = { decision: 'deny', rule, message: e.deadline ? `Cartwright blocked this (${rule}): it's too large to check in time; ${rule === 'secrets' ? 'commit in smaller parts' : 'split it into smaller steps'}.` : couldNot(e, rule) };
+      if (FAMILY[rule](A, s)) r = { decision: 'deny', rule, message: e.deadline ? "Cartwright couldn't finish checking this in time (a busy machine or a large commit): try again, or commit in smaller parts." : couldNot(e, rule) };
       else continue;
     }
     if (!r) continue;

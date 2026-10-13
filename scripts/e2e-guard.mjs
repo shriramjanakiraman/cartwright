@@ -259,8 +259,8 @@ step('failing safe (5.7): a rule that fails denies only actions in its family; a
   assert(push.decision === 'deny' && /couldn't check this safely \(protected-branches\) \(boom\)/.test(push.message), `a push while its rule fails: ${push.message || push.decision}`);
   prepare([['write', 'big.txt', 'x\n'], ['git', 'add', 'big.txt']], dir);
   const late = run('git commit -m big', {}, { deadline: Date.now() - 1 });
-  assert(late.decision === 'deny' && /too large to check in time; commit in smaller parts/.test(late.message), `an expired deadline: ${late.message || late.decision}`);
-  return 'unrelated action allowed; write and push denied with the error; deadline → "too large to check in time"';
+  assert(late.decision === 'deny' && /couldn't finish checking this in time \(a busy machine or a large commit\): try again, or commit in smaller parts/.test(late.message), `an expired deadline: ${late.message || late.decision}`);
+  return 'unrelated action allowed; write and push denied with the error; deadline → "couldn't finish checking this in time"';
 });
 
 step('timing (5.9): the guard\'s overhead above starting node, through the hook', () => {

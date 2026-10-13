@@ -2,7 +2,7 @@
 name: tools-without-install
 description: "Run the B2C CLI (b2c), spec-kit (specify) and graphify without installing them, at the versions the team has tested. Use when a skill or the developer says to run b2c, specify or graphify and the command isn't installed (\"command not found\"), when working on a machine that has none of these tools, when the session-start notice lists tools as not installed, or before suggesting a global install of any of them. Also checks the prerequisites (Node, uv) and explains what each tool would run as."
 owner: shriramjanakiraman
-version: 0.2.0
+version: 0.2.1
 status: active
 applies-to: [any]
 depends-on: [tool:node]
@@ -42,6 +42,9 @@ node <profile.mjs> show      # profile.mjs sits next to run.mjs
 
 - **The pins:** `profile.facts.node` and `profile.facts.python` give the pin (`kind: "pinned"`), a release-line
   alias such as `lts/*` (`kind: "alias"`), or the range (`kind: "range"`) the project asks for, with its source.
+  The session-start summary already shows them (`Node 20.18.0 (.nvmrc)`). When someone asks which Node version the
+  project needs, that pin is the answer. It isn't the helper's own prerequisite (Node 20 or later, below), which
+  is only what Cartwright's helpers need to run.
 - **The tools that matter:** `profile.facts.platform` says whether it's a Salesforce B2C Commerce project, where the
   B2C CLI matters. `profile.conventions.specKit` says whether spec-kit is set up, which needs uv. Without spec-kit or graphify
   in use, uv isn't needed.
@@ -76,7 +79,7 @@ To see the exact command without running it: `node <run.mjs> --plan <tool> <args
 ### Step 2 — A prerequisite is missing
 
 - **`npx` missing** (B2C CLI): Node.js 20+ isn't installed. Tell the developer; it's needed for the plugin's
-  helpers anyway.
+  helpers anyway. This is the helpers' minimum, not the project's Node version: that's the project's pin.
 - **`uvx` missing** (spec-kit, graphify): uv isn't installed. It's one small program that also provides
   Python when needed. Show the install command from `--check` and **ask before running it**. After installing,
   the developer may need to open a new terminal (or the agent may need restarting) so it's on the PATH.

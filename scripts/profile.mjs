@@ -326,7 +326,7 @@ export function groundingText(p, { file, stale = new Set(), settings = null, pro
   const platform = fmt(f.platform, (x) => `${x.value}, ${x.flavour === 'sfra' ? 'SFRA' : x.flavour === 'storefront-next' ? 'Storefront Next' : x.flavour} (${x.source})`)
     + (g.preferSkills?.length ? `. Prefer ${g.preferSkills.join(', ')}` : '') + (g.avoidSkills?.length ? `; don't use ${g.avoidSkills.join(', ')} skills` : '');
   const lines = [
-    `[cartwright] Project profile (${file}). Use these facts instead of guessing. If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.`,
+    `[cartwright] Project profile (${file}). These facts were checked against the project at the start of this session; use them instead of guessing or re-reading the files they came from. If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.`,
     `- Platform: ${old(['facts.platform', 'guidance'], platform)}`,
     `- Languages: ${old(['facts.languages'], fmt(f.languages, (x) => x.value.map((l) => `${l.value} (${l.source})`).join(', ')))} · Node ${old(['facts.node'], fmt(f.node, ver))} · Python ${old(['facts.python'], fmt(f.python, ver))} · package manager ${old(['facts.packageManager'], fmt(f.packageManager, (x) => `${x.value} (${x.source})`))}`,
     `- Build: ${cmd('build')} · Test: ${cmd('test')} · Lint: ${cmd('lint')}`,

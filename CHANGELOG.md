@@ -41,7 +41,7 @@ All notable changes to what users receive. Newest first.
   client's project skills if it's for a client ("set up", "not now" or "never here"). It replaces the separate
   client question; earlier "not now" and "no client" answers are kept, and "never here" stops asking in that
   project.
-- `client-setup` (0.2.0) and `tools-without-install` (0.2.0) take what they need from the project's profile
+- `client-setup` (0.2.0) and `tools-without-install` (0.2.1) take what they need from the project's profile
   instead of asking or opening the project's files.
 - The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
   employees, profile and guardrails for its own development as each phase ships.
