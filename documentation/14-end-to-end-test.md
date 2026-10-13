@@ -201,7 +201,9 @@ for the hashes, seeds them, confirms Codex reports the hooks as trusted, and rec
 also means every Codex user is asked to approve the hooks again.
 - Copilot runs a plugin's hooks only when the root `plugin.json` is in Copilot's own format and declares
   `hooks`; it then reads the Claude Code format `hooks/hooks.json`. Plugin hooks run in headless `copilot -p`
-  too. VS Code isn't driven here: check its session start by hand.
+  too. VS Code isn't driven here: check its session start by hand, including whether it reaches the chat and which
+  variables VS Code sets for plugin hooks (with only `PLUGIN_ROOT` and no Copilot variable, the hook would answer in
+  Codex's JSON shape).
 
 Things learnt from the live test:
 
