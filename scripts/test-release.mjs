@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // One command for testing a change or a release, at the depth it deserves (see documentation/14).
 //
-//   quick  feature and bugfix work (no agents):       checks + the Codex trust-hash check + the profile test and the
+//   quick  feature and bugfix work (no agents):       checks + the Codex trust-hash check + the agent harness's
+//                                                     self-test + the profile test and the
 //                                                     bare-machine test without tool downloads (at the same time)
 //                                                     + the guard test
 //   minor  patch and minor releases (ADR 0013):       + tool downloads and smoke test, and the agent scenarios in
@@ -41,10 +42,12 @@ const PROFILE = ['Profile test (deterministic, offline)', 'node', ['scripts/e2e-
 const AGENTS = (set) => [['Claude Code', 'claude'], ['Copilot CLI', 'copilot'], ['Codex', 'codex']].map(([name, id]) =>
   [`Agents (${set}): ${name}`, 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--set', set, '--agent', id, ...keep], 'agents']);
 const TRUST = ['Codex trust hashes match hooks.json', 'node', ['scripts/codex-trust.mjs', 'check', '--plugin', './plugin']];
+const HARNESS = ['Agent harness self-test (no agents)', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--self-test']];
 const PLANS = {
   quick: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     TRUST,
+    HARNESS,
     PROFILE,
     ['Bare-machine test (no tool downloads)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--fast', ...keep], 'together'],
     GUARD,
@@ -52,6 +55,7 @@ const PLANS = {
   minor: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     TRUST,
+    HARNESS,
     PROFILE,
     ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep], 'together'],
     GUARD,
@@ -60,6 +64,7 @@ const PLANS = {
   major: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     TRUST,
+    HARNESS,
     PROFILE,
     ['Bare-machine test (full, with a real pull request)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--pr', ...keep], 'together'],
     GUARD,

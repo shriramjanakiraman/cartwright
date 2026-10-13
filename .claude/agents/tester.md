@@ -56,6 +56,10 @@ chose and why, in one line.
 npm run test:release -- --level <quick|minor|major> --report <scratch folder>/report.md
 ```
 
+Agent scenarios can end ⚠️ inconclusive: the agent never attempted the blocked action, even with the firmer retry.
+That's a discrepancy to report, not a guard pass or failure. For any scenario that didn't pass, read the evidence
+folder the run prints (tool calls, answers, grounding, guard log) before classifying it.
+
 Every level ends with a Timing step. If it shows ⚠️ "too busy to judge timing", the machine was loaded: re-run
 `npm run test:release -- --timing-only` on a quiet machine before a release, and report the numbers.
 

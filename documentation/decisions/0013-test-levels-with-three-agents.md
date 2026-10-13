@@ -54,6 +54,8 @@ Codex runs through npx (`@openai/codex`) at a pinned version in an isolated `COD
 - **Timing** is one final step at every level, run alone after the agents, with a load guard: if starting node
   through `sh` takes over 250 ms (p50), it reports "too busy to judge" instead of passing or failing.
   `--timing-only` re-runs it on a quiet machine before a release.
+- **No GitHub token for agents at `minor`:** only the major scenarios that clone or open a real pull request get one.
+  The harness uses it to clone the test client.
 - **VS Code** remains a manual check. That is a known shortfall against "each of the three agents".
 - **To update:** the tester agent's level table, `test-release.mjs` and the end-to-end guide change.
 
