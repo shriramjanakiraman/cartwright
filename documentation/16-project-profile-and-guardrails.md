@@ -238,6 +238,10 @@ or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't kno
 Full profile: node "<plugin>/tools/profile.mjs" show --json
 ```
 
+- **Which project.** The hook takes the session's folder from the agent's hook input (`cwd`; every agent sends it),
+  then `CLAUDE_PROJECT_DIR` or `COPILOT_PROJECT_DIR`, then the folder it runs in, but never the plugin's own folder.
+  An agent may start plugin hooks there, which would otherwise ground the session in the wrong project. The guard
+  uses the same order.
 - **Drift.** The hook re-detects the facts in-process (it never starts `profile.mjs check`). The check is
   time-boxed to 120 ms and skipped silently if it takes longer. When a fact changed since the profile was saved,
   the summary marks it `[out of date]`, and the agent is asked to mention it once in the session and offer a
