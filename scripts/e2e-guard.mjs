@@ -227,6 +227,24 @@ step('a malformed payload or an empty one is allowed, never an error exit', () =
   return `exits ${exits.join(', ')}`;
 });
 
+step('a handled tool whose input has no command or path logs its field names, never their values', () => {
+  const { dir } = fresh('profiled');
+  const log = join(dir, '..', 'guard-fields.log');
+  const e = env({ COPILOT_PLUGIN_ROOT: PLUGIN, CARTWRIGHT_GUARD_LOG: log });
+  const edit = respond({ toolName: 'Edit', toolArgs: { target_file: 'secret-value-1', old_str: 'secret-value-2', new_str: 'secret-value-3' }, cwd: dir }, e);
+  const bash = respond({ toolName: 'bash', toolArgs: { script: 'secret-value-4' }, cwd: dir }, e);
+  const ok = respond({ toolName: 'bash', toolArgs: { command: 'git status' }, cwd: dir }, e);
+  const text = readFileSync(log, 'utf8');
+  const lines = text.trim().split('\n').map((l) => JSON.parse(l));
+  assert(edit.exit === 2 && bash.exit === 0 && ok.exit === 0, `decisions: edit ${edit.exit}, bash ${bash.exit}, ok ${ok.exit}`);
+  assert(lines.length === 3, `${lines.length} log lines, expected 3`);
+  assert(JSON.stringify(lines[0].fields) === '["new_str","old_str","target_file"]' && lines[0].decision === 'deny', `edit line: ${JSON.stringify(lines[0])}`);
+  assert(JSON.stringify(lines[1].fields) === '["script"]' && lines[1].rule === null && lines[1].decision === 'allow', `bash line: ${JSON.stringify(lines[1])}`);
+  assert(lines[2].fields === undefined, `a readable input listed fields: ${JSON.stringify(lines[2])}`);
+  assert(!/secret-value/.test(text), 'a value reached the log');
+  return 'Edit without a path: denied, field names logged; bash without a command: allowed, field names logged; no values';
+});
+
 step('Cartwright\'s own settings (F47, F48): INDEX.md and pushes to develop are blocked here; npm run build isn\'t', () => {
   // In-process, against this repository itself (read-only): its committed .cartwright/ settings.
   const e = env({ CLAUDE_PLUGIN_ROOT: PLUGIN });
@@ -242,7 +260,7 @@ step('Cartwright\'s own settings (F47, F48): INDEX.md and pushes to develop are 
   return 'INDEX.md edit, a write into plugin/ and a push to develop blocked; npm run build and a feature push allowed';
 });
 
-step('failing safe (5.7): a rule that fails denies only actions in its family; an expired deadline denies "too large"', () => {
+step('failing safe (5.7): a rule that fails denies only actions in its family; an expired deadline denies "couldn\'t finish in time"', () => {
   const { dir } = fresh('profiled');
   const e = env({ CLAUDE_PLUGIN_ROOT: PLUGIN });
   const run = (command, patch = {}, ctxOpts = {}) => {
@@ -260,7 +278,7 @@ step('failing safe (5.7): a rule that fails denies only actions in its family; a
   prepare([['write', 'big.txt', 'x\n'], ['git', 'add', 'big.txt']], dir);
   const late = run('git commit -m big', {}, { deadline: Date.now() - 1 });
   assert(late.decision === 'deny' && /couldn't finish checking this in time \(a busy machine or a large commit\): try again, or commit in smaller parts/.test(late.message), `an expired deadline: ${late.message || late.decision}`);
-  return 'unrelated action allowed; write and push denied with the error; deadline → "couldn't finish checking this in time"';
+  return 'unrelated action allowed; write and push denied with the error; deadline → "couldn\'t finish checking this in time"';
 });
 
 step('timing (5.9): the guard\'s overhead above starting node, through the hook', () => {

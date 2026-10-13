@@ -9,7 +9,8 @@
 //   node guard.mjs explain "<command>"   JSON: what the guard would decide for a shell command here, and why
 //   node guard.mjs status                JSON: whether the guard runs here, the project's settings and rules
 // Options: --dir <path> for explain and status. CARTWRIGHT_GUARD_LOG=<file> appends one line per decision (no
-// command text and no paths, so no secrets).
+// command text and no paths, so no secrets). When a handled tool's input has no command or path, the line also lists
+// the input's field names (never their values).
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
@@ -48,23 +49,28 @@ export function normalise(p, env = process.env) {
   const cwd = typeof p.cwd === 'string' && p.cwd ? p.cwd : env.CLAUDE_PROJECT_DIR || env.COPILOT_PROJECT_DIR || process.cwd();
   const t = tool.toLowerCase(), actions = [];
   const str = (...v) => v.find((x) => typeof x === 'string');
+  let missed = false;
   if (SHELL_TOOLS.includes(t)) {
     const c = input.command ?? input.cmd;
     const command = Array.isArray(c) ? c.map((x) => shQuote(String(x))).join(' ') : str(c);
-    if (command !== undefined) actions.push({ type: 'shell', command });
+    if (command !== undefined) actions.push({ type: 'shell', command }); else missed = true;
   } else if (t === 'apply_patch') {
     const c = input.command ?? input.input ?? input.patch;
     const text = Array.isArray(c) ? c.find((x) => typeof x === 'string' && x.includes('*** Begin Patch')) ?? c.join('\n') : str(c);
+    if (text === undefined) missed = true;
     // Read as a shell apply_patch with the patch as a here-document, so shell and tool patches share one reader.
     actions.push({ type: 'shell', command: `apply_patch <<'CARTWRIGHT_PATCH'\n${text ?? ''}\nCARTWRIGHT_PATCH`, tool: 'apply_patch' });
   } else if (EDIT_TOOLS.includes(t)) {
     const path = str(input.file_path, input.path, input.filePath, input.notebook_path) ?? null;
+    if (path === null) missed = true;
     if (t === 'multiedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: (Array.isArray(input.edits) ? input.edits : []).map((e) => ({ before: e.old_string ?? e.old_str ?? '', after: e.new_string ?? e.new_str ?? '' })) }] });
     else if (t === 'write' || t === 'create') actions.push({ type: 'edit', targets: [{ path, op: 'write', content: str(input.content, input.file_text, input.new_str) ?? '' }] });
     else if (t === 'notebookedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: '', after: str(input.new_source) ?? '' }] }] });
     else actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: str(input.old_string, input.old_str) ?? '', after: str(input.new_string, input.new_str) ?? '' }] }] });
   }
-  return { agent: agentOf(p, env), tool, cwd, actions };
+  // A tool the guard handles whose input gave no command or path: its field names (never values), for the log.
+  const fields = missed ? Object.keys(input).slice(0, 20).map((k) => k.slice(0, 40)).sort() : undefined;
+  return { agent: agentOf(p, env), tool, cwd, actions, ...(fields ? { fields } : {}) };
 }
 
 // --- the machine, as the rules see it ----------------------------------------------------------------------------
@@ -168,11 +174,15 @@ function log(env, entry) {
 // The decision for a payload, rendered: { exit, stdout, stderr, decision, rule }.
 export function respond(payload, env = process.env) {
   const action = normalise(payload, env);
-  if (!action || !action.actions.length) return { exit: 0, decision: 'allow', rule: null };
+  if (!action || !action.actions.length) {
+    // Logged only when a handled tool's input couldn't be read, so the next run shows the payload's shape.
+    if (action?.fields) log(env, { agent: action.agent, tool: action.tool, rule: null, decision: 'allow', fields: action.fields, note: 'no command or path found in the tool input' });
+    return { exit: 0, decision: 'allow', rule: null };
+  }
   const ctx = makeContext({ cwd: action.cwd, env });
   const r = decide(action, ctx);
   const settings = ctx.settings().status;
-  log(env, { agent: action.agent, tool: action.tool, rule: r.rule, decision: r.decision === 'confirm' && !ASK_VERIFIED[action.agent] ? 'deny' : r.decision, settings });
+  log(env, { agent: action.agent, tool: action.tool, rule: r.rule, decision: r.decision === 'confirm' && !ASK_VERIFIED[action.agent] ? 'deny' : r.decision, settings, ...(action.fields ? { fields: action.fields, note: 'no command or path found in the tool input' } : {}) });
   if (r.decision === 'deny') return { exit: 2, stderr: r.message, decision: 'deny', rule: r.rule };
   if (r.decision === 'confirm') {
     if (ASK_VERIFIED[action.agent]) return { exit: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: confirmReason(r) } }), decision: 'confirm', rule: r.rule };
