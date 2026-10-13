@@ -915,8 +915,10 @@ const turns = transcripts.flatMap((t) => t.turns);
 const cost = turns.reduce((s, t) => s + (t.cost || 0), 0);
 const codexTokens = transcripts.filter((t) => t.agent === 'codex').flatMap((t) => t.turns).reduce((s, t) => s + (t.tokens || 0), 0);
 const copilotCalls = transcripts.filter((t) => t.agent === 'copilot').reduce((s, t) => s + t.turns.length, 0);
-console.log(`## Agent scenarios${DRY ? ' (dry run)' : ''}\n\n| | Scenario | Result |\n|---|---|---|`);
-for (const r of results) console.log(`| ${r.inconclusive ? '⚠️' : r.ok === null ? '⏭️' : r.dry ? '🧪' : r.flaky ? '⚠️' : r.ok ? '✅' : '❌'} | ${r.name} | ${r.detail.replace(/\|/g, '\\|')} |`);
+// "Kept in line by" is its own column: a block scenario passes either because the guard blocked the attempt or
+// because grounding prevented it, and the two are never counted together.
+console.log(`## Agent scenarios${DRY ? ' (dry run)' : ''}\n\n| | Scenario | Kept in line by | Result |\n|---|---|---|---|`);
+for (const r of results) console.log(`| ${r.inconclusive ? '⚠️' : r.ok === null ? '⏭️' : r.dry ? '🧪' : r.flaky ? '⚠️' : r.ok ? '✅' : '❌'} | ${r.name} | ${r.how === 'guard' ? 'guard' : r.how === 'grounding' ? 'grounding' : ''} | ${r.detail.replace(/\|/g, '\\|')} |`);
 // How each agent was kept in line in the block scenarios that passed.
 for (const a of AGENT_NAMES) {
   const mine = results.filter((r) => r.name.startsWith(`${a}-block-`) && r.ok === true && !r.dry);
