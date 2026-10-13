@@ -44,7 +44,8 @@ All notable changes to what users receive. Newest first.
 - `client-setup` (0.2.0) and `tools-without-install` (0.2.1) take what they need from the project's profile
   instead of asking or opening the project's files.
 - The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
-  employees, profile and guardrails for its own development as each phase ships.
+  employees, profile and guardrails for its own development as each phase ships. This repo now switches the
+  released plugin on for Claude Code and Copilot, so its own profile and guardrails apply to agents working here.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
 - Test levels (decision record 0013): patch releases now run the `minor` level too, which drives Claude Code,
   Copilot CLI and Codex at the same time through the grounding and guardrail scenarios. Codex runs through npx in

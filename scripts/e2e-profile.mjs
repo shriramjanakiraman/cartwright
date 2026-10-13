@@ -786,6 +786,14 @@ const backdate = (dir, days) => {
   j[key].at -= days * 864e5; writeFileSync(f, JSON.stringify(j));
 };
 
+step('this repo (G9): no setup offer, but its own profile grounds the session', () => {
+  const out = session(ROOT);
+  assert(!offered(out), 'the library repo was offered setup');
+  assert(/\[cartwright\] Project profile \(\.cartwright\/profile\.json\)/.test(out), `no grounding in the library repo: ${out.slice(0, 200)}`);
+  assert(/Guardrails: protected main, develop; generated plugin\/\*\* \(regenerate: npm run build\)/.test(out), 'the guardrails line is missing');
+  return 'grounded from .cartwright/profile.json, guardrails listed, no offer';
+});
+
 step('first run (B12): an unset project gets the combined line first, with the three replies', () => {
   const { dir } = project('ts');
   const out = session(dir);

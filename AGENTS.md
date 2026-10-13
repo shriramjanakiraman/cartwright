@@ -30,8 +30,11 @@ was done or disagrees, answer from the records, and say so when there isn't one.
 
 Every change goes on its own branch and arrives through a pull request. Never push to `main` or
 `develop`, never merge a pull request unless the owner explicitly tells you to, and never invent a branch
-name outside the four types below. The pre-push hook and CI refuse anything else, and with the Cartwright plugin
-installed, its guardrails block an agent's push to `main` or `develop` here (`.cartwright/settings.json`).
+name outside the four types below. The pre-push hook and CI refuse anything else, and the Cartwright plugin's
+guardrails block an agent's push to `main` or `develop` here (`.cartwright/settings.json`). This repo switches the
+released plugin on for Claude Code and Copilot (`.claude/settings.json`, `.github/copilot/settings.json`). Codex needs
+it installed once (`codex plugin marketplace add shriramjanakiraman/cartwright`, then
+`codex plugin add cartwright@cartwright`) and its hooks approved in `/hooks`.
 
 `.cartwright/` holds this repo's own profile and guardrail settings. They're guarded: an agent can't change them
 without the owner, and a change goes through a pull request like any other. Generated output (`plugin/`,

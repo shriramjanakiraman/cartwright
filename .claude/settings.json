@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "cartwright": {
+      "source": {
+        "source": "github",
+        "repo": "shriramjanakiraman/cartwright"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "cartwright@cartwright": true
+  }
+}
