@@ -65,5 +65,5 @@ npm run scrub          # the data-leakage scan only
 
 The other places run different sets. The pre-commit hook scans the staged files, and runs validate and the
 build check only when `core/` or `upstream/` changed. CI runs validate, the scrub scan, the upstream mirror
-check, the build check, the profile and guard tests, and a secret scan across history. It doesn't run the
+check, the build check, the Codex trust-hash check, the profile and guard tests, and a secret scan across history. It doesn't run the
 registry check.
