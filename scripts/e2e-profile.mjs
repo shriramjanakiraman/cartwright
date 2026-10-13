@@ -786,6 +786,34 @@ const backdate = (dir, days) => {
   j[key].at -= days * 864e5; writeFileSync(f, JSON.stringify(j));
 };
 
+step('the session\'s project comes from the agent, never from where the hook runs or the plugin\'s folder', () => {
+  // The fixture the session is about (pnpm), and another repo with its own profile (uv) that holds a copy of the
+  // plugin: an agent may start plugin hooks from the plugin's folder, as Copilot did, which used to ground the session
+  // in the wrong project.
+  const { dir } = project('ts');
+  ok(dir, ['write', '--store', 'folder', ...LISTS]);
+  const other = project('python').dir;
+  ok(other, ['write', '--store', 'folder', ...LISTS]);
+  const copy = join(other, 'plugin');
+  cpSync(PLUGIN, copy, { recursive: true });
+  const trace = join(WORK, `trace-${seq}`);
+  const start = (extra, input = '') => {
+    const r = sh('/bin/sh', ['-c', SESSION], { cwd: copy, input, env: env({ COPILOT_PLUGIN_ROOT: copy, PLUGIN_ROOT: copy, CLAUDE_PLUGIN_ROOT: copy, CARTWRIGHT_HOOK_TRACE: trace, ...extra }) });
+    assert(r.status === 0, `session start failed: ${r.stderr.trim().slice(0, 200)}`);
+    return JSON.parse(r.stdout || '{}').additionalContext || '';
+  };
+  const fromPayload = start({}, JSON.stringify({ cwd: dir, source: 'startup' }));
+  assert(/Test: pnpm test/.test(fromPayload) && !/uv run pytest/.test(fromPayload), `payload cwd: ${fromPayload.slice(0, 300)}`);
+  const fromVariable = start({ COPILOT_PROJECT_DIR: dir });
+  assert(/Test: pnpm test/.test(fromVariable) && !/uv run pytest/.test(fromVariable), `COPILOT_PROJECT_DIR: ${fromVariable.slice(0, 300)}`);
+  const fromNothing = start({});
+  assert(!/Project profile/.test(fromNothing), `with nothing to go on, the plugin's folder grounded the session: ${fromNothing.slice(0, 200)}`);
+  // The trace records the project chosen and exactly what the agent was given.
+  const seen = read(trace).split('\n').filter((l) => l.startsWith('{')).map((l) => JSON.parse(l));
+  assert(seen.length === 3 && seen[0].root === realpathSync(dir) && seen[0].context.includes('Test: pnpm test') && seen[2].root === null, `trace: ${JSON.stringify(seen).slice(0, 300)}`);
+  return 'payload cwd and COPILOT_PROJECT_DIR ground the fixture from inside another repo\'s plugin folder; with neither, no project; the trace holds the context given';
+});
+
 step('this repo (G9): no setup offer, but its own profile grounds the session', () => {
   const out = session(ROOT);
   assert(!offered(out), 'the library repo was offered setup');

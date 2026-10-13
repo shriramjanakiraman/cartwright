@@ -17,7 +17,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { applyKit, CORE_REPO, gitUrl, names, readKit } from './kit.mjs';
 import { lookup } from './registry-core.mjs';
@@ -30,9 +30,43 @@ import { load, stateDir } from './store.mjs';
 // Code and Codex take plain text on stdout as context; GitHub Copilot only takes JSON {"additionalContext": "..."}.
 const notes = { setup: '', guard: '', grounding: '', drift: '', tools: '' };
 const IN_COPILOT = !!(process.env.COPILOT_PLUGIN_ROOT || process.env.COPILOT_CLI);
+// The project the session-start hook chose, for the trace.
+let traceRoot = null;
 function flushNotes() {
   const ctx = [notes.setup, notes.guard, notes.grounding, notes.drift, notes.tools].filter(Boolean).join('\n\n');
   if (ctx) process.stdout.write(IN_COPILOT ? JSON.stringify({ additionalContext: ctx }) : `${ctx}\n`);
+  // CARTWRIGHT_HOOK_TRACE (tests only): also record the project chosen and exactly what the agent was given.
+  if (process.env.CARTWRIGHT_HOOK_TRACE) { try { writeFileSync(process.env.CARTWRIGHT_HOOK_TRACE, `${JSON.stringify({ event: 'session-context', root: traceRoot, context: ctx })}\n`, { flag: 'a' }); } catch { /* tracing is optional */ } }
+}
+// The hook's input from the agent (JSON on stdin), or null. Every agent sends the session's folder as `cwd`. Waits at most
+// `ms` for it, so a stdin that stays open and silent can't hold up the session.
+const readPayload = (ms) => new Promise((done) => {
+  if (process.stdin.isTTY) { done(null); return; }
+  let buf = '', over = false;
+  const finish = () => {
+    if (over) return; over = true; clearTimeout(timer);
+    process.stdin.removeAllListeners('data'); process.stdin.removeAllListeners('end');
+    try { process.stdin.destroy(); } catch { /* already closed */ }
+    let j = null; try { j = buf.trim() ? JSON.parse(buf) : null; } catch { /* not JSON */ }
+    done(j && typeof j === 'object' ? j : null);
+  };
+  const timer = setTimeout(finish, ms);
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (d) => { buf += d; if (buf.length > 1e6) finish(); });
+  process.stdin.on('end', finish);
+  process.stdin.on('error', finish);
+});
+// The session's project folder: --dir, then the payload's cwd, then the agents' project variables, then the hook's own
+// folder, but never the plugin's own folder (an agent may start plugin hooks there).
+async function sessionDir() {
+  if (opt('--dir')) return resolve(opt('--dir'));
+  const p = await readPayload(300);
+  const given = [typeof p?.cwd === 'string' ? p.cwd : null, process.env.CLAUDE_PROJECT_DIR, process.env.COPILOT_PROJECT_DIR].find((x) => x);
+  if (given) return resolve(given);
+  const real = (x) => { try { return realpathSync(x); } catch { return resolve(x); } };
+  const here = real(process.cwd());
+  if (PLUGIN_ROOT && (here === real(PLUGIN_ROOT) || here.startsWith(real(PLUGIN_ROOT) + sep))) return null;
+  return here;
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -91,7 +125,8 @@ if (cmd === 'hook') {
   // Must stay fast: no network, no key derivation, nothing written in the project. Each part runs on its own, so a
   // failure in one never breaks the session or the others.
   // CARTWRIGHT_HOOK_TRACE (tests only): append a line to that file, so a test can prove the hook ran.
-  if (process.env.CARTWRIGHT_HOOK_TRACE) { try { writeFileSync(process.env.CARTWRIGHT_HOOK_TRACE, `session-start ${dir}\n`, { flag: 'a' }); } catch { /* tracing is optional */ } }
+  const hookDir = await sessionDir();
+  if (process.env.CARTWRIGHT_HOOK_TRACE) { try { writeFileSync(process.env.CARTWRIGHT_HOOK_TRACE, `session-start ${hookDir}\n`, { flag: 'a' }); } catch { /* tracing is optional */ } }
   // 1. Tools the skills use that aren't installed here: tell the agent how to run them anyway.
   try {
     const RUN = join(HERE, 'run.mjs');
@@ -108,7 +143,8 @@ if (cmd === 'hook') {
   } catch { /* the cache is a safety net only */ }
   let root = null, st = null, resolved = null;
   // The project: the nearest folder with .git, found without running git (the same real path git would give).
-  try { for (let d = realpathSync(dir); ; d = dirname(d)) { if (existsSync(join(d, '.git'))) { root = d; break; } if (d === dirname(d)) break; } } catch { /* not a project */ }
+  try { if (hookDir) for (let d = realpathSync(hookDir); ; d = dirname(d)) { if (existsSync(join(d, '.git'))) { root = d; break; } if (d === dirname(d)) break; } } catch { /* not a project */ }
+  traceRoot = root;
   try {
     if (root) {
       st = load(root);
