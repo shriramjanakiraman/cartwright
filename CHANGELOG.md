@@ -29,7 +29,9 @@ All notable changes to what users receive. Newest first.
   guard test runs every block through each agent's payload shape at every test level and in CI
   (`npm run e2e:guard`). VS Code's agent mode is covered too: its own tool names, its session start, and a window with
   several folders, where each edit is judged by the project of the file it changes. Not on Windows. Codex users approve
-  once, in `/hooks`, for both hooks (the new guard and the updated session start).
+  once, in `/hooks`, for both hooks (the new guard and the updated session start). The guard also reads Codex's
+  `write_stdin`, Copilot's `write_bash`, `powershell` and `str_replace_editor`, and VS Code's git push and terminal
+  commands (`run_vscode_command`).
 - Starter guardrail settings in the overlay template (`templates/overlay/.cartwright/`): agents can't push to
   `main` or `develop`, or hand-edit the overlay's build output. Existing overlays can copy the folder in.
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),

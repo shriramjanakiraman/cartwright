@@ -494,8 +494,15 @@ These are guardrails, not a complete boundary, as the agent vendors themselves s
     edit is judged by the project the file is in. A terminal command is judged from the first folder, or from where a
     `cd` takes it, so VS Code is told to start commands for another folder with `cd "<absolute folder>" &&`. Without
     that `cd`, a command meant for a second folder is judged by the first folder's settings.
-  - **Not covered:** `run_task` (a task defined in the project) and `run_notebook_cell` run code the guard can't see.
-    `run_vscode_command` and `install_extension` aren't file writes.
+  - **VS Code commands:** `run_vscode_command` with `git.push`, `git.pushTo`, `git.pushForce`, `git.pushWithTags`,
+    `git.sync` or `git.publish` is judged as a push of the current branch, and
+    `workbench.action.terminal.sendSequence` has its text read as a terminal command. Other commands are allowed.
+  - **Not covered:** `run_task` runs a task the project defines, and its payload doesn't carry the command (#50 tracks
+    reading it from `.vscode/tasks.json`). `run_notebook_cell` carries no cell text. `install_extension` is outside
+    the four rules.
+- **Typing into a running shell.** Codex's `write_stdin` (its `chars`) and Copilot's `write_bash` and `write_powershell`
+  (their `input`) are read as commands typed in the session's folder. The guard can't see where that shell has
+  moved to with an earlier `cd`.
 - **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
   Approving once covers updates, because the hook entries never change.
 - **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The budgets for what the guard adds on

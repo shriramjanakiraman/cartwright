@@ -28,9 +28,17 @@ export const ASK_VERIFIED = { 'claude-code': false, copilot: false, codex: false
 // built-in Copilot extension (copilot-chat 0.69.0 in VS Code 1.141): its ToolName table in dist/extension.js and the
 // input schemas in package.json (contributes.languageModelTools); run_in_terminal, send_to_terminal and
 // create_and_run_task are VS Code core tools (schemas in out/vs/workbench/workbench.desktop.main.js).
-const SHELL_TOOLS = ['bash', 'shell', 'exec_command', 'run_in_terminal', 'send_to_terminal'];
-const EDIT_TOOLS = ['edit', 'write', 'multiedit', 'notebookedit', 'create', 'apply_patch', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory'];
-export const VSCODE_TOOLS = ['run_in_terminal', 'send_to_terminal', 'create_and_run_task', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory', 'read_file', 'list_dir'];
+// Copilot CLI 1.0.96 (cli-main.js and prebuilds/darwin-arm64/runtime.node in its package): bash, powershell and
+// local_shell run commands; write_bash and write_powershell type input into a running one; create, edit, str_replace,
+// str_replace_editor and apply_patch change files. Codex 0.162.1 (core/src/tools/handlers in its binary):
+// exec_command runs a command, write_stdin types `chars` into a running one, apply_patch changes files.
+const SHELL_TOOLS = ['bash', 'shell', 'powershell', 'local_shell', 'shell_command', 'exec_command', 'run_in_terminal', 'send_to_terminal'];
+// Tools that type text into a shell that's already running: the text is read as a command, from the session's folder.
+const STDIN_TOOLS = { write_stdin: 'chars', write_bash: 'input', write_powershell: 'input' };
+const EDIT_TOOLS = ['edit', 'str_replace', 'write', 'multiedit', 'notebookedit', 'create', 'apply_patch', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory'];
+export const VSCODE_TOOLS = ['run_in_terminal', 'send_to_terminal', 'create_and_run_task', 'run_vscode_command', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory', 'read_file', 'list_dir'];
+// VS Code commands that push the current branch (run_vscode_command), as the push each one makes.
+const VSCODE_PUSH = { 'git.push': 'git push', 'git.pushTo': 'git push', 'git.sync': 'git push', 'git.pushForce': 'git push --force', 'git.pushWithTags': 'git push --follow-tags', 'git.publish': 'git push -u origin HEAD' };
 const SELF = fileURLToPath(import.meta.url);
 const PLUGIN = dirname(dirname(SELF));
 
@@ -46,7 +54,7 @@ export function agentOf(p, env) {
   if (env.PLUGIN_ROOT) return 'codex';
   const tool = String(p.tool_name || '').toLowerCase();
   if (VSCODE_TOOLS.includes(tool) || (tool === 'apply_patch' && typeof p.tool_input?.input === 'string') || ((env.VSCODE_PID || env.VSCODE_IPC_HOOK) && !env.CLAUDECODE)) return 'vscode';
-  if (/^(apply_patch|exec_command)$/.test(tool)) return 'codex';
+  if (/^(apply_patch|exec_command|write_stdin)$/.test(tool)) return 'codex';
   return 'claude-code';
 }
 
@@ -62,7 +70,28 @@ export function normalise(p, env = process.env) {
   const t = tool.toLowerCase(), actions = [];
   const str = (...v) => v.find((x) => typeof x === 'string');
   let missed = false;
-  if (t === 'create_and_run_task') {
+  if (t in STDIN_TOOLS) {
+    const text = str(input[STDIN_TOOLS[t]]);
+    if (text !== undefined) { if (text.trim()) actions.push({ type: 'shell', command: text.replace(/\r/g, '') }); } else missed = true;
+  } else if (t === 'run_vscode_command') {
+    // VS Code's own commands: its git push commands push the current branch; sendSequence types text into the terminal.
+    const id = str(input.commandId);
+    if (id === undefined) missed = true;
+    else if (VSCODE_PUSH[id]) actions.push({ type: 'shell', command: VSCODE_PUSH[id] });
+    else if (id === 'workbench.action.terminal.sendSequence') {
+      const a = Array.isArray(input.args) ? input.args[0] : input.args;
+      const text = str(a?.text, typeof a === 'string' ? a : undefined);
+      if (text !== undefined && text.trim()) actions.push({ type: 'shell', command: text.replace(/\r/g, '\n') });
+    }
+  } else if (t === 'str_replace_editor') {
+    // Copilot's editor tool: { command: view | create | str_replace | insert, path, file_text, old_str, new_str }.
+    const path = str(input.path, input.file_path) ?? null;
+    const sub = str(input.command);
+    if (sub === 'create') actions.push({ type: 'edit', targets: [{ path, op: 'write', content: str(input.file_text) ?? '' }] });
+    else if (sub === 'str_replace') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: str(input.old_str) ?? '', after: str(input.new_str) ?? '' }] }] });
+    else if (sub === 'insert') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: '', after: str(input.new_str) ?? '' }] }] });
+    if (sub !== 'view' && path === null) missed = true;
+  } else if (t === 'create_and_run_task') {
     // VS Code's task: { task: { label, type, command, args } } runs command with args in a shell.
     const task = input.task && typeof input.task === 'object' ? input.task : input;
     const args = Array.isArray(task.args) ? task.args.map((x) => shQuote(String(x))).join(' ') : '';
