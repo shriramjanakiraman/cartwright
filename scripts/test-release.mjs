@@ -21,19 +21,23 @@ const args = process.argv.slice(2);
 const opt = (f, d) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] : d; };
 const LEVEL = opt('--level', 'quick');
 const keep = args.includes('--keep') ? ['--keep'] : [];
+const safetyTests = ['Offline kit, link and tool fallback regressions', 'node', ['scripts/test-kit-link.mjs', '--plugin', './plugin']];
 
 const PLANS = {
   quick: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
+    safetyTests,
     ['Bare-machine test (no tool downloads)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--fast', ...keep]],
   ],
   minor: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
+    safetyTests,
     ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep]],
     ['Agents: Claude Code tools, Copilot install and session start', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', '--scenarios', 'claude-tools,copilot-install,copilot-session-start', ...keep]],
   ],
   major: [
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
+    safetyTests,
     ['Bare-machine test (full, with a real pull request)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--pr', ...keep]],
     ['Agents: every scenario', 'node', ['scripts/agent-e2e.mjs', '--plugin', './plugin', ...keep]],
   ],

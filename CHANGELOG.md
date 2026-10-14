@@ -19,6 +19,10 @@ All notable changes to what users receive. Newest first.
 ### Fixed
 - The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of
   the checkout, which the release step requires to be clean. A new check in `npm run check` catches the pattern.
+- Kit setup rejects malformed agent settings or Codex marketplace JSON before writing any kit files, naming the file to fix or remove.
+- Kit setup preserves disabled Codex plugins and reports how to enable them in `.codex/config.toml`.
+- `link` leaves foreign symlinks and existing files alone when creating or refreshing skills, consistently with pruning.
+- Tool-runner docs cover missing-runner and unknown-version exceptions; plans and runs explain why an older installed copy is used.
 - The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
   manifest didn't declare it, and Copilot only takes session-start context as JSON. Copilot users now get the
   missing-tools note; the setup offer reaches Copilot too, but its model doesn't reliably ask it, so ask for
