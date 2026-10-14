@@ -63,13 +63,13 @@ for (const f of readdirSync(join(ROOT, 'scripts', 'stacks')).filter((n) => n.end
 // The versions run.mjs fetches when a tool isn't installed: the ones pinned in the lock.
 out.set('plugin/tools/versions.json', JSON.stringify(Object.fromEntries(Object.entries(lock.sources).filter(([, s]) => s.version).map(([id, s]) => [id, s.version])), null, 2) + '\n');
 out.set('plugin/tools/registry.json', readFileSync(join(ROOT, 'registry', 'overlays.json'), 'utf8'));
-// One session-start hook in the format Claude Code, Codex, Copilot and VS Code all read. Each agent tells
-// the hook where the plugin is installed differently, so try the known variables, then the install caches.
-// It never fails a session: no node, no plugin found, or an error all end silently.
-const HOOK = 'for d in "$CLAUDE_PLUGIN_ROOT" "$PLUGIN_ROOT" "$CODEX_PLUGIN_ROOT" "$COPILOT_PLUGIN_ROOT"; do '
-  + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; '
-  + 'f=$(find "$HOME/.codex/plugins/cache" "$HOME/.copilot" "$HOME/.claude/plugins" -path "*cartwright*/tools/setup.mjs" 2>/dev/null | tail -n 1); '
-  + '[ -n "$f" ] && exec node "$f" hook; exit 0';
+// One session-start hook in the format Claude Code, Codex, Copilot and VS Code all read. Every one of them sets a
+// plugin-root variable (Claude Code and VS Code CLAUDE_PLUGIN_ROOT, Codex PLUGIN_ROOT, Copilot all three), so no
+// search of the install caches. It never fails a session: no node, no plugin found, or an error all end silently.
+// Like the guard's entry, it's fixed from the end of phase 1 on (Codex trusts a hook by a hash of its entry).
+const HOOK = 'command -v node >/dev/null 2>&1 || exit 0; '
+  + 'for d in "$CLAUDE_PLUGIN_ROOT" "$PLUGIN_ROOT" "$COPILOT_PLUGIN_ROOT"; do '
+  + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; exit 0';
 // The guardrail hook, before every write-capable tool call (decision record 0012). Its command, matcher and timeout
 // are fixed from phase 1 on: Codex trusts a hook by a hash of its entry, so any change here, or a new group inserted
 // before it, asks every Codex user to approve the hooks again. New hooks are appended after it; logic changes go in
@@ -79,7 +79,13 @@ const GUARD = 'command -v node >/dev/null 2>&1 || exit 0; '
   + '[ -n "$d" ] && [ -f "$d/tools/guard.mjs" ] && exec node "$d/tools/guard.mjs" pre-tool-use; done; '
   + 's="${CARTWRIGHT_STATE_DIR:-$HOME/.cartwright}/plugin-root"; '
   + '[ -f "$s" ] && d=$(cat "$s") && [ -f "$d/tools/guard.mjs" ] && exec node "$d/tools/guard.mjs" pre-tool-use; exit 0';
-const GUARD_MATCHER = 'Bash|Edit|Write|MultiEdit|NotebookEdit|apply_patch|exec_command|Create|create';
+// Write-capable and command tools: Claude Code's, Copilot's (also lowercase bash and shell), Codex's, and VS Code's
+// (GitHub Copilot Chat agent mode; see VSCODE_TOOLS in guard.mjs). VS Code 1.141 doesn't apply matchers (its loader
+// reads only each group's hooks), so there the guard sees every tool and reads them by name; the names are listed for
+// the day it does.
+const GUARD_MATCHER = ['Bash', 'bash', 'shell', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch', 'exec_command', 'Create', 'create',
+  'run_in_terminal', 'send_to_terminal', 'create_and_run_task', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file',
+  'insert_edit_into_file', 'edit_notebook_file', 'create_directory'].join('|');
 out.set('plugin/hooks/hooks.json', JSON.stringify({
   hooks: {
     SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }],

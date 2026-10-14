@@ -226,8 +226,9 @@ Wherever a profile exists, in any of the three storage choices, each session sta
 uses instead of guessing:
 
 ```
-[cartwright] Project profile (.cartwright/profile.json). These facts were checked against the project at the start
-of this session; use them instead of guessing or re-reading the files they came from. If AGENTS.md, CLAUDE.md
+[cartwright] Project profile for `storefront` (.cartwright/profile.json). These facts are for that folder only: if
+you're working in another folder of this window, they don't apply there. They were checked against the project at
+the start of this session; use them instead of guessing or re-reading the files they came from. If AGENTS.md, CLAUDE.md
 or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.
 - Platform: Salesforce B2C Commerce, SFRA (package.json#paths.base). Prefer b2c-controllers, b2c-forms, b2c-isml; don't use sfnext-* skills
 - Languages: JavaScript (package.json), ISML (…) · Node 18.19.0 (.nvmrc) · Python not found · package manager npm (package-lock.json)
@@ -267,8 +268,9 @@ Full profile: node "<plugin>/tools/profile.mjs" show --json
 
 ## Hard blocks (guardrails)
 
-Before Claude Code, Codex or GitHub Copilot runs a tool that can change something (`Bash`, `Edit`, `Write`,
-`MultiEdit`, `NotebookEdit`, `apply_patch`, `exec_command`, `create`), the plugin's PreToolUse hook asks
+Before Claude Code, Codex, GitHub Copilot or VS Code runs a tool that can change something (`Bash`, `Edit`, `Write`,
+`MultiEdit`, `NotebookEdit`, `apply_patch`, `exec_command`, `create`, and VS Code's `run_in_terminal`,
+`create_file`, `replace_string_in_file` and the rest), the plugin's PreToolUse hook asks
 `tools/guard.mjs`. The guard reads the tool call, decides, and either lets it run or stops it **before it runs**,
 with a message that names the rule and says what to do instead. Read-only tools never start it. Decision record:
 [0012](decisions/0012-guardrails-in-agent-hooks.md).
@@ -480,9 +482,20 @@ These are guardrails, not a complete boundary, as the agent vendors themselves s
     reset to a commit).
 - **Windows.** The hooks run through `sh`, so there are no hard blocks on Windows. The guard does nothing there
   and says so.
-- **VS Code** is checked by hand at the end of phase 1. That check confirms whether its session start reaches the
-  chat, and which variables it sets for plugin hooks. The session-start hook recognises Codex by `PLUGIN_ROOT` without
-  a Copilot variable, so if VS Code sets only `PLUGIN_ROOT`, it gets Codex's JSON shape.
+- **VS Code** (GitHub Copilot Chat agent mode, checked on VS Code 1.141):
+  - **Plain-text session context.** It sets `CLAUDE_PLUGIN_ROOT` and its own `VSCODE_*` variables, and takes the
+    session context as plain text, which reaches the chat.
+  - **Its own tool names.** Its tools are `run_in_terminal`, `send_to_terminal` and `create_and_run_task` for
+    commands, and `apply_patch` (patch in `input`), `create_file`, `replace_string_in_file`,
+    `multi_replace_string_in_file`, `insert_edit_into_file`, `edit_notebook_file` and `create_directory` for files.
+    The guard reads these by name. VS Code doesn't apply the hook's matcher, so the guard sees every tool call.
+  - **One folder per window, as far as hooks know.** A window can hold several folders, but VS Code always gives
+    hooks the first one. The session start names the folder it grounds, and its facts are for that folder only. A file
+    edit is judged by the project the file is in. A terminal command is judged from the first folder, or from where a
+    `cd` takes it, so VS Code is told to start commands for another folder with `cd "<absolute folder>" &&`. Without
+    that `cd`, a command meant for a second folder is judged by the first folder's settings.
+  - **Not covered:** `run_task` (a task defined in the project) and `run_notebook_cell` run code the guard can't see.
+    `run_vscode_command` and `install_extension` aren't file writes.
 - **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
   Approving once covers updates, because the hook entries never change.
 - **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The budgets for what the guard adds on

@@ -36,8 +36,8 @@ plugins with the machine's own git credentials.
 
 ## 2. The session-start hook
 
-The plugin ships one hook that runs when a session starts, in Claude Code, Codex and the Copilot CLI (VS Code
-reads the same hook file, but that isn't verified yet; it's a manual check at the end of phase 1). In
+The plugin ships one hook that runs when a session starts, in Claude Code, Codex, the Copilot CLI and VS Code
+(checked by hand on VS Code 1.141; in a window with several folders it sees the first one). In
 about a quarter of a second, with no network access, it checks the project and asks **one** combined question
 when there's something to set up:
 

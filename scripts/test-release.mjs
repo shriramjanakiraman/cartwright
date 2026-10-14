@@ -83,9 +83,10 @@ These need an interactive prompt or an agent this framework can't drive here:
 - [ ] **VS Code:** *Install Plugin From Source* with the core repo works (workspace recommendations are still
       ignored by VS Code, microsoft/vscode#327404), and a new chat in a fresh git folder gets the \`[cartwright]\`
       session-start context (the setup offer, the missing-tools note). In a profiled project, the chat gets the
-      profile summary, and asking it to push to \`main\` is blocked with Cartwright's message. Note which variables
-      VS Code sets for plugin hooks: with only \`PLUGIN_ROOT\` (no Copilot variable), the session start answers in
-      Codex's JSON shape, so check that the context still reaches the chat.
+      profile summary naming its folder, a push to \`main\` (run_in_terminal) and a settings edit (apply_patch) are
+      blocked with Cartwright's message, and in a window with two folders an edit in the second folder is judged by
+      that folder's settings. Note if VS Code's hook variables or tool names changed (the guard test's vscode cases
+      hold 1.141's).
 - [ ] **Windows**, if anyone on the team uses it: \`node tools/run.mjs --check\` and one tool run.
 `;
 

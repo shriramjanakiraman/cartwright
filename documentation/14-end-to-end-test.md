@@ -201,9 +201,12 @@ for the hashes, seeds them, confirms Codex reports the hooks as trusted, and rec
 also means every Codex user is asked to approve the hooks again.
 - Copilot runs a plugin's hooks only when the root `plugin.json` is in Copilot's own format and declares
   `hooks`; it then reads the Claude Code format `hooks/hooks.json`. Plugin hooks run in headless `copilot -p`
-  too. VS Code isn't driven here: check its session start by hand, including whether it reaches the chat and which
-  variables VS Code sets for plugin hooks (with only `PLUGIN_ROOT` and no Copilot variable, the hook would answer in
-  Codex's JSON shape).
+  too. VS Code isn't driven here; check it by hand. On 1.141 it sets `CLAUDE_PLUGIN_ROOT` and `VSCODE_*` (no
+  `PLUGIN_ROOT`), takes the session context as plain text, ignores the hook's matcher, and gives hooks the window's
+  first folder as `cwd`. Its payload shapes are in the guard test (`vscode` cases). Re-check after a VS Code update:
+  the session start names the folder and reaches the chat, a push to `main` through `run_in_terminal` is blocked, a
+  settings edit through `apply_patch` is blocked, and in a window with two folders, a file edit in the second folder
+  is judged by that folder's settings.
 
 Things learnt from the live test:
 

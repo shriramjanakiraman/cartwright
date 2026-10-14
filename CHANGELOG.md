@@ -27,7 +27,9 @@ All notable changes to what users receive. Newest first.
   project's own rules. Changing the guardrail settings needs the person. Each block says why and what to do
   instead, and there's no bypass. `tools/guard.mjs explain "<command>"` says what would be blocked and why. The
   guard test runs every block through each agent's payload shape at every test level and in CI
-  (`npm run e2e:guard`). Not on Windows. Codex users approve the new hook once, in `/hooks`.
+  (`npm run e2e:guard`). VS Code's agent mode is covered too: its own tool names, its session start, and a window with
+  several folders, where each edit is judged by the project of the file it changes. Not on Windows. Codex users approve
+  once, in `/hooks`, for both hooks (the new guard and the updated session start).
 - Starter guardrail settings in the overlay template (`templates/overlay/.cartwright/`): agents can't push to
   `main` or `develop`, or hand-edit the overlay's build output. Existing overlays can copy the folder in.
 - An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),

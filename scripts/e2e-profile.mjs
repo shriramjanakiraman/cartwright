@@ -956,13 +956,16 @@ step('the plugin-root cache, and "guardrails are inactive" when the guard can\'t
   const r = sh(NODE, [join(bare, 'tools', 'setup.mjs'), 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: bare, CARTWRIGHT_STATE_DIR: join(WORK, `state-empty-${process.pid}`) }) });
   assert(/Guardrails are inactive in this agent: the guard can't be found/.test(r.stdout), `no inactive note: ${r.stdout.slice(0, 200)}`);
   // No node on the PATH the hooks use. This runs setup.mjs with an absolute node, as a control.
-  // TODO(end-of-phase SessionStart edit, P6): once the entry has the node guard, also run the real SessionStart
-  // command with a PATH holding only sh, and assert exit 0 (today it exits 127 there, before the helper can speak).
   const nonode = join(WORK, `no-node-${process.pid}`); mkdirSync(nonode, { recursive: true });
   symlinkSync(sh('/bin/sh', ['-c', 'command -v git']).stdout.trim(), join(nonode, 'git'));
   const n = sh(NODE, [SETUP, 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: nonode }) });
   assert(/Guardrails are inactive in this agent: node isn't on the PATH/.test(n.stdout), `no note without node: ${n.stdout.slice(0, 200)}`);
-  return 'cache written once; inactive without the guard and without node';
+  // P6: the real SessionStart command with a PATH holding sh and git but no node: the entry's node guard ends it
+  // silently with exit 0, instead of the shell's "node: not found" (127).
+  if (!existsSync(join(nonode, 'sh'))) symlinkSync('/bin/sh', join(nonode, 'sh'));
+  const real = sh('/bin/sh', ['-c', SESSION], { cwd: dir, input: JSON.stringify({ cwd: dir }), env: env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: nonode }) });
+  assert(real.status === 0 && real.stdout === '' && real.stderr === '', `the real entry without node: exit ${real.status}, ${JSON.stringify(real.stderr).slice(0, 120)}`);
+  return 'cache written once; inactive without the guard and without node; the real entry exits 0 silently without node';
 });
 
 step('overlay template (F49): starter settings protect main and develop and mark the build output; it validates, builds, and is never offered setup', () => {

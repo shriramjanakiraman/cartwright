@@ -1,9 +1,9 @@
 {
   "_comment": "Codex trust hashes for the plugin's hooks.json, captured by node scripts/codex-trust.mjs capture. Recapture whenever hooks.json changes.",
   "codexVersion": "0.162.1",
-  "hooksJsonSha256": "8ed0f157a46d4acac2515f856e61f5c622e09f53bf9c49f1d7bc1646782b1858",
+  "hooksJsonSha256": "c0f639b22e7a806794a8d3858f4247346e1e870266c53123cc04f6b2d918fc78",
   "trusted": {
-    "cartwright@cartwright:hooks/hooks.json:pre_tool_use:0:0": "sha256:6ab47efb85cbe5bd8932210e340e3b27fb73679a35de243813e1e78b9d8e09d6",
-    "cartwright@cartwright:hooks/hooks.json:session_start:0:0": "sha256:c18db5e28655bdb9fc8b97a447af0fa6d8b157b29d123b58aab6faf6eab9fcc7"
+    "cartwright@cartwright:hooks/hooks.json:pre_tool_use:0:0": "sha256:e85efccc6120ba2d6507d27d64ef1577c2016d6929e89c239d7efb5cd69e537c",
+    "cartwright@cartwright:hooks/hooks.json:session_start:0:0": "sha256:2190c9c14dc264d1ddf0cb0d5fd717fd8162c5a6425b4b72c438ccfd2dcea789"
   }
 }

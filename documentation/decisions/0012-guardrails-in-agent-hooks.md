@@ -21,7 +21,9 @@ Some limits remain:
 - Codex runs plugin hooks only after the user trusts them, and without a warning in headless `codex exec` when they
   aren't; it calls hooks "a guardrail, not a complete enforcement boundary".
 - Copilot fails closed on hook errors and fails open on timeouts.
-- Whether VS Code can deny is unverified.
+- VS Code (GitHub Copilot Chat agent mode, checked by hand on 1.141) reads the Claude-format file. It ignores the
+  matcher, so every tool call reaches the hook. It sends its own tool names (`run_in_terminal`, `apply_patch` with the
+  patch in `input`, `create_file`, `replace_string_in_file` and more), with the window's first folder as `cwd`.
 
 The team lead's decisions shape the rules:
 - universal rules everywhere, the others once a project has settings (Q1);
@@ -50,7 +52,12 @@ The team lead's decisions shape the rules:
     `path`/`old_str`/`new_str`;
   - Copilot's camelCase `toolName`/`toolArgs`;
   - Codex: `tool_name` `Bash` or `apply_patch`; the patch text, with absolute paths (`*** Update File: <abs path>`),
-    is in `tool_input.command`.
+    is in `tool_input.command`;
+  - VS Code: `run_in_terminal`/`send_to_terminal` `command`, `create_and_run_task` `task.command` and `args`,
+    `apply_patch` `input`, and its file tools' `filePath` (`replacements[].filePath` for several). They're read by the
+    payload's shape; the agent label only names the log line and the `ask` setting.
+  - Each project an action touches is judged by its own settings: the folder each command runs in (after any `cd`),
+    where it writes or deletes, and each edit's target file. The strictest result wins.
   - A small POSIX shell parser recurses into `sh -c`, `eval`, `$(…)` and `xargs`, and expands git aliases.
 - **The rules:**
 
@@ -106,7 +113,9 @@ The team lead's decisions shape the rules:
 - **Codex (verified on 0.162.1):** grounding and blocks work only after the user trusts the hooks in `/hooks`; until
   then they silently don't run. Codex asks once, for both hooks together: the new PreToolUse hook and the updated
   SessionStart entry, finalised at the end of phase 1.
-- **VS Code:** to check by hand once the manifest fix is in. Any gap goes to the team lead.
+- **VS Code:** checked by hand on 1.141. Its session start and blocks work. In a window with several folders, hooks
+  see only the first, so terminal commands for another folder need a `cd` to be judged by that folder's settings (the
+  session context says so). This limit is with the team lead.
 - **"Ask" support** in each agent is still to check interactively. Until it's verified for an agent, "confirm" there
   is a deny with "the person runs it".
 - **Copilot on Windows** without `sh` needs checking, because it fails closed.
