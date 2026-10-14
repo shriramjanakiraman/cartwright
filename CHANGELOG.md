@@ -17,6 +17,8 @@ All notable changes to what users receive. Newest first.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
 
 ### Fixed
+- The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of
+  the checkout, which the release step requires to be clean. A new check in `npm run check` catches the pattern.
 - The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
   manifest didn't declare it, and Copilot only takes session-start context as JSON. Copilot users now get the
   missing-tools note; the setup offer reaches Copilot too, but its model doesn't reliably ask it, so ask for

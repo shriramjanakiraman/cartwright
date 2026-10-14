@@ -37,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
-          node scripts/upstream-check.mjs --write --changelog --report upstream-report.md
+          node scripts/upstream-check.mjs --write --changelog --report "$RUNNER_TEMP/upstream-report.md"
           echo "code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Mirror, rebuild and run the same checks as CI
@@ -54,12 +54,12 @@ jobs:
           # New or changed official skills that may repeat one of ours (scripts/similar-skills.mjs).
           CHANGED=$( { git ls-files --others --exclude-standard -- upstream; git diff --name-only -- upstream; } | grep '/SKILL.md$' || true)
           OVERLAPS=$( [ -n "$CHANGED" ] && node scripts/similar-skills.mjs --markdown $CHANGED || true)
-          [ -z "$OVERLAPS" ] || printf '\n## Possible overlaps with our skills\n\n%s\n' "$OVERLAPS" >> upstream-report.md
+          [ -z "$OVERLAPS" ] || printf '\n## Possible overlaps with our skills\n\n%s\n' "$OVERLAPS" >> "$RUNNER_TEMP/upstream-report.md"
           # The tools tools/run.mjs runs (B2C CLI, spec-kit, graphify): run each pinned version once, so a
           # broken release is caught here, before it reaches anyone. A failure is reported in the pull request.
-          printf '\n' >> upstream-report.md
-          node scripts/run.mjs --smoke --markdown >> upstream-report.md || echo "::warning::A pinned tool version failed its smoke test; see the pull request."
-          printf '\n---\nChecked by upstream-watch before opening: validate, scrub-scan, sync-upstream --check, build --check.\n' >> upstream-report.md
+          printf '\n' >> "$RUNNER_TEMP/upstream-report.md"
+          node scripts/run.mjs --smoke --markdown >> "$RUNNER_TEMP/upstream-report.md" || echo "::warning::A pinned tool version failed its smoke test; see the pull request."
+          printf '\n---\nChecked by upstream-watch before opening: validate, scrub-scan, sync-upstream --check, build --check.\n' >> "$RUNNER_TEMP/upstream-report.md"
 
       - name: Open or refresh the review pull request into develop
         if: steps.up.outputs.code == '10'
@@ -75,8 +75,8 @@ jobs:
           git push -f origin "$BRANCH"
           OPEN=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
           if [ -n "$OPEN" ]; then
-            gh pr edit "$OPEN" --title "Upstream changes (updated $TODAY)" --body-file upstream-report.md
+            gh pr edit "$OPEN" --title "Upstream changes (updated $TODAY)" --body-file "$RUNNER_TEMP/upstream-report.md"
             echo "Refreshed pull request #$OPEN"
           else
-            gh pr create --base develop --head "$BRANCH" --title "Upstream changes (updated $TODAY)" --body-file upstream-report.md
+            gh pr create --base develop --head "$BRANCH" --title "Upstream changes (updated $TODAY)" --body-file "$RUNNER_TEMP/upstream-report.md"
           fi

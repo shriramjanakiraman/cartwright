@@ -36,6 +36,8 @@ sources.
   rebuilt and force-pushed), so never commit to `feature/upstream-updates` yourself.
 - Because a workflow opens it, the pull request gets no checks of its own; `upstream-watch` runs validate,
   scrub, the mirror check and the build check before opening it.
+- Its report is written and read from `$RUNNER_TEMP/upstream-report.md`, keeping scratch files out of
+  the checkout while the lock, mirror and CHANGELOG changes are prepared.
 - Start it by hand: `gh workflow run upstream-watch.yml --ref develop` (or `upstream-schedule.yml` to test
   the trigger).
 
