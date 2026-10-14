@@ -2,7 +2,7 @@
 name: project-profile
 description: "Study a project of any stack (read-only), save its Cartwright profile and guardrail settings after the person approves, and keep them current. Use when the session-start notice offers to set the project up and the person replies \"set up\", or when someone says \"set up Cartwright here\", \"profile this project\", \"refresh the profile\", \"the profile is out of date\", \"change the guardrail settings\", \"protect this branch\", \"mark these files as generated\" or \"why was this blocked?\". Hands on to client-setup when the project is for a client."
 owner: shriramjanakiraman
-version: 0.1.1
+version: 0.1.2
 status: active
 applies-to: [any]
 depends-on: [client-setup, tool:node, tool:git]
@@ -142,7 +142,9 @@ Step 4 (it changes only those facts). Then offer a pull request as in Step 5, on
 
 ### Step 7 — Change the guardrail settings
 
-Ask what should change, then build a `write` command with only those options. A list option replaces that list;
+Ask what should change, then build a `write` command with only those options, **always with `--store`** set to the
+store the profile is in now (`node <profile.mjs> show` reports it as `store`; `write` refuses to run without it). For
+example: `node <profile.mjs> write --store folder --protected main,develop,staging`. A list option replaces that list;
 lists not given keep their saved value. The person approves it as in Step 4, and the change goes through a pull
 request, because the settings are the team's. A developer's own extra rules go in their personal file instead:
 `.cartwright/personal.json` when the profile is in `.cartwright/`, or `<state>/projects/<key>/personal.json` when
