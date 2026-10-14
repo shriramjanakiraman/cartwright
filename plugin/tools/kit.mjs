@@ -73,10 +73,20 @@ VS Code may not pick up workspace plugins yet (microsoft/vscode#327404); if so, 
 Source* once with the core repo and then the ${code} repo.
 `;
 
-// Add the kit to a project, merging with files that already exist. Returns the paths it created or changed.
+// Add the kit to a project, merging with files that already exist. Returns changed paths, with a notes array.
 export function applyKit(dir, opts) {
   const files = kitFiles(opts);
   const changed = [];
+  Object.defineProperty(changed, 'notes', { value: [] });
+  const readJson = (rel) => {
+    const p = join(dir, rel);
+    if (!existsSync(p)) return null;
+    try { return JSON.parse(readFileSync(p, 'utf8')); }
+    catch { throw new Error(`${p} could not be read as valid JSON; fix or remove it before adding the kit`); }
+  };
+  // Validate all existing JSON before writing any part of the kit.
+  const existing = new Map(['.claude/settings.json', '.github/copilot/settings.json', '.agents/plugins/marketplace.json']
+    .map((rel) => [rel, readJson(rel)]));
   const write = (rel, text) => {
     const p = join(dir, rel);
     if (existsSync(p) && readFileSync(p, 'utf8') === text) return;
@@ -84,11 +94,9 @@ export function applyKit(dir, opts) {
     writeFileSync(p, text);
     changed.push(rel);
   };
-  const readJson = (rel) => { try { return JSON.parse(readFileSync(join(dir, rel), 'utf8')); } catch { return null; } };
-
   for (const rel of ['.claude/settings.json', '.github/copilot/settings.json']) {
     const want = JSON.parse(files.get(rel));
-    const have = readJson(rel) || {};
+    const have = existing.get(rel) || {};
     have.extraKnownMarketplaces = { ...(have.extraKnownMarketplaces || {}), ...want.extraKnownMarketplaces };
     have.enabledPlugins = { ...(have.enabledPlugins || {}), ...want.enabledPlugins };
     write(rel, JSON.stringify(have, null, 2) + '\n');
@@ -96,7 +104,7 @@ export function applyKit(dir, opts) {
 
   // Codex: keep an existing repo marketplace (and its name), adding or replacing our two plugins in it.
   const want = JSON.parse(files.get('.agents/plugins/marketplace.json'));
-  const have = readJson('.agents/plugins/marketplace.json');
+  const have = existing.get('.agents/plugins/marketplace.json');
   const market = have?.name || want.name;
   const merged = have ? { ...have, plugins: [...(have.plugins || []).filter((p) => !want.plugins.some((w) => w.name === p.name)), ...want.plugins] } : want;
   write('.agents/plugins/marketplace.json', JSON.stringify(merged, null, 2) + '\n');
@@ -106,6 +114,14 @@ export function applyKit(dir, opts) {
   else for (const p of want.plugins) {
     const header = `[plugins."${p.name}@${market}"]`;
     if (!toml.includes(header)) toml = `${toml.replace(/\n*$/, '\n\n')}${header}\nenabled = true\n`;
+    else {
+      const lines = toml.split(/\r?\n/);
+      const start = lines.findIndex((line) => line.trim().startsWith(header) && /^\s*(?:#.*)?$/.test(line.trim().slice(header.length)));
+      const end = lines.findIndex((line, i) => i > start && /^\s*\[/.test(line));
+      if (start >= 0 && lines.slice(start + 1, end < 0 ? undefined : end).some((line) => /^\s*enabled\s*=\s*false\s*(?:#.*)?$/.test(line))) {
+        changed.notes.push(`${p.name} is switched off in .codex/config.toml; set enabled = true to use it`);
+      }
+    }
   }
   write('.codex/config.toml', toml);
   write('AGENT-SKILLS.md', files.get('AGENT-SKILLS.md'));

@@ -26,6 +26,12 @@ on `develop`. It:
    major, or commits on `develop` that aren't released while *Unreleased* is empty. Later weeks comment on
    the same issue. Close it once handled.
 
+Diagnostics, pull request bodies and release notes live in `$RUNNER_TEMP`, keeping the checkout clean
+for the release script. `npm run check` runs `scripts/check-workflow-temp.mjs` offline to reject relative
+output redirections, `tee` destinations and `--report` paths in release/upstream workflows, including the
+overlay templates. Use the runner temp folder for scratch files; GitHub output, environment and summary
+files are allowed too. This is a small shell-pattern check, not a full shell parser.
+
 The owner reviews and merges the release pull request. Majors are always the owner's decision.
 
 ## What merging a release does

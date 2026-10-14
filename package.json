@@ -15,7 +15,7 @@
     "build:check": "node scripts/build.mjs --check",
     "upstream": "node scripts/upstream-check.mjs",
     "link": "node scripts/link.mjs",
-    "check": "npm run validate && npm run scrub && npm run build:check && node scripts/registry.mjs --check",
+    "check": "npm run validate && npm run scrub && npm run build:check && node scripts/registry.mjs --check && node scripts/check-workflow-temp.mjs",
     "setup-hooks": "git config core.hooksPath .githooks",
     "sync-upstream": "node scripts/sync-upstream.mjs",
     "sync-upstream:check": "node scripts/sync-upstream.mjs --check",

@@ -2,7 +2,8 @@
 // One command for testing a change or a release, at the depth it deserves (see documentation/14).
 //
 //   quick  feature and bugfix work (no agents):       checks + the Codex trust-hash check + the agent harness's
-//                                                     self-test + the profile test and the
+//                                                     self-test + the offline kit, link and tool-fallback tests
+//                                                     + the profile test and the
 //                                                     bare-machine test without tool downloads (at the same time)
 //                                                     + the guard test
 //   minor  patch and minor releases (ADR 0013):       + tool downloads and smoke test, and the agent scenarios in
@@ -34,6 +35,7 @@ const opt = (f, d) => { const i = args.indexOf(f); return i > -1 ? args[i + 1] :
 const LEVEL = opt('--level', 'quick');
 const keep = args.includes('--keep') ? ['--keep'] : [];
 const TIMING_ONLY = args.includes('--timing-only');
+const safetyTests = ['Offline kit, link and tool fallback regressions', 'node', ['scripts/test-kit-link.mjs', '--plugin', './plugin']];
 
 // The suites leave their timing steps to the final Timing step (--no-timing).
 const GUARD = ['Guard test (deterministic, offline)', 'node', ['scripts/e2e-guard.mjs', '--plugin', './plugin', '--no-timing', ...keep]];
@@ -48,6 +50,7 @@ const PLANS = {
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     TRUST,
     HARNESS,
+    safetyTests,
     PROFILE,
     ['Bare-machine test (no tool downloads)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--fast', ...keep], 'together'],
     GUARD,
@@ -56,6 +59,7 @@ const PLANS = {
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     TRUST,
     HARNESS,
+    safetyTests,
     PROFILE,
     ['Bare-machine test (full)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', ...keep], 'together'],
     GUARD,
@@ -65,6 +69,7 @@ const PLANS = {
     ['Checks (validate, scrub, build, registry)', 'npm', ['run', '-s', 'check']],
     TRUST,
     HARNESS,
+    safetyTests,
     PROFILE,
     ['Bare-machine test (full, with a real pull request)', 'node', ['scripts/e2e.mjs', '--plugin', './plugin', '--pr', ...keep], 'together'],
     GUARD,

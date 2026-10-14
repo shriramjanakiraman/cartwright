@@ -58,7 +58,7 @@ releases. See [Project overlays](09-project-overlays.md).
 ## Local checks
 
 ```bash
-npm run check          # validate + scrub-scan + build:check + the registry check
+npm run check          # validate + scrub-scan + build:check + the registry check + the workflow temp-file check
 npm run validate       # the skill standard only
 npm run scrub          # the data-leakage scan only
 ```

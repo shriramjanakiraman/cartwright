@@ -3,7 +3,8 @@
 // The version pinned in upstream.lock.json (tracked and updated by the daily upstream check, and smoke-tested
 // before each update is proposed) is what runs: an installed copy at that version or newer is used as is;
 // otherwise, including an installed copy that's older, the pinned version is fetched on demand through npx
-// or uvx and cached. So the whole team stays on the same tested version without reinstalling anything.
+// or uvx and cached. An older installed copy still runs if its runner is missing or explicitly overridden;
+// unknown installed versions count as not older. USE_PINNED takes precedence over those exceptions.
 // Shipped in the plugin as tools/run.mjs. No dependencies.
 //
 //   node run.mjs <tool> [args…]        run it: b2c, specify (spec-kit) or graphify, same arguments as usual
@@ -98,7 +99,8 @@ export function plan(name, args = [], versions = pinned()) {
   const outdated = !!(path && version && older(iv, version));
   const installedInfo = path ? { path, version: iv } : null;
   if (path && process.env.CARTWRIGHT_USE_PINNED !== '1' && (!outdated || process.env.CARTWRIGHT_PREFER_INSTALLED === '1' || !which(runner))) {
-    return { tool: id, route: 'installed', command: [path, ...args], version: iv || 'installed copy', pinned: version, installed: installedInfo, outdated };
+    const note = outdated ? `using installed ${t.label} ${iv}, older than the team's ${version}, because ${process.env.CARTWRIGHT_PREFER_INSTALLED === '1' ? 'CARTWRIGHT_PREFER_INSTALLED=1 requests it' : `${runner} is missing; cannot fetch the pinned version`}` : null;
+    return { tool: id, route: 'installed', command: [path, ...args], version: iv || 'installed copy', pinned: version, installed: installedInfo, outdated, note };
   }
   if (!which(runner)) return { tool: id, route: 'unavailable', missing: runner, fix: RUNTIME_HELP[runner], pinned: version };
   const at = version || 'latest';
@@ -116,6 +118,7 @@ export function check(versions = pinned()) {
     const t = TOOLS[id];
     return { tool: id, label: t.label, pinned: versions[t.source] || null, installed: p.installed?.version || (p.installed ? 'unknown' : null),
       outdated: !!p.outdated, route: p.route, runsAs: p.command ? p.command.join(' ') : null, missing: p.missing || null, fix: p.fix || null,
+      note: p.note || null,
       installPermanently: versions[t.source] ? t.install(versions[t.source]) : null };
   });
 }
@@ -147,7 +150,7 @@ if (isMain) {
     const rows = check();
     if (rest.includes('--json')) { console.log(JSON.stringify({ runtimes: { node: process.version, npx: which('npx'), uvx: which('uvx') }, tools: rows }, null, 2)); process.exit(0); }
     for (const r of rows) {
-      const how = r.route === 'installed' ? `installed ${r.installed}${r.outdated ? ' (older than pinned; no runner to fetch the pinned one)' : ''}`
+      const how = r.route === 'installed' ? (r.note || `installed ${r.installed}`)
         : r.route === 'unavailable' ? `NOT RUNNABLE (needs ${r.missing})`
         : r.outdated ? `installed ${r.installed} is older than pinned → runs ${r.pinned} on demand via ${r.route}` : `runs on demand via ${r.route}`;
       console.log(`${r.label.padEnd(9)} ${how}  [pinned ${r.pinned || 'none'}]`);
@@ -170,6 +173,7 @@ if (isMain) {
   const p = plan(first, rest);
   if (p.error) { console.error(`run: ${p.error}`); process.exit(2); }
   if (p.route === 'unavailable') { console.error(`run: ${TOOLS[p.tool].label} isn't installed and ${p.missing} isn't available to fetch it. ${p.fix}`); process.exit(127); }
+  if (p.note) console.error(`run: ${p.note}`);
   if (p.outdated && p.route !== 'installed') console.error(`run: installed ${TOOLS[p.tool].label} ${p.installed.version} is older than the team's ${p.pinned}, so running ${p.pinned} on demand. To update the installed copy: ${TOOLS[p.tool].install(p.pinned)}`);
   else if (p.route !== 'installed') console.error(`run: ${TOOLS[p.tool].label} ${p.version} via ${p.route} (first run downloads it; then it's cached)`);
   const r = spawnSync(p.command[0], p.command.slice(1), { stdio: 'inherit', shell: WIN });

@@ -266,8 +266,10 @@ if (cmd === 'kit') {
   const code = opt('--code'), overlay = opt('--overlay');
   if (!code || !overlay) { console.error('setup: kit needs --code and --overlay'); process.exit(2); }
   const root = projectRoot(dir) || dir;
-  const changed = applyKit(root, { code, overlay, lead: opt('--lead') });
-  out({ projectRoot: root, changed });
+  let changed;
+  try { changed = applyKit(root, { code, overlay, lead: opt('--lead') }); }
+  catch (e) { console.error(`setup: ${e.message}`); process.exit(1); }
+  out({ projectRoot: root, changed, notes: changed.notes });
   process.exit(0);
 }
 

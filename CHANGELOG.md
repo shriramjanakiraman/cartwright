@@ -46,7 +46,7 @@ All notable changes to what users receive. Newest first.
   client's project skills if it's for a client ("set up", "not now" or "never here"). It replaces the separate
   client question; earlier "not now" and "no client" answers are kept, and "never here" stops asking in that
   project.
-- `client-setup` (0.2.0) and `tools-without-install` (0.2.1) take what they need from the project's profile
+- `client-setup` (0.2.0) and `tools-without-install` (0.2.2) take what they need from the project's profile
   instead of asking or opening the project's files.
 - The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
   employees, profile and guardrails for its own development as each phase ships. This repo now switches the
@@ -57,8 +57,15 @@ All notable changes to what users receive. Newest first.
   a throwaway home with its hooks' trust pre-seeded from hashes Codex itself reports
   (`scripts/codex-trust.mjs`), and `quick` checks those hashes still match the hooks. `major` adds the long setup
   conversations, including the first run. `npm run test:agents -- --dry-run` prepares every scenario at no cost.
+- Official sources updated: b2c-developer-tooling 1.12.0 → 1.12.1; b2c-cli 2.5.1 → 2.6.0; storefront-next-template 1d553d1 → 6149218; spec-kit v1.1.2 → v1.1.3; graphify 0.9.82 → 0.9.89.
 
 ### Fixed
+- The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of
+  the checkout, which the release step requires to be clean. A new check in `npm run check` catches the pattern.
+- Kit setup rejects malformed agent settings or Codex marketplace JSON before writing any kit files, naming the file to fix or remove.
+- Kit setup preserves disabled Codex plugins and reports how to enable them in `.codex/config.toml`.
+- `link` leaves foreign symlinks and existing files alone when creating or refreshing skills, consistently with pruning.
+- Tool-runner docs cover missing-runner and unknown-version exceptions; plans and runs explain why an older installed copy is used.
 - The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
   manifest didn't declare it, and Copilot only takes session-start context as JSON. Copilot users now get the
   missing-tools note; the setup offer reaches Copilot too, but its model doesn't reliably ask it, so ask for

@@ -33,7 +33,7 @@ Run one by hand: `gh workflow run <file> --ref develop` (or `--ref main` for the
 | `npm run validate` | the skill standard (`--overlay <repo>` for overlays) |
 | `npm run scrub` | data-leakage and secret scan (`--denylist`, `--secrets-only`) |
 | `npm run build` / `build:check` | package the plugin and INDEX, or check they're current |
-| `npm run check` | validate + scrub + build check + registry check (CI and the pre-commit hook run different sets; see [Build and distribution](08-build-and-distribution.md#local-checks)) |
+| `npm run check` | validate + scrub + build check + registry check + workflow temp-file check (CI and the pre-commit hook run different sets; see [Build and distribution](08-build-and-distribution.md#local-checks)) |
 | `npm run release [-- x.y.z]` | cut a release branch (`--overlay <repo>` for overlays) |
 | `node scripts/next-version.mjs` | print the version the next release would get |
 | `node scripts/similar-skills.mjs <files>` | the duplicate check, locally |

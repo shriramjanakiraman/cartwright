@@ -100,6 +100,11 @@ already exist, and offers to open a pull or merge request:
 | `.agents/plugins/marketplace.json`, `.codex/config.toml` | Codex |
 | `AGENT-SKILLS.md` | people: what these files are and who to ask for access |
 
+If either agent settings JSON or the Codex marketplace JSON is malformed, setup names the file and asks
+you to fix or remove it; no kit files are written until all three parse successfully. Existing Codex plugin
+entries with `enabled = false` stay switched off. The kit command reports them in `notes`, with the
+instruction to set `enabled = true` in `.codex/config.toml` to use those plugins.
+
 The kit holds no skills, only pointers to the shared library and the client's project skills repo, on any
 git host (GitHub, GitLab, Bitbucket, self-hosted). Once it's merged, everyone who opens the project gets both
 plugins with no setup of their own. Setup also lists the commands to install both plugins on the
