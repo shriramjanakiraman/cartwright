@@ -730,7 +730,28 @@ export function prepare(action, ctx) {
       }
     }
   }
-  return { cmds, edits, line: action.actions.filter((a) => a.type === 'shell').map((a) => a.command).join('\n') };
+  // Judging one project of several (ctx.only): just the commands and edits that touch it.
+  const line = action.actions.filter((a) => a.type === 'shell').map((a) => a.command).join('\n');
+  if (ctx.only) return { cmds: cmds.filter((c) => ctx.only(cmdRoots(c, ctx))), edits: edits.filter((e) => ctx.only([ctx.rootOf(e.path)])), line };
+  return { cmds, edits, line };
+}
+// The projects (git roots) a command touches: the folder it runs in (after any cd), and where it writes or deletes.
+function cmdRoots(c, ctx) {
+  const roots = [ctx.rootOf(c.git?.cwd ?? c.cwd)];
+  try { for (const t of [...writeTargets(c, ctx), ...deleteTargets(c, ctx)]) if (t.path) roots.push(ctx.rootOf(t.path)); } catch { /* judged where it runs */ }
+  return roots;
+}
+// Every project an action touches, so each is judged by its own settings: the folder each command runs in and the
+// files it writes, and each edit's target file (VS Code's first workspace folder is the payload's cwd, whichever
+// folder the agent works in). Paths in no project count as the action's own project.
+export function projectsOf(action, ctx) {
+  const own = ctx.root(), out = new Set();
+  let A;
+  try { A = prepare(action, ctx); } catch { return new Set([own]); }
+  for (const c of A.cmds) for (const r of cmdRoots(c, ctx)) out.add(r ?? own);
+  for (const e of A.edits) out.add(ctx.rootOf(e.path) ?? own);
+  if (!out.size) out.add(own);
+  return out;
 }
 
 const isGit = (c, sub) => c.name === 'git' && c.git?.sub === sub;
@@ -828,9 +849,12 @@ const CHECKS = {
     return null;
   },
   'destructive-outside-project'(A, ctx, s) {
+    // When several projects are judged one by one, a target inside another project is that project's to judge.
+    const elsewhere = (p) => !!ctx.only && !!p && (() => { const r = ctx.rootOf(p); return !!r && r !== ctx.root(); })();
     for (const c of A.cmds) {
-      for (const t of deleteTargets(c, ctx)) { const r = destructive(t.path, 'delete', ctx, s); if (r) return r; }
+      for (const t of deleteTargets(c, ctx)) { if (elsewhere(t.path)) continue; const r = destructive(t.path, 'delete', ctx, s); if (r) return r; }
       for (const t of writeTargets(c, ctx)) {
+        if (elsewhere(t.path)) continue;
         if (t.kind === 'move-src') { const r = destructive(t.path, 'move away', ctx, s); if (r) return r; continue; }
         if (t.kind === 'delete') { const r = destructive(t.path, 'delete', ctx, s); if (r) return r; continue; }
         if (t.kind === 'append' && READINGS.allowCreateAndAppend) continue;
@@ -840,7 +864,7 @@ const CHECKS = {
       }
     }
     for (const e of A.edits) {
-      if (!e.path) continue;
+      if (!e.path || elsewhere(e.path)) continue;
       if (READINGS.allowCreateAndAppend && !e.existed) continue;
       const r = destructive(e.path, e.op === 'delete' || e.op === 'move' ? 'delete' : 'overwrite', ctx, s); if (r) return r;
     }

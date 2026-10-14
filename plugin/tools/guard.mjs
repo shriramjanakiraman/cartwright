@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { confirmAsDeny, confirmReason, decide, prepare, READINGS, RULES, ruleSettings } from './guard-rules.mjs';
+import { confirmAsDeny, confirmReason, decide, prepare, projectsOf, READINGS, RULES, ruleSettings } from './guard-rules.mjs';
 import { shQuote } from './guard-shell.mjs';
 import { resolveSettings } from './settings.mjs';
 import { agentsFile, load, machineDir, readSection, stateDir } from './store.mjs';
@@ -23,18 +23,30 @@ import { agentsFile, load, machineDir, readSection, stateDir } from './store.mjs
 export const DEADLINE_MS = 5000;
 // Agents whose own approval prompt ("ask") is verified to work for a hook. Until it is, a guardrail-file change is
 // denied with the command for the person to run (G4). Claude Code's ask is implemented but not yet verified.
-export const ASK_VERIFIED = { 'claude-code': false, copilot: false, codex: false };
-const SHELL_TOOLS = ['bash', 'shell', 'exec_command'];
-const EDIT_TOOLS = ['edit', 'write', 'multiedit', 'notebookedit', 'create', 'apply_patch'];
+export const ASK_VERIFIED = { 'claude-code': false, copilot: false, codex: false, vscode: false };
+// Tool names by what they do, from every agent's payloads. VS Code's (GitHub Copilot Chat agent mode) come from the
+// built-in Copilot extension (copilot-chat 0.69.0 in VS Code 1.141): its ToolName table in dist/extension.js and the
+// input schemas in package.json (contributes.languageModelTools); run_in_terminal, send_to_terminal and
+// create_and_run_task are VS Code core tools (schemas in out/vs/workbench/workbench.desktop.main.js).
+const SHELL_TOOLS = ['bash', 'shell', 'exec_command', 'run_in_terminal', 'send_to_terminal'];
+const EDIT_TOOLS = ['edit', 'write', 'multiedit', 'notebookedit', 'create', 'apply_patch', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory'];
+export const VSCODE_TOOLS = ['run_in_terminal', 'send_to_terminal', 'create_and_run_task', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory', 'read_file', 'list_dir'];
 const SELF = fileURLToPath(import.meta.url);
 const PLUGIN = dirname(dirname(SELF));
 
 // --- payloads -----------------------------------------------------------------------------------------------------
 // Which agent sent this: Copilot (its variables, or its camelCase payload), Codex (PLUGIN_ROOT without Copilot's, or a
 // Codex-only tool), else Claude Code.
+// The label only sets the log's agent and whether "ask" is used: the payload's own shape decides how it's read.
+// Order: a Copilot variable or payload → copilot; PLUGIN_ROOT → codex; VS Code's tool names or patch shape, or VS Code's
+// variables without Claude Code's own CLAUDECODE marker (Claude Code and Codex started in VS Code's terminal inherit
+// VSCODE_*) → vscode; Codex-only tools → codex; else claude-code.
 export function agentOf(p, env) {
   if (p.toolName !== undefined || env.COPILOT_PLUGIN_ROOT || env.COPILOT_CLI) return 'copilot';
-  if (/^(apply_patch|exec_command)$/i.test(p.tool_name || '') || env.PLUGIN_ROOT) return 'codex';
+  if (env.PLUGIN_ROOT) return 'codex';
+  const tool = String(p.tool_name || '').toLowerCase();
+  if (VSCODE_TOOLS.includes(tool) || (tool === 'apply_patch' && typeof p.tool_input?.input === 'string') || ((env.VSCODE_PID || env.VSCODE_IPC_HOOK) && !env.CLAUDECODE)) return 'vscode';
+  if (/^(apply_patch|exec_command)$/.test(tool)) return 'codex';
   return 'claude-code';
 }
 
@@ -50,7 +62,12 @@ export function normalise(p, env = process.env) {
   const t = tool.toLowerCase(), actions = [];
   const str = (...v) => v.find((x) => typeof x === 'string');
   let missed = false;
-  if (SHELL_TOOLS.includes(t)) {
+  if (t === 'create_and_run_task') {
+    // VS Code's task: { task: { label, type, command, args } } runs command with args in a shell.
+    const task = input.task && typeof input.task === 'object' ? input.task : input;
+    const args = Array.isArray(task.args) ? task.args.map((x) => shQuote(String(x))).join(' ') : '';
+    if (typeof task.command === 'string') actions.push({ type: 'shell', command: `${task.command}${args ? ` ${args}` : ''}` }); else missed = true;
+  } else if (SHELL_TOOLS.includes(t)) {
     const c = input.command ?? input.cmd;
     const command = Array.isArray(c) ? c.map((x) => shQuote(String(x))).join(' ') : str(c);
     if (command !== undefined) actions.push({ type: 'shell', command }); else missed = true;
@@ -60,11 +77,21 @@ export function normalise(p, env = process.env) {
     if (text === undefined) missed = true;
     // Read as a shell apply_patch with the patch as a here-document, so shell and tool patches share one reader.
     actions.push({ type: 'shell', command: `apply_patch <<'CARTWRIGHT_PATCH'\n${text ?? ''}\nCARTWRIGHT_PATCH`, tool: 'apply_patch' });
+  } else if (t === 'multi_replace_string_in_file') {
+    // VS Code: { replacements: [{ filePath, oldString, newString }] }, one target per replacement.
+    const reps = Array.isArray(input.replacements) ? input.replacements : [];
+    if (!reps.length) { missed = true; actions.push({ type: 'edit', targets: [{ path: null, op: 'modify', edits: [] }] }); }
+    for (const r of reps) actions.push({ type: 'edit', targets: [{ path: str(r?.filePath, r?.file_path) ?? null, op: 'modify', edits: [{ before: str(r?.oldString) ?? '', after: str(r?.newString) ?? '' }] }] });
   } else if (EDIT_TOOLS.includes(t)) {
-    const path = str(input.file_path, input.path, input.filePath, input.notebook_path) ?? null;
+    const path = str(input.file_path, input.path, input.filePath, input.notebook_path, input.dirPath) ?? null;
     if (path === null) missed = true;
     if (t === 'multiedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: (Array.isArray(input.edits) ? input.edits : []).map((e) => ({ before: e.old_string ?? e.old_str ?? '', after: e.new_string ?? e.new_str ?? '' })) }] });
-    else if (t === 'write' || t === 'create') actions.push({ type: 'edit', targets: [{ path, op: 'write', content: str(input.content, input.file_text, input.new_str) ?? '' }] });
+    else if (t === 'write' || t === 'create' || t === 'create_file') actions.push({ type: 'edit', targets: [{ path, op: 'write', content: str(input.content, input.file_text, input.new_str) ?? '' }] });
+    else if (t === 'create_directory') actions.push({ type: 'edit', targets: [{ path, op: 'write', content: '' }] });
+    // VS Code's insert_edit_into_file gives code with "existing code" markers, not an exact change: judged as touching
+    // anything in the file; edit_notebook_file likewise.
+    else if (t === 'insert_edit_into_file' || t === 'edit_notebook_file') actions.push({ type: 'edit', targets: [{ path, op: 'modify' }] });
+    else if (t === 'replace_string_in_file') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: str(input.oldString) ?? '', after: str(input.newString) ?? '' }] }] });
     else if (t === 'notebookedit') actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: '', after: str(input.new_source) ?? '' }] }] });
     else actions.push({ type: 'edit', targets: [{ path, op: 'modify', edits: [{ before: str(input.old_string, input.old_str) ?? '', after: str(input.new_string, input.new_str) ?? '' }] }] });
   }
@@ -76,7 +103,9 @@ export function normalise(p, env = process.env) {
 // --- the machine, as the rules see it ----------------------------------------------------------------------------
 class Deadline extends Error { constructor() { super('the check ran out of time'); this.deadline = true; } }
 
-export function makeContext({ cwd, env = process.env, deadline = Date.now() + DEADLINE_MS }) {
+// root: judge this project (of several the action touches) instead of the one cwd is in; only that project's commands
+// and edits are judged then (ctx.only).
+export function makeContext({ cwd, env = process.env, deadline = Date.now() + DEADLINE_MS, root: forcedRoot = null, cwdRoot = null }) {
   const memo = (f) => { let done = false, v; return () => { if (!done) { v = f(); done = true; } return v; }; };
   const tick = () => { if (Date.now() > deadline) throw new Deadline(); };
   // Real paths come from realpath(3) (realpathSync.native), which also gives the on-disk letter case, so GEN/api.ts
@@ -110,7 +139,17 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     return r.status === 0 ? r.stdout : null;
   };
   // The project: the nearest folder with .git, found without running git; else the folder itself.
-  const root = memo(() => { for (let d = here(); ; d = dirname(d)) { if (existsSync(join(d, '.git'))) return d; if (d === dirname(d)) return here(); } });
+  const root = memo(() => forcedRoot || (() => { for (let d = here(); ; d = dirname(d)) { if (existsSync(join(d, '.git'))) return d; if (d === dirname(d)) return here(); } })());
+  // The project a path belongs to (the nearest folder with .git), or null when it's in none.
+  const roots = new Map();
+  const rootOf = (p) => {
+    if (!p) return null;
+    if (roots.has(p)) return roots.get(p);
+    let found = null;
+    try { for (let d = realish(p); ; d = dirname(d)) { if (existsSync(join(d, '.git'))) { found = d; break; } if (d === dirname(d)) break; } } catch { /* none */ }
+    roots.set(p, found);
+    return found;
+  };
   const stored = memo(() => load(root()));
   const settings = memo(() => {
     const st = stored();
@@ -132,7 +171,10 @@ export function makeContext({ cwd, env = process.env, deadline = Date.now() + DE
     return { temp, cache, allowed: s.allowed.map(expand).filter(Boolean), protected: s.protected.map(expand).filter(Boolean) };
   });
   return {
-    env, tick, realish, realFull, git, root, settings, stored,
+    env, tick, realish, realFull, git, root, settings, stored, rootOf,
+    // Judging one project of several: an item belongs to it when one of its projects is this one (paths in no project
+    // belong to the action's own project).
+    only: forcedRoot ? (rs) => rs.some((r) => (r ?? cwdRoot) === forcedRoot) : null,
     cwd: here,
     stateDir: () => real(stateDir()) || realish(stateDir()),
     // The plugin this guard runs from: its own tools are Cartwright's sanctioned writers, not agent scripts.
@@ -173,6 +215,24 @@ function log(env, entry) {
   try { appendFileSync(env.CARTWRIGHT_GUARD_LOG, JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n'); } catch { /* logging is optional */ }
 }
 
+// Decide for every project the action touches, each by its own settings: the strictest result wins (deny, then
+// confirm, then allow). One project, the usual case, is a single decision as before. Returns { r, ctx }.
+export function decideAll(action, env = process.env) {
+  const deadline = Date.now() + DEADLINE_MS;
+  const base = makeContext({ cwd: action.cwd, env, deadline });
+  const roots = projectsOf(action, base);
+  if (roots.size === 1 && roots.has(base.root())) return { r: decide(action, base), ctx: base };
+  let best = null;
+  for (const root of roots) {
+    const ctx = makeContext({ cwd: action.cwd, env, deadline, root, cwdRoot: base.root() });
+    const r = decide(action, ctx);
+    if (r.decision === 'deny') return { r, ctx };
+    if (r.decision === 'confirm' && (!best || best.r.decision !== 'confirm')) best = { r, ctx };
+    best ||= { r, ctx };
+  }
+  return best;
+}
+
 // The decision for a payload, rendered: { exit, stdout, stderr, decision, rule }.
 export function respond(payload, env = process.env) {
   const action = normalise(payload, env);
@@ -181,8 +241,7 @@ export function respond(payload, env = process.env) {
     if (action?.fields) log(env, { agent: action.agent, tool: action.tool, rule: null, decision: 'allow', fields: action.fields, note: 'no command or path found in the tool input' });
     return { exit: 0, decision: 'allow', rule: null };
   }
-  const ctx = makeContext({ cwd: action.cwd, env });
-  const r = decide(action, ctx);
+  const { r, ctx } = decideAll(action, env);
   const settings = ctx.settings().status;
   log(env, { agent: action.agent, tool: action.tool, rule: r.rule, decision: r.decision === 'confirm' && !ASK_VERIFIED[action.agent] ? 'deny' : r.decision, settings, ...(action.fields ? { fields: action.fields, note: 'no command or path found in the tool input' } : {}) });
   if (r.decision === 'deny') return { exit: 2, stderr: r.message, decision: 'deny', rule: r.rule };
@@ -216,8 +275,7 @@ function cli(argv) {
     const command = rest.filter((a, i) => a !== '--dir' && rest[i - 1] !== '--dir').join(' ');
     if (!command) { console.error('guard: give the command to explain, in quotes'); process.exit(2); }
     const action = { agent: 'explain', tool: 'Bash', cwd: dir, actions: [{ type: 'shell', command }] };
-    const ctx = makeContext({ cwd: dir });
-    const r = decide(action, ctx);
+    const { r, ctx } = decideAll(action);
     const message = r.decision === 'confirm' ? confirmAsDeny(r, { command, store: ctx.stored().mode, plugin: PLUGIN }) : r.message || null;
     out({ decision: r.decision, rule: r.rule, message, commands: prepare(action, ctx).cmds.map((c) => c.text), settings: ctx.settings().status });
     return;

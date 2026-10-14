@@ -46,6 +46,8 @@ const AGENT_ENV = {
   'copilot-camel': { COPILOT_PLUGIN_ROOT: PLUGIN, PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN },
   codex: { PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN },
   'codex-exec': { PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN },
+  // VS Code (GitHub Copilot Chat agent mode): CLAUDE_PLUGIN_ROOT and its own VSCODE_* variables, no Copilot or Codex one.
+  vscode: { CLAUDE_PLUGIN_ROOT: PLUGIN, VSCODE_PID: '4242', VSCODE_IPC_HOOK: '/tmp/vscode-ipc.sock' },
 };
 
 const git = (cwd, ...a) => { const r = sh('git', ['-c', 'commit.gpgsign=false', ...a], { cwd, env: env() }); assert(r.status === 0, `git ${a.join(' ')}: ${r.stderr.trim()}`); return r.stdout; };
@@ -121,17 +123,20 @@ function payload(agent, c, dir) {
     const command = fill(c.shell, dir);
     if (agent === 'copilot-camel') return { toolName: 'bash', toolArgs: { command }, cwd: dir };
     if (agent === 'codex-exec') return { tool_name: 'exec_command', tool_input: { cmd: ['bash', '-lc', command] }, cwd: dir };
+    if (agent === 'vscode') return { hook_event_name: 'PreToolUse', tool_name: 'run_in_terminal', tool_input: { command, explanation: 'x', goal: 'x', mode: 'sync' }, cwd: dir };
     return { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command }, cwd: dir };
   }
-  if (c.patch !== undefined) return { tool_name: 'apply_patch', tool_input: { command: fill(c.patch, dir) }, cwd: dir };
+  if (c.patch !== undefined) return agent === 'vscode' ? { tool_name: 'apply_patch', tool_input: { input: fill(c.patch, dir), explanation: 'x' }, cwd: dir } : { tool_name: 'apply_patch', tool_input: { command: fill(c.patch, dir) }, cwd: dir };
   if (c.edit) {
     const e = fill(c.edit, dir);
     if (agent === 'copilot') return { tool_name: 'Edit', tool_input: { path: at(e.path), old_str: e.before, new_str: e.after }, cwd: dir };
+    if (agent === 'vscode') return { tool_name: 'replace_string_in_file', tool_input: { filePath: at(e.path), oldString: e.before, newString: e.after }, cwd: dir };
     if (agent === 'codex') return { tool_name: 'apply_patch', tool_input: { command: `*** Begin Patch\n*** Update File: ${at(e.path)}\n@@\n-${e.before}\n+${e.after}\n*** End Patch` }, cwd: dir };
     return { tool_name: 'Edit', tool_input: { file_path: at(e.path), old_string: e.before, new_string: e.after }, cwd: dir };
   }
   const w = fill(c.write, dir);
   if (agent === 'copilot') return { tool_name: 'create', tool_input: { path: at(w.path), file_text: w.content }, cwd: dir };
+  if (agent === 'vscode') return { tool_name: 'create_file', tool_input: { filePath: at(w.path), content: w.content }, cwd: dir };
   if (agent === 'codex') return { tool_name: 'apply_patch', tool_input: { command: `*** Begin Patch\n*** Add File: ${at(w.path)}\n${w.content.split('\n').map((l) => `+${l}`).join('\n')}\n*** End Patch` }, cwd: dir };
   return { tool_name: 'Write', tool_input: { file_path: at(w.path), content: w.content }, cwd: dir };
 }
@@ -244,6 +249,27 @@ step('an interpreter script that doesn\'t name a guardrail path is allowed with 
   respond({ tool_name: 'Bash', tool_input: { command: 'python3 fix.py' }, cwd: dir }, e);
   assert(existsSync(calls) && /cat-file -e origin\//.test(readFileSync(calls, 'utf8')), 'the spy never saw the merged-version check');
   return 'node server.js allowed with no git call; a script that writes the settings is checked against origin';
+});
+
+step('VS Code in a window with two folders: each command and edit is judged by the project it touches', () => {
+  // VS Code's payload cwd is the window's first folder (A, not profiled), whichever folder the agent works in (B).
+  const A = fresh('unprofiled').dir, B = fresh('profiled').dir;
+  const log = join(A, '..', 'guard-vscode.log');
+  const e = env({ ...AGENT_ENV.vscode, CARTWRIGHT_GUARD_LOG: log });
+  const run = (tool_name, tool_input) => respond({ hook_event_name: 'PreToolUse', tool_name, tool_input, cwd: A }, e);
+  const pushB = run('run_in_terminal', { command: `cd "${B}" && git push origin main`, explanation: 'x', goal: 'x', mode: 'sync' });
+  assert(pushB.exit === 2 && pushB.rule === 'protected-branches', `cd into B, then push to main: ${pushB.decision} ${pushB.rule}`);
+  const pushA = run('run_in_terminal', { command: 'git push origin main', explanation: 'x', goal: 'x', mode: 'sync' });
+  assert(pushA.exit === 0, `a push in A (no settings) was blocked: ${pushA.stderr || ''}`);
+  const settingsB = run('replace_string_in_file', { filePath: join(B, '.cartwright', 'settings.json'), oldString: '"protected-branches": true', newString: '"protected-branches": false' });
+  assert(settingsB.exit === 2 && settingsB.rule === 'guardrail-files', `B's settings edited from A's cwd: ${settingsB.decision} ${settingsB.rule}`);
+  const generatedB = run('apply_patch', { input: `*** Begin Patch\n*** Update File: ${join(B, 'src', 'generated', 'api.ts')}\n@@\n-  id: string;\n+  id: number;\n*** End Patch`, explanation: 'x' });
+  assert(generatedB.exit === 2 && generatedB.rule === 'generated-files', `B's generated file patched from A's cwd: ${generatedB.decision} ${generatedB.rule}`);
+  const fine = run('replace_string_in_file', { filePath: join(B, 'src', 'server.ts'), oldString: 'ok: true', newString: 'ok: false' });
+  assert(fine.exit === 0, `an ordinary edit in B was blocked: ${fine.stderr || ''}`);
+  const agents = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l).agent);
+  assert(agents.every((a) => a === 'vscode'), `log labels: ${agents.join(', ')}`);
+  return 'cd into B then push, B\'s settings and B\'s generated file blocked under B\'s settings from A\'s cwd; A\'s push and an ordinary edit in B allowed; labelled vscode';
 });
 
 step('a handled tool whose input has no command or path logs its field names, never their values', () => {
