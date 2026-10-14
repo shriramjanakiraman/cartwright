@@ -23,6 +23,12 @@ Trading `zzt`, with its private overlay and client repos) are in `tests/fixtures
 
 ## The bare-machine test
 
+Every release-test level also runs the offline kit, link and tool fallback regressions against the built
+plugin. Run them alone with `node scripts/test-kit-link.mjs --plugin ./plugin` (omit `--plugin` to test the
+source helpers). They use temporary fixtures, require no credentials or downloads, and check malformed
+JSON leaves the whole kit untouched, disabled Codex plugins are reported, foreign links are preserved,
+and older installed-tool fallbacks explain their reason.
+
 `npm run e2e` runs on a simulated bare machine: a throwaway home folder and a PATH with only Node, npx and
 git (uv is added for the steps that need it). Nothing on the real machine is read or changed apart from
 network fetches.

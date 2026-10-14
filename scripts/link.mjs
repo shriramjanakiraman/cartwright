@@ -11,7 +11,7 @@
 //   node scripts/link.mjs --agent cursor --from ../<overlay-repo>   # a project overlay's skills/ folder
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { ROOT, parseFrontmatter } from './lib.mjs';
 
 const DIRS = {
@@ -58,12 +58,20 @@ if (from) {
 const act = (msg, fn) => { console.log(`${dry ? '[dry-run] ' : ''}${msg}`); if (!dry) fn(); };
 const isLink = (p) => { try { return lstatSync(p).isSymbolicLink(); } catch { return false; } };
 const exists = (p) => { try { lstatSync(p); return true; } catch { return false; } };
+const ownsLink = (p) => {
+  if (!isLink(p)) return false;
+  const to = resolve(dirname(p), readlinkSync(p));
+  return to === sourceRoot || to.startsWith(`${sourceRoot}${sep}`);
+};
 
 if (!dry) mkdirSync(target, { recursive: true });
 let added = 0, kept = 0, removed = 0, skipped = 0;
 for (const [name, { at, to }] of want) {
+  // Overlay links live inside a skill folder; don't write through somebody else's folder link either.
+  const folder = join(target, name);
+  const conflict = from && isLink(folder) && !ownsLink(folder) ? folder : exists(at) && !ownsLink(at) ? at : null;
+  if (conflict) { console.warn(`${conflict} points elsewhere; left alone`); skipped++; continue; }
   if (isLink(at) && readlinkSync(at) === to) { kept++; continue; }
-  if (exists(at) && !isLink(at)) { console.warn(`skip   ${name}: ${at} already exists and is not ours`); skipped++; continue; }
   act(`link   ${name}`, () => { mkdirSync(join(at, '..'), { recursive: true }); rmSync(at, { force: true }); symlinkSync(to, at); });
   added++;
 }
@@ -71,7 +79,7 @@ for (const [name, { at, to }] of want) {
 if (existsSync(target)) for (const d of readdirSync(target)) {
   for (const p of [join(target, d), join(target, d, 'SKILL.md')]) {
     if (!isLink(p)) continue;
-    if (readlinkSync(p).startsWith(sourceRoot) && !want.has(d)) {
+    if (ownsLink(p) && !want.has(d)) {
       act(`unlink ${d}`, () => rmSync(p === join(target, d) ? p : join(target, d), { recursive: true, force: true }));
       removed++;
     }
