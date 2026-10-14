@@ -128,7 +128,7 @@ export function normalise(p, env = process.env) {
   }
   // A tool the guard handles whose input gave no command or path: its field names (never values), for the log.
   const fields = missed ? Object.keys(input).slice(0, 20).map((k) => k.slice(0, 40)).sort() : undefined;
-  return { agent: agentOf(p, env), tool, cwd, actions, ...(fields ? { fields } : {}) };
+  return { agent: agentOf(p, env), tool, cwd, actions, mode: typeof p.permission_mode === 'string' ? p.permission_mode : null, ...(fields ? { fields } : {}) };
 }
 
 // --- the machine, as the rules see it ----------------------------------------------------------------------------
@@ -264,6 +264,12 @@ export function decideAll(action, env = process.env) {
   return best;
 }
 
+// The agent's own approval prompt is used only where it's verified, and only in a permission mode where a person answers
+// it: Claude Code's default and plan modes (or no mode given). acceptEdits and bypassPermissions could approve it with
+// nobody asked, so those get the deny with the command for the person to run.
+const ASK_MODES = new Set(['default', 'plan']);
+const usesAsk = (action) => !!ASK_VERIFIED[action.agent] && (action.mode === null || action.mode === undefined || ASK_MODES.has(action.mode));
+
 // The decision for a payload, rendered: { exit, stdout, stderr, decision, rule }.
 export function respond(payload, env = process.env) {
   const action = normalise(payload, env);
@@ -274,13 +280,14 @@ export function respond(payload, env = process.env) {
   }
   const { r, ctx } = decideAll(action, env);
   const settings = ctx.settings().status;
-  log(env, { agent: action.agent, tool: action.tool, rule: r.rule, decision: r.decision === 'confirm' && !ASK_VERIFIED[action.agent] ? 'deny' : r.decision, settings, ...(action.fields ? { fields: action.fields, note: 'no command or path found in the tool input' } : {}) });
+  log(env, { agent: action.agent, tool: action.tool, rule: r.rule, decision: r.decision === 'confirm' && !usesAsk(action) ? 'deny' : r.decision, settings, ...(action.fields ? { fields: action.fields, note: 'no command or path found in the tool input' } : {}) });
   if (r.decision === 'deny') return { exit: 2, stderr: r.message, decision: 'deny', rule: r.rule };
   if (r.decision === 'confirm') {
-    if (ASK_VERIFIED[action.agent]) return { exit: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: confirmReason(r) } }), decision: 'confirm', rule: r.rule };
     // Only a real shell command is offered for the person to run; an edit tool's change is theirs to make.
     const command = action.actions.find((a) => a.type === 'shell' && !a.tool)?.command;
-    return { exit: 2, stderr: confirmAsDeny(r, { command, store: ctx.stored().mode, plugin: PLUGIN }), decision: 'deny', rule: r.rule };
+    const handOff = { command, store: ctx.stored().mode, plugin: PLUGIN };
+    if (usesAsk(action)) return { exit: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: confirmReason(r, handOff) } }), decision: 'confirm', rule: r.rule };
+    return { exit: 2, stderr: confirmAsDeny(r, handOff), decision: 'deny', rule: r.rule };
   }
   return { exit: 0, stderr: r.note, decision: 'allow', rule: null };
 }

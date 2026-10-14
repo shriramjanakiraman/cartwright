@@ -447,7 +447,9 @@ verified to work for a hook:
 - **In Claude Code**, the change shows Claude Code's own approval prompt, with Cartwright's reason ("Cartwright: this
   changes .cartwright/settings.json. Only approve it if you asked for this change."). The person approves or refuses
   it there. This was verified by hand on 2026-10-14 with Claude Code 2.1.296. A headless session (`claude -p`) can't
-  ask anyone, so it refuses the change.
+  ask anyone, so it refuses the change, and the reason gives the agent the command to hand to the person. The prompt is
+  used only in Claude Code's default and plan permission modes. In `acceptEdits` or `bypassPermissions`, where it could
+  be approved with nobody asked, the change is blocked as in the other agents.
 - **In Copilot, Codex and VS Code** the change is blocked, and the message gives the person the command to run
   themselves:
 

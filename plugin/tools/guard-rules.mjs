@@ -1017,5 +1017,11 @@ export function confirmAsDeny(r, { command, store, plugin }) {
     : `ask them to make this change themselves, or to run node "${plugin}/tools/profile.mjs" write --store ${store || 'folder'} with the lists they confirm`;
   return [`Cartwright blocked this (guardrail-files): it changes ${r.what}, and only the person can approve changes to the guardrail settings. Show them the change and ${how}.`, ...(r.notes || []), NO_WORKAROUND].join(' ');
 }
-// The reason shown in the agent's own approval prompt, where that prompt is used.
-export const confirmReason = (r) => [`Cartwright: this changes ${r.what}. Only approve it if you asked for this change.`, ...(r.notes || [])].join(' ');
+// The reason shown in the agent's own approval prompt, where that prompt is used. It ends with the same hand-off as the
+// deny, because a session that can't ask anyone (claude -p) refuses the prompt and passes this reason to the model.
+export const confirmReason = (r, { command, store, plugin } = {}) => {
+  const handOff = r.how === 'shell' && command
+    ? `If it can't be approved here, the person can run this in their own terminal: ${command}`
+    : `If it can't be approved here, the person can make this change themselves, or run node "${plugin}/tools/profile.mjs" write --store ${store || 'folder'} with the lists they confirm.`;
+  return [`Cartwright: this changes ${r.what}. Only approve it if you asked for this change.`, ...(r.notes || []), handOff].join(' ');
+};

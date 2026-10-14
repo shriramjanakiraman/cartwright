@@ -189,7 +189,8 @@ for (const c of CASES) {
       const say = `${agent}: ${r.decision}${r.rule ? ` (${r.rule})` : ''}${r.message ? ` "${r.message.trim().slice(0, 140)}"` : ''}`;
       // A guardrail-files block is the agent's own approval prompt where that's verified (Claude Code), with Cartwright's
       // reason; elsewhere a deny.
-      const asks = c.expect === 'deny' && c.rule === 'guardrail-files' && ASK_VERIFIED[GUARD_LABEL[agent]];
+      const mode = c.payload?.permission_mode;
+      const asks = c.expect === 'deny' && c.rule === 'guardrail-files' && ASK_VERIFIED[GUARD_LABEL[agent]] && (!mode || ['default', 'plan'].includes(mode));
       const want = asks ? 'ask' : c.expect;
       assert(r.decision === want, `${say}; expected ${want}`);
       if (c.rule) assert(r.rule === c.rule, `${say}; expected rule ${c.rule}`);
@@ -295,11 +296,19 @@ step('a guardrail-settings change: Claude Code\'s own approval prompt (ask), a d
     const r = edit(agent);
     assert(r.exit === 2 && /only the person can approve changes to the guardrail settings/.test(r.stderr || ''), `${agent}: exit ${r.exit} ${(r.stderr || r.stdout || '').slice(0, 120)}`);
   }
-  // A shell command that changes them asks too in Claude Code; the reason names what changes.
-  const shell = respond({ tool_name: 'Bash', tool_input: { command: 'node "$CLAUDE_PLUGIN_ROOT/tools/profile.mjs" write --store folder --protected none --generated none' }, cwd: dir }, env({ ...AGENT_ENV['claude-code'] }));
-  assert(shell.exit === 0 && /"permissionDecision":"ask"/.test(shell.stdout || ''), `Claude Code profile write: exit ${shell.exit}`);
+  // A shell command that changes them asks too in Claude Code. The reason ends with the hand-off, because a headless
+  // session refuses the prompt and passes the reason to the model.
+  const write = 'node "$CLAUDE_PLUGIN_ROOT/tools/profile.mjs" write --store folder --protected none --generated none';
+  const shell = respond({ tool_name: 'Bash', tool_input: { command: write }, cwd: dir }, env({ ...AGENT_ENV['claude-code'] }));
+  const reason = JSON.parse(shell.stdout || '{}').hookSpecificOutput?.permissionDecisionReason || '';
+  assert(shell.exit === 0 && reason.endsWith(`If it can't be approved here, the person can run this in their own terminal: ${write}`), `Claude Code profile write: exit ${shell.exit} ${reason}`);
+  // Only where a person answers the prompt: default and plan modes, or no mode given. acceptEdits and bypassPermissions
+  // could approve it with nobody asked, so they get the deny with the hand-off.
+  const inMode = (permission_mode) => respond({ ...payload('claude-code', { edit: { path: '.cartwright/settings.json', before: '"protected-branches": true', after: '"protected-branches": false' } }, dir), ...(permission_mode ? { permission_mode } : {}) }, env({ ...AGENT_ENV['claude-code'] }));
+  for (const m of ['default', 'plan', null]) assert(inMode(m).exit === 0 && /"permissionDecision":"ask"/.test(inMode(m).stdout || ''), `mode ${m}: no ask`);
+  for (const m of ['acceptEdits', 'bypassPermissions', 'dontAsk']) { const r = inMode(m); assert(r.exit === 2 && /only the person can approve/.test(r.stderr || ''), `mode ${m}: exit ${r.exit}`); }
   assert(readFileSync(settings, 'utf8').includes('"protected-branches": true'), 'the settings changed');
-  return 'Claude Code: ask with Cartwright\'s reason (exit 0); Copilot, Codex and VS Code: deny with the hand-off (exit 2)';
+  return 'Claude Code: ask with Cartwright\'s reason and the hand-off (exit 0) in default and plan modes or none, deny in acceptEdits and bypassPermissions; Copilot, Codex and VS Code: deny with the hand-off (exit 2)';
 });
 
 step('a handled tool whose input has no command or path logs its field names, never their values', () => {
