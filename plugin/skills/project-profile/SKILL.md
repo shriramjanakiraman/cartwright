@@ -2,7 +2,7 @@
 name: project-profile
 description: "Study a project of any stack (read-only), save its Cartwright profile and guardrail settings after the person approves, and keep them current. Use when the session-start notice offers to set the project up and the person replies \"set up\", or when someone says \"set up Cartwright here\", \"profile this project\", \"refresh the profile\", \"the profile is out of date\", \"change the guardrail settings\", \"protect this branch\", \"mark these files as generated\" or \"why was this blocked?\". Hands on to client-setup when the project is for a client."
 owner: shriramjanakiraman
-version: 0.1.0
+version: 0.1.1
 status: active
 applies-to: [any]
 depends-on: [client-setup, tool:node, tool:git]
@@ -98,10 +98,13 @@ Show the command and what it will create (`.cartwright/profile.json`, `settings.
 the AGENTS.md section; or files on this machine).
 
 Writing the settings is a guardrail change, so Cartwright's guard asks the person, not you:
-- where the agent shows its own approval prompt, the person approves it there;
-- otherwise the guard blocks the command and says the person must run it themselves. Then give them the command to
-  run in their own terminal, and wait. **Don't try another way** (another shell, a script, editing the files
-  directly).
+- **In Claude Code**, running the write command shows Claude Code's own approval prompt with Cartwright's reason. The
+  person approves it there (or refuses it, and nothing changes). A headless session can't ask anyone, so it refuses;
+  then hand the command over as below.
+- **In Copilot, Codex and VS Code**, the guard blocks the command and says the person must run it themselves. Give
+  them the command to run in their own terminal, and wait.
+
+Either way, **don't try another way** (another shell, a script, editing the files directly).
 
 Afterwards, `node <profile.mjs> show` confirms the store and the settings that apply.
 

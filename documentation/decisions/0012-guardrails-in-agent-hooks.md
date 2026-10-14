@@ -121,8 +121,9 @@ The team lead's decisions shape the rules:
 - **VS Code:** checked by hand on 1.141. Its session start and blocks work. In a window with several folders, hooks
   see only the first, so terminal commands for another folder need a `cd` to be judged by that folder's settings (the
   session context says so). This limit is with the team lead.
-- **"Ask" support** in each agent is still to check interactively. Until it's verified for an agent, "confirm" there
-  is a deny with "the person runs it".
+- **"Ask" support:** in Claude Code, a guardrail-settings change shows Claude Code's own approval prompt with
+  Cartwright's reason (verified by hand on 2026-10-14, Claude Code 2.1.296; a headless `claude -p` session refuses an
+  ask). In Copilot, Codex and VS Code it's still unverified, so "confirm" there is a deny with "the person runs it".
 - **Copilot on Windows** without `sh` needs checking, because it fails closed.
 - **The spike is done** for Claude Code, Copilot CLI and Codex (G1); VS Code is checked by hand at the end of phase 1.
   Revisit if a vendor changes its hook contract, or if false positives push teams to switch rules off.

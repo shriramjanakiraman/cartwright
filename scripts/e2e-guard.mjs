@@ -35,7 +35,9 @@ const env = (extra = {}) => ({ HOME, PATH: BARE, TMPDIR: TMP, CARTWRIGHT_STATE_D
   GIT_AUTHOR_NAME: 'fixture', GIT_AUTHOR_EMAIL: 'fixture@example.com', GIT_COMMITTER_NAME: 'fixture', GIT_COMMITTER_EMAIL: 'fixture@example.com', ...extra });
 // The in-process guard reads the state folder from the environment, like the hook does.
 Object.assign(process.env, { CARTWRIGHT_STATE_DIR: STATE, HOME });
-const { respond, makeContext, normalise } = await import(pathToFileURL(join(PLUGIN, 'tools', 'guard.mjs')));
+const { respond, makeContext, normalise, ASK_VERIFIED } = await import(pathToFileURL(join(PLUGIN, 'tools', 'guard.mjs')));
+// The guard's own label for each test agent, for whether its approval prompt ("ask") is used.
+const GUARD_LABEL = { 'claude-code': 'claude-code', copilot: 'copilot', 'copilot-camel': 'copilot', codex: 'codex', 'codex-exec': 'codex', vscode: 'vscode' };
 const { decide } = await import(pathToFileURL(join(PLUGIN, 'tools', 'guard-rules.mjs')));
 const { machineDir } = await import(pathToFileURL(join(PLUGIN, 'tools', 'store.mjs')));
 const HOOK = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks.PreToolUse[0].hooks[0].command;
@@ -147,11 +149,15 @@ function call(c, agent, dir, extraEnv = {}) {
   const e = env({ ...AGENT_ENV[agent], CARTWRIGHT_GUARD_LOG: log, ...extraEnv });
   const p = payload(agent, c, dir);
   const t = process.hrtime.bigint();
-  let exit, message;
-  if (c.via === 'hook') { const r = sh('/bin/sh', ['-c', HOOK], { cwd: dir, input: JSON.stringify(p), env: e }); exit = r.status; message = r.stderr; }
-  else { const r = respond(p, e); exit = r.exit; message = r.stderr || ''; }
+  let exit, message, stdout;
+  if (c.via === 'hook') { const r = sh('/bin/sh', ['-c', HOOK], { cwd: dir, input: JSON.stringify(p), env: e }); exit = r.status; message = r.stderr; stdout = r.stdout; }
+  else { const r = respond(p, e); exit = r.exit; message = r.stderr || ''; stdout = r.stdout || ''; }
   const ms = Number(process.hrtime.bigint() - t) / 1e6;
   const lines = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+  // An agent whose approval prompt is used gets exit 0 with { hookSpecificOutput: { permissionDecision: "ask" } }.
+  let ask = null;
+  try { const o = JSON.parse(stdout || 'null')?.hookSpecificOutput; if (o?.permissionDecision === 'ask') ask = o; } catch { /* plain output */ }
+  if (ask) return { exit, decision: 'ask', rule: lines.at(-1)?.rule ?? null, logLines: lines.length, message: ask.permissionDecisionReason || '', ask, ms };
   return { exit, decision: exit === 2 ? 'deny' : exit === 0 ? 'allow' : `exit ${exit}`, rule: lines.at(-1)?.rule ?? null, logLines: lines.length, message: message || '', ms };
 }
 
@@ -181,10 +187,15 @@ for (const c of CASES) {
       const before = refs(bare);
       const r = call(c, agent, dir);
       const say = `${agent}: ${r.decision}${r.rule ? ` (${r.rule})` : ''}${r.message ? ` "${r.message.trim().slice(0, 140)}"` : ''}`;
-      assert(r.decision === c.expect, `${say}; expected ${c.expect}`);
+      // A guardrail-files block is the agent's own approval prompt where that's verified (Claude Code), with Cartwright's
+      // reason; elsewhere a deny.
+      const asks = c.expect === 'deny' && c.rule === 'guardrail-files' && ASK_VERIFIED[GUARD_LABEL[agent]];
+      const want = asks ? 'ask' : c.expect;
+      assert(r.decision === want, `${say}; expected ${want}`);
       if (c.rule) assert(r.rule === c.rule, `${say}; expected rule ${c.rule}`);
       if (c.expect === 'deny') assert(r.logLines === 1, `${agent}: ${r.logLines} decision-log lines, expected exactly 1`);
-      for (const inc of fill(c.includes || [], dir)) assert(r.message.includes(inc), `${agent}: message lacks "${inc}": ${r.message.trim().slice(0, 300)}`);
+      if (asks) assert(r.exit === 0 && r.ask.hookEventName === 'PreToolUse' && /^Cartwright: this changes /.test(r.message), `${agent}: the ask isn't Cartwright's: ${JSON.stringify(r.ask)}`);
+      for (const inc of asks ? [] : fill(c.includes || [], dir)) assert(r.message.includes(inc), `${agent}: message lacks "${inc}": ${r.message.trim().slice(0, 300)}`);
       for (const exc of fill(c.excludes || [], dir)) assert(!r.message.includes(exc), `${agent}: message shows "${exc.slice(0, 12)}…"`);
       if (c.run && r.decision === 'allow') {
         const x = sh('/bin/sh', ['-c', fill(c.shell, dir)], { cwd: dir, env: env() });
@@ -270,6 +281,25 @@ step('VS Code in a window with two folders: each command and edit is judged by t
   const agents = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l).agent);
   assert(agents.every((a) => a === 'vscode'), `log labels: ${agents.join(', ')}`);
   return 'cd into B then push, B\'s settings and B\'s generated file blocked under B\'s settings from A\'s cwd; A\'s push and an ordinary edit in B allowed; labelled vscode';
+});
+
+step('a guardrail-settings change: Claude Code\'s own approval prompt (ask), a deny with the command elsewhere', () => {
+  // Claude Code's ask was verified by hand (2.1.296). Headless claude -p refuses an ask instead of waiting.
+  const { dir } = fresh('profiled');
+  const settings = join(dir, '.cartwright', 'settings.json');
+  const edit = (agent) => respond(payload(agent, { edit: { path: '.cartwright/settings.json', before: '"protected-branches": true', after: '"protected-branches": false' } }, dir), env({ ...AGENT_ENV[agent] }));
+  const claude = edit('claude-code');
+  const out = JSON.parse(claude.stdout || '{}').hookSpecificOutput || {};
+  assert(claude.exit === 0 && out.hookEventName === 'PreToolUse' && out.permissionDecision === 'ask' && /^Cartwright: this changes \.cartwright\/settings\.json\. Only approve it if you asked for this change\./.test(out.permissionDecisionReason || ''), `Claude Code: exit ${claude.exit} ${claude.stdout || claude.stderr}`);
+  for (const agent of ['copilot', 'codex', 'vscode']) {
+    const r = edit(agent);
+    assert(r.exit === 2 && /only the person can approve changes to the guardrail settings/.test(r.stderr || ''), `${agent}: exit ${r.exit} ${(r.stderr || r.stdout || '').slice(0, 120)}`);
+  }
+  // A shell command that changes them asks too in Claude Code; the reason names what changes.
+  const shell = respond({ tool_name: 'Bash', tool_input: { command: 'node "$CLAUDE_PLUGIN_ROOT/tools/profile.mjs" write --store folder --protected none --generated none' }, cwd: dir }, env({ ...AGENT_ENV['claude-code'] }));
+  assert(shell.exit === 0 && /"permissionDecision":"ask"/.test(shell.stdout || ''), `Claude Code profile write: exit ${shell.exit}`);
+  assert(readFileSync(settings, 'utf8').includes('"protected-branches": true'), 'the settings changed');
+  return 'Claude Code: ask with Cartwright\'s reason (exit 0); Copilot, Codex and VS Code: deny with the hand-off (exit 2)';
 });
 
 step('a handled tool whose input has no command or path logs its field names, never their values', () => {

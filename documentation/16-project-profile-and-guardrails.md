@@ -443,8 +443,13 @@ allowed. The personal file is in the folder, so it's covered by deleting or movi
 the developer's own business: it can only tighten.
 
 The person's yes can't be read from the chat, so the guard uses the agent's own approval prompt where that's
-verified to work for a hook. It isn't yet verified for any agent; until it is, the change is blocked, and the
-message gives the person the command to run themselves:
+verified to work for a hook:
+- **In Claude Code**, the change shows Claude Code's own approval prompt, with Cartwright's reason ("Cartwright: this
+  changes .cartwright/settings.json. Only approve it if you asked for this change."). The person approves or refuses
+  it there. This was verified by hand on 2026-10-14 with Claude Code 2.1.296. A headless session (`claude -p`) can't
+  ask anyone, so it refuses the change.
+- **In Copilot, Codex and VS Code** the change is blocked, and the message gives the person the command to run
+  themselves:
 
 > Cartwright blocked this (guardrail-files): it changes the project's profile and guardrail settings, and only the
 > person can approve changes to the guardrail settings. Show them the change and give them this command to run in

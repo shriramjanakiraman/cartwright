@@ -21,9 +21,11 @@ import { resolveSettings } from './settings.mjs';
 import { agentsFile, load, machineDir, readSection, stateDir } from './store.mjs';
 
 export const DEADLINE_MS = 5000;
-// Agents whose own approval prompt ("ask") is verified to work for a hook. Until it is, a guardrail-file change is
-// denied with the command for the person to run (G4). Claude Code's ask is implemented but not yet verified.
-export const ASK_VERIFIED = { 'claude-code': false, copilot: false, codex: false, vscode: false };
+// Agents whose own approval prompt ("ask") is verified to work for a hook. Elsewhere a guardrail-file change is denied
+// with the command for the person to run (G4). Claude Code's was verified by hand on 2026-10-14 (Claude Code 2.1.296: its
+// approval prompt showed Cartwright's reason, and No left the settings unchanged). A headless session (claude -p)
+// refuses an ask instead of waiting, so nothing changes there either.
+export const ASK_VERIFIED = { 'claude-code': true, copilot: false, codex: false, vscode: false };
 // Tool names by what they do, from every agent's payloads. VS Code's (GitHub Copilot Chat agent mode) come from the
 // built-in Copilot extension (copilot-chat 0.69.0 in VS Code 1.141): its ToolName table in dist/extension.js and the
 // input schemas in package.json (contributes.languageModelTools); run_in_terminal, send_to_terminal and
