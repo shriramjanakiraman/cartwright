@@ -960,12 +960,15 @@ step('the plugin-root cache, and "guardrails are inactive" when the guard can\'t
   symlinkSync(sh('/bin/sh', ['-c', 'command -v git']).stdout.trim(), join(nonode, 'git'));
   const n = sh(NODE, [SETUP, 'hook'], { cwd: dir, env: env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: nonode }) });
   assert(/Guardrails are inactive in this agent: node isn't on the PATH/.test(n.stdout), `no note without node: ${n.stdout.slice(0, 200)}`);
+  // The real SessionStart entry with no plugin-root variable finds the plugin through the cache it wrote above.
+  const viaCache = sh('/bin/sh', ['-c', SESSION], { cwd: dir, input: JSON.stringify({ cwd: dir }), env: env({ CARTWRIGHT_STATE_DIR: state }) });
+  assert(viaCache.status === 0 && /^\[cartwright\]/.test(viaCache.stdout) && /Reply set up, not now, or never here/.test(viaCache.stdout), `no plugin variable, cache only: exit ${viaCache.status} ${viaCache.stdout.slice(0, 120)}`);
   // P6: the real SessionStart command with a PATH holding sh and git but no node: the entry's node guard ends it
   // silently with exit 0, instead of the shell's "node: not found" (127).
   if (!existsSync(join(nonode, 'sh'))) symlinkSync('/bin/sh', join(nonode, 'sh'));
   const real = sh('/bin/sh', ['-c', SESSION], { cwd: dir, input: JSON.stringify({ cwd: dir }), env: env({ CLAUDE_PLUGIN_ROOT: PLUGIN, PATH: nonode }) });
   assert(real.status === 0 && real.stdout === '' && real.stderr === '', `the real entry without node: exit ${real.status}, ${JSON.stringify(real.stderr).slice(0, 120)}`);
-  return 'cache written once; inactive without the guard and without node; the real entry exits 0 silently without node';
+  return 'cache written once; the real entry finds the plugin through it with no plugin variable; inactive without the guard and without node; the real entry exits 0 silently without node';
 });
 
 step('overlay template (F49): starter settings protect main and develop and mark the build output; it validates, builds, and is never offered setup', () => {

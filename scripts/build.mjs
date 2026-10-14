@@ -64,12 +64,16 @@ for (const f of readdirSync(join(ROOT, 'scripts', 'stacks')).filter((n) => n.end
 out.set('plugin/tools/versions.json', JSON.stringify(Object.fromEntries(Object.entries(lock.sources).filter(([, s]) => s.version).map(([id, s]) => [id, s.version])), null, 2) + '\n');
 out.set('plugin/tools/registry.json', readFileSync(join(ROOT, 'registry', 'overlays.json'), 'utf8'));
 // One session-start hook in the format Claude Code, Codex, Copilot and VS Code all read. Every one of them sets a
-// plugin-root variable (Claude Code and VS Code CLAUDE_PLUGIN_ROOT, Codex PLUGIN_ROOT, Copilot all three), so no
-// search of the install caches. It never fails a session: no node, no plugin found, or an error all end silently.
-// Like the guard's entry, it's fixed from the end of phase 1 on (Codex trusts a hook by a hash of its entry).
+// plugin-root variable (Claude Code and VS Code CLAUDE_PLUGIN_ROOT, Codex PLUGIN_ROOT, Copilot all three), then the
+// plugin-root cache the hook itself writes, as the guard's entry does; no search of the install caches. It never fails
+// a session: no node, no plugin found, or an error all end silently.
+// FROZEN from the end of phase 1 (decision record 0012): Codex trusts a hook by a hash of its entry, so any change to
+// either entry (command, matcher, timeout, order) asks every Codex user to approve the hooks again.
 const HOOK = 'command -v node >/dev/null 2>&1 || exit 0; '
   + 'for d in "$CLAUDE_PLUGIN_ROOT" "$PLUGIN_ROOT" "$COPILOT_PLUGIN_ROOT"; do '
-  + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; exit 0';
+  + '[ -n "$d" ] && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; done; '
+  + 's="${CARTWRIGHT_STATE_DIR:-$HOME/.cartwright}/plugin-root"; '
+  + '[ -f "$s" ] && d=$(cat "$s") && [ -f "$d/tools/setup.mjs" ] && exec node "$d/tools/setup.mjs" hook; exit 0';
 // The guardrail hook, before every write-capable tool call (decision record 0012). Its command, matcher and timeout
 // are fixed from phase 1 on: Codex trusts a hook by a hash of its entry, so any change here, or a new group inserted
 // before it, asks every Codex user to approve the hooks again. New hooks are appended after it; logic changes go in
@@ -79,13 +83,18 @@ const GUARD = 'command -v node >/dev/null 2>&1 || exit 0; '
   + '[ -n "$d" ] && [ -f "$d/tools/guard.mjs" ] && exec node "$d/tools/guard.mjs" pre-tool-use; done; '
   + 's="${CARTWRIGHT_STATE_DIR:-$HOME/.cartwright}/plugin-root"; '
   + '[ -f "$s" ] && d=$(cat "$s") && [ -f "$d/tools/guard.mjs" ] && exec node "$d/tools/guard.mjs" pre-tool-use; exit 0';
-// Write-capable and command tools: Claude Code's, Copilot's (also lowercase bash and shell), Codex's, and VS Code's
-// (GitHub Copilot Chat agent mode; see VSCODE_TOOLS in guard.mjs). VS Code 1.141 doesn't apply matchers (its loader
-// reads only each group's hooks), so there the guard sees every tool and reads them by name; the names are listed for
-// the day it does.
-const GUARD_MATCHER = ['Bash', 'bash', 'shell', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch', 'exec_command', 'Create', 'create',
-  'run_in_terminal', 'send_to_terminal', 'create_and_run_task', 'create_file', 'replace_string_in_file', 'multi_replace_string_in_file',
-  'insert_edit_into_file', 'edit_notebook_file', 'create_directory'].join('|');
+// Every command-capable or write-capable tool the agents ship, whether or not the guard reads it yet (decision record
+// 0012; sources in guard.mjs): Claude Code's and their lowercase forms; Copilot CLI 1.0.96's; Codex 0.162.1's (write_stdin
+// types into a running shell); VS Code 1.141's. VS Code doesn't apply matchers (its loader reads only each group's
+// hooks), so there the guard sees every tool; its names are listed for the day it does.
+const GUARD_MATCHER = [
+  'Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Create',
+  'bash', 'shell', 'edit', 'write', 'multiedit', 'notebookedit',
+  'powershell', 'PowerShell', 'local_shell', 'write_bash', 'write_powershell', 'create', 'str_replace', 'str_replace_editor', 'apply_patch',
+  'exec_command', 'write_stdin', 'shell_command',
+  'run_in_terminal', 'send_to_terminal', 'create_and_run_task', 'run_task', 'run_vscode_command', 'run_notebook_cell', 'create_file',
+  'replace_string_in_file', 'multi_replace_string_in_file', 'insert_edit_into_file', 'edit_notebook_file', 'create_directory', 'edit_files',
+].join('|');
 out.set('plugin/hooks/hooks.json', JSON.stringify({
   hooks: {
     SessionStart: [{ hooks: [{ type: 'command', command: `sh -c '${HOOK}'`, timeout: 10 }] }],

@@ -37,11 +37,16 @@ The team lead's decisions shape the rules:
   hook in `hooks/hooks.json`, shared by all three agents.
   - The root `plugin.json` is written in Copilot's legacy format and declares that hooks file. This comes from a
     separate bugfix, and phase 1 depends on it. A packaging check keeps it from regressing.
-  - The matcher covers write-capable tools only.
+  - The matcher lists every command-capable or write-capable tool the agents ship, whether or not the guard reads it
+    yet: Claude Code's (and their lowercase forms), Copilot CLI's (bash, powershell, local_shell, write_bash,
+    write_powershell, create, edit, str_replace, str_replace_editor, apply_patch), Codex's (exec_command, write_stdin,
+    shell_command, apply_patch), and VS Code's (it ignores the matcher, but its names are listed). Read-only tools stay
+    out.
   - The hook command is a byte-stable `sh` trampoline. It tries the plugin-root variables (`CLAUDE_PLUGIN_ROOT`,
     `COPILOT_PLUGIN_ROOT`, `PLUGIN_ROOT`), then a cached path, and exits 0 if node or the plugin is missing. Codex
     sets `PLUGIN_ROOT` and `CLAUDE_PLUGIN_ROOT`, and its data folders are `PLUGIN_DATA` and `CLAUDE_PLUGIN_DATA`.
-  - The `hooks.json` entries (command, matcher, timeout) and their order within each event are fixed; all logic
+  - The `hooks.json` entries (command, matcher, timeout) and their order within each event are frozen from the end of
+    phase 1 (the SessionStart entry has the node guard and the same plugin-root cache fallback as the guard's); all logic
     lives in the scripts. Codex's trust hash covers the entry, not the script, so script changes and version bumps
     keep trust, while changing an entry or inserting or reordering groups asks every Codex user again. New hooks
     are appended.
