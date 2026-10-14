@@ -15,6 +15,7 @@ All notable changes to what users receive. Newest first.
 - The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
   employees, profile and guardrails for its own development as each phase ships.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
+- Official sources updated: b2c-developer-tooling 1.12.0 → 1.12.1; b2c-cli 2.5.1 → 2.6.0; storefront-next-template 1d553d1 → 6149218; spec-kit v1.1.2 → v1.1.3; graphify 0.9.82 → 0.9.89.
 
 ### Fixed
 - The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of
