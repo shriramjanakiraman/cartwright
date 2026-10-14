@@ -35,6 +35,9 @@ const IN_COPILOT = !!(process.env.COPILOT_PLUGIN_ROOT || process.env.COPILOT_CLI
 // Codex sets PLUGIN_ROOT (and CLAUDE_PLUGIN_ROOT), but no Copilot variable; Claude Code sets only CLAUDE_PLUGIN_ROOT. The
 // guard tells the agents apart the same way.
 const IN_CODEX = !IN_COPILOT && !!process.env.PLUGIN_ROOT;
+// VS Code (GitHub Copilot Chat agent mode) sets CLAUDE_PLUGIN_ROOT and its own VSCODE_* variables; it reads plain text.
+// Claude Code started from VS Code's terminal inherits VSCODE_* but also sets CLAUDECODE.
+const IN_VSCODE = !IN_COPILOT && !IN_CODEX && !!(process.env.VSCODE_PID || process.env.VSCODE_IPC_HOOK) && !process.env.CLAUDECODE;
 // The project the session-start hook chose, for the trace.
 let traceRoot = null;
 function flushNotes() {
@@ -185,7 +188,9 @@ if (cmd === 'hook') {
           }
         } catch { /* over the time box, or detection failed: skip silently */ }
         const file = st.mode === 'folder' ? st.profile.file : st.mode === 'agents-md' ? 'the Cartwright section of AGENTS.md' : 'saved on this machine only';
-        notes.grounding = m.groundingText(st.profile.data, { file, stale, settings: resolved?.status === 'none' ? null : resolved?.settings, profileCmd: `node "${join(HERE, 'profile.mjs')}"` });
+        notes.grounding = m.groundingText(st.profile.data, { file, stale, settings: resolved?.status === 'none' ? null : resolved?.settings, profileCmd: `node "${join(HERE, 'profile.mjs')}"`, folder: basename(root) });
+        // VS Code: one window can hold several folders, and its hooks get the first one as the session's folder.
+        if (IN_VSCODE) notes.grounding += `\nThis window may have several folders, and Cartwright's guardrails judge terminal commands from the first one: start terminal commands for another folder with cd "<absolute folder>" &&.`;
       }
     }
   } catch { /* never block a session */ }

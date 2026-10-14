@@ -9,7 +9,7 @@
 //   --update-goldens   rewrite tests/expected/*.profile.json from this run (review the diff before committing)
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assert, halfTheCpus, harness, json, sh } from './e2e-lib.mjs';
 
@@ -817,7 +817,7 @@ step('the session\'s project comes from the agent, never from where the hook run
 step('this repo (G9): no setup offer, but its own profile grounds the session', () => {
   const out = session(ROOT);
   assert(!offered(out), 'the library repo was offered setup');
-  assert(/\[cartwright\] Project profile \(\.cartwright\/profile\.json\)/.test(out), `no grounding in the library repo: ${out.slice(0, 200)}`);
+  assert(/\[cartwright\] Project profile for `[^`]+` \(\.cartwright\/profile\.json\)/.test(out), `no grounding in the library repo: ${out.slice(0, 200)}`);
   assert(/Guardrails: protected main, develop; generated plugin\/\*\* \(regenerate: npm run build\)/.test(out), 'the guardrails line is missing');
   return 'grounded from .cartwright/profile.json, guardrails listed, no offer';
 });
@@ -890,7 +890,8 @@ step('grounding (C23 input): the profile with sources in every storage mode, and
     const { dir } = project('python');
     ok(dir, ['write', '--store', store, '--protected', 'main', '--generated', 'src/gen/**=make gen']);
     const out = session(dir);
-    assert(out.includes(`[cartwright] Project profile (${labels[store]})`), `${store}: no grounding: ${out.slice(0, 160)}`);
+    // The first line names the folder (a window can hold several): "Project profile for `<folder>` (<where>)".
+    assert(out.includes(`[cartwright] Project profile for \`${basename(dir)}\` (${labels[store]}). These facts are for that folder only: if you're working in another folder of this window, they don't apply there.`), `${store}: no grounding: ${out.slice(0, 200)}`);
     assert(out.includes('If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them') && out.includes(`A fact marked "not found" isn't known`), `${store}: the rules-win or not-found sentence is missing`);
     assert(out.includes('Test: uv run pytest (pyproject.toml#tool.pytest.ini_options)') && out.includes('Build: not found') && out.includes('Python 3.12.7 (.python-version)'), `${store}: facts or sources missing`);
     assert(out.includes('Guardrails: protected main; generated src/gen/** (regenerate: make gen)') && out.includes('profile.mjs" show --json'), `${store}: guardrails or the full-profile command missing`);
@@ -989,11 +990,11 @@ step('Copilot gets the same session start as JSON additionalContext', () => {
   const { dir } = project('ts');
   ok(dir, ['write', '--store', 'folder', ...LISTS]);
   const ctx = session(dir, { copilot: true });
-  assert(CLIENT_ONLY.test(ctx) && ctx.includes('[cartwright] Project profile (.cartwright/profile.json)'), `not in additionalContext: ${ctx.slice(0, 200)}`);
+  assert(CLIENT_ONLY.test(ctx) && ctx.includes(`[cartwright] Project profile for \`${basename(dir)}\` (.cartwright/profile.json)`), `not in additionalContext: ${ctx.slice(0, 200)}`);
   return 'offer and grounding in additionalContext';
 });
 
-step('each agent gets the session start in the shape it reads: Claude Code text, Copilot and Codex JSON', () => {
+step('each agent gets the session start in the shape it reads: Claude Code and VS Code text, Copilot and Codex JSON', () => {
   // Codex 0.162.1 drops plain text ("invalid session start JSON output"): it reads hookSpecificOutput.additionalContext.
   // Each agent is recognised by its variables (Codex: PLUGIN_ROOT and CLAUDE_PLUGIN_ROOT, no Copilot variable).
   const { dir } = project('ts');
@@ -1005,7 +1006,14 @@ step('each agent gets the session start in the shape it reads: Claude Code text,
   assert(Object.keys(copilot).join() === 'additionalContext' && copilot.additionalContext.includes('Test: pnpm test'), `Copilot: ${JSON.stringify(copilot).slice(0, 120)}`);
   const codex = JSON.parse(run({ PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_ROOT: PLUGIN }));
   assert(codex.hookSpecificOutput?.hookEventName === 'SessionStart' && codex.hookSpecificOutput.additionalContext.includes('Test: pnpm test') && Object.keys(codex).join() === 'hookSpecificOutput', `Codex: ${JSON.stringify(codex).slice(0, 120)}`);
-  return 'Claude Code: plain text; Copilot: {additionalContext}; Codex: {hookSpecificOutput: {hookEventName: SessionStart, additionalContext}}';
+  // VS Code (CLAUDE_PLUGIN_ROOT and VSCODE_*, no CLAUDECODE): plain text, plus the note about several folders. Claude
+  // Code started from VS Code's terminal (CLAUDECODE set too) doesn't get the note.
+  const CD_NOTE = 'This window may have several folders, and Cartwright\'s guardrails judge terminal commands from the first one: start terminal commands for another folder with cd "<absolute folder>" &&.';
+  const vscode = run({ CLAUDE_PLUGIN_ROOT: PLUGIN, VSCODE_PID: '4242', VSCODE_IPC_HOOK: '/tmp/vscode-ipc.sock' });
+  assert(vscode.startsWith('[cartwright]') && vscode.includes('Test: pnpm test') && vscode.includes(CD_NOTE), `VS Code: ${vscode.slice(0, 200)}`);
+  const claudeInVscode = run({ CLAUDE_PLUGIN_ROOT: PLUGIN, VSCODE_PID: '4242', CLAUDECODE: '1' });
+  assert(!claudeInVscode.includes(CD_NOTE) && !claude.includes(CD_NOTE) && !copilot.additionalContext.includes(CD_NOTE), 'the VS Code note reached another agent');
+  return 'Claude Code: plain text; Copilot: {additionalContext}; Codex: {hookSpecificOutput: {hookEventName: SessionStart, additionalContext}}; VS Code: plain text with the note about several folders';
 });
 
 step('status.profile (C27): where the profile is, the host, PR template, client and default branch', () => {

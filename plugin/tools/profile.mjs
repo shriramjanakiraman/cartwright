@@ -319,14 +319,14 @@ export function summaryLines(p) {
 // The session-start grounding (design section 6): the profile's facts with their sources, the rule that the
 // project's own rules files win, the guardrails in force, and where the full profile is. `stale` holds the keys
 // (as compare() names them) that are out of date. `settings` is the effective settings, or null.
-export function groundingText(p, { file, stale = new Set(), settings = null, profileCmd }) {
+export function groundingText(p, { file, stale = new Set(), settings = null, profileCmd, folder = null }) {
   const f = p.facts || {}, c = f.commands || {}, cv = p.conventions || {}, g = p.guidance || {};
   const old = (keys, text) => (keys.some((k) => stale.has(k)) ? `${text} [out of date]` : text);
   const cmd = (k) => old([`facts.commands.${k}`], fmt(c[k], (x) => `${x.run || `${x.defined} (package manager not found)`} (${x.source})`));
   const platform = fmt(f.platform, (x) => `${x.value}, ${x.flavour === 'sfra' ? 'SFRA' : x.flavour === 'storefront-next' ? 'Storefront Next' : x.flavour} (${x.source})`)
     + (g.preferSkills?.length ? `. Prefer ${g.preferSkills.join(', ')}` : '') + (g.avoidSkills?.length ? `; don't use ${g.avoidSkills.join(', ')} skills` : '');
   const lines = [
-    `[cartwright] Project profile (${file}). These facts were checked against the project at the start of this session; use them instead of guessing or re-reading the files they came from. If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.`,
+    `[cartwright] Project profile ${folder ? `for \`${folder}\` ` : ''}(${file}). ${folder ? 'These facts are for that folder only: if you\'re working in another folder of this window, they don\'t apply there. ' : ''}They were checked against the project at the start of this session; use them instead of guessing or re-reading the files they came from. If AGENTS.md, CLAUDE.md or .cursor/rules say otherwise, follow them. A fact marked "not found" isn't known: say so, don't invent it.`,
     `- Platform: ${old(['facts.platform', 'guidance'], platform)}`,
     `- Languages: ${old(['facts.languages'], fmt(f.languages, (x) => x.value.map((l) => `${l.value} (${l.source})`).join(', ')))} · Node ${old(['facts.node'], fmt(f.node, ver))} · Python ${old(['facts.python'], fmt(f.python, ver))} · package manager ${old(['facts.packageManager'], fmt(f.packageManager, (x) => `${x.value} (${x.source})`))}`,
     `- Build: ${cmd('build')} · Test: ${cmd('test')} · Lint: ${cmd('lint')}`,
