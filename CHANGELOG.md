@@ -17,6 +17,8 @@ All notable changes to what users receive. Newest first.
 - The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
 
 ### Fixed
+- The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of
+  the checkout, which the release step requires to be clean. A new check in `npm run check` catches the pattern.
 - Kit setup rejects malformed agent settings or Codex marketplace JSON before writing any kit files, naming the file to fix or remove.
 - Kit setup preserves disabled Codex plugins and reports how to enable them in `.codex/config.toml`.
 - `link` leaves foreign symlinks and existing files alone when creating or refreshing skills, consistently with pruning.
