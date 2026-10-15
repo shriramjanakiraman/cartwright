@@ -2,12 +2,12 @@
 name: tools-without-install
 description: "Run the B2C CLI (b2c), spec-kit (specify) and graphify without installing them, at the versions the team has tested. Use when a skill or the developer says to run b2c, specify or graphify and the command isn't installed (\"command not found\"), when working on a machine that has none of these tools, when the session-start notice lists tools as not installed, or before suggesting a global install of any of them. Also checks the prerequisites (Node, uv) and explains what each tool would run as."
 owner: shriramjanakiraman
-version: 0.1.0
+version: 0.2.2
 status: active
 applies-to: [any]
 depends-on: [tool:node]
-agents-tested: [claude-code]
-last-reviewed: 2026-10-10
+agents-tested: [claude-code, codex]
+last-reviewed: 2026-10-14
 ---
 
 # tools-without-install
@@ -33,14 +33,42 @@ The helper's full path is in the session-start notice. Otherwise it's `tools/run
 
 ### Step 0 — Fast check
 
+If the project has a Cartwright profile, take its facts from there instead of opening `.nvmrc`, `package.json` or
+`pyproject.toml` yourself:
+
+```bash
+node <profile.mjs> show      # profile.mjs sits next to run.mjs
+```
+
+- **The pins:** `profile.facts.node` and `profile.facts.python` give the pin (`kind: "pinned"`), a release-line
+  alias such as `lts/*` (`kind: "alias"`), or the range (`kind: "range"`) the project asks for, with its source.
+  The session-start summary already shows them (`Node 20.18.0 (.nvmrc)`). When someone asks which Node version the
+  project needs, that pin is the answer. It isn't the helper's own prerequisite (Node 20 or later, below), which
+  is only what Cartwright's helpers need to run.
+- **The tools that matter:** `profile.facts.platform` says whether it's a Salesforce B2C Commerce project, where the
+  B2C CLI matters. `profile.conventions.specKit` says whether spec-kit is set up, which needs uv. Without spec-kit or graphify
+  in use, uv isn't needed.
+- **Not found** means the profile doesn't know; say so rather than guessing.
+
+Then check the tools:
+
 ```bash
 node <run.mjs> --check
 ```
 
 It lists each tool as `installed <version>`, `runs on demand via npx|uvx`, or `NOT RUNNABLE (needs …)` with
-the fix, plus the pinned version. An installed copy **older** than the pinned version is skipped and the
-pinned one runs instead; `--check` shows the command to update the installed copy. Offer it, but don't run it
-without a yes. If everything is installed or runnable, go straight to Step 1.
+the fix, plus the pinned version. An installed copy **older** than the pinned version is normally skipped
+and the pinned one runs instead; `--check` shows the command to update the installed copy. Offer it, but
+don't run it without a yes. There are two exceptions:
+
+- If `npx` (B2C CLI) or `uvx` (spec-kit, graphify) is missing, the older installed copy runs even without
+  `CARTWRIGHT_PREFER_INSTALLED`. `--plan`, `--check` and the run's stderr explain why it is being used.
+- An installed version that is unknown or cannot be parsed counts as not older and is used; this does
+  not establish that it meets the pin. `--check` reports its version as `unknown`.
+
+`CARTWRIGHT_PREFER_INSTALLED=1` also requests an older installed copy. `CARTWRIGHT_USE_PINNED=1` takes
+precedence over every installed-copy exception: it requests the pin and reports it unavailable if the
+runner is missing. If everything is installed or runnable, go straight to Step 1.
 
 ### Step 1 — Run the tool through the helper
 
@@ -60,7 +88,7 @@ To see the exact command without running it: `node <run.mjs> --plan <tool> <args
 ### Step 2 — A prerequisite is missing
 
 - **`npx` missing** (B2C CLI): Node.js 20+ isn't installed. Tell the developer; it's needed for the plugin's
-  helpers anyway.
+  helpers anyway. This is the helpers' minimum, not the project's Node version: that's the project's pin.
 - **`uvx` missing** (spec-kit, graphify): uv isn't installed. It's one small program that also provides
   Python when needed. Show the install command from `--check` and **ask before running it**. After installing,
   the developer may need to open a new terminal (or the agent may need restarting) so it's on the PATH.
@@ -77,8 +105,8 @@ To see the exact command without running it: `node <run.mjs> --plan <tool> <args
 ### Step 4 — Installing permanently (only if asked)
 
 If the developer uses a tool every day and wants it installed, `--check --json` gives the exact command for
-the pinned version (`installPermanently`). The helper always prefers an installed copy, so nothing else
-changes. Ask before installing anything.
+the pinned version (`installPermanently`). The helper prefers an installed copy at the pin or newer,
+subject to the exceptions and overrides in Step 0. Ask before installing anything.
 
 ## How to verify
 
@@ -89,7 +117,8 @@ changes. Ask before installing anything.
 ## Constraints
 
 - Never install a tool, uv or Node globally without the developer's explicit yes.
-- Use the pinned versions; don't switch to `@latest` to get past an error.
+- Use the helper's version selection, including the installed-copy exceptions in Step 0; don't switch
+  to `@latest` to get past an error.
 - Keep the tool's own arguments unchanged; the helper only adds what's needed to run it.
 - Credentials and instance settings stay with the tool (for example the B2C CLI's own configuration); the
   helper never reads or stores them.

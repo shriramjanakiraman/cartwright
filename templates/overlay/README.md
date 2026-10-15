@@ -43,6 +43,20 @@ git config core.hooksPath .githooks          # local guard against direct pushes
 sh ../cartwright/scripts/protect-branches.sh <owner>/<project-code>-cartwright --overlay   # if the plan allows
 ```
 
+## Guardrails
+
+`.cartwright/settings.json` is the repo's starter guardrail settings. With the Cartwright plugin installed, the
+agents' hooks block, in Claude Code, Codex and Copilot:
+- pushes to `main` and `develop`;
+- hand edits to the build output (`plugin/`, `INDEX.md`, `.claude-plugin/marketplace.json`,
+  `.agents/plugins/marketplace.json`, `client-project/`), with the command to regenerate them;
+- committing secrets, and deleting things outside the repo.
+
+Changes to `.cartwright/` need a person and go through a pull request; each developer's own additions go in the
+git-ignored `.cartwright/personal.json`. An **existing overlay** gets the same protection by copying the core
+library's `templates/overlay/.cartwright/` folder into its root and committing it. Overlay repos are never offered
+Cartwright's project setup. See the core library's *Project profile and guardrails* guide.
+
 ## Add a skill
 
 Agents follow `AGENTS.md` here (Claude Code reads it through `CLAUDE.md`) and the core library's

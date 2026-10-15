@@ -5,7 +5,7 @@
 //   <overlay>/plugin/.codex-plugin/plugin.json         the same plugin for Codex
 //   <overlay>/.agents/plugins/marketplace.json         so the overlay repo installs as a Codex marketplace
 //   <overlay>/INDEX.md                                 the overlay's catalogue
-//   <overlay>/plugin/plugin.json                       the Agent Plugins 1.0 manifest (GitHub Copilot, VS Code)
+//   <overlay>/plugin/plugin.json                       the manifest GitHub Copilot and VS Code read (Copilot's format)
 //   <overlay>/client-project/                          the kit a lead commits once into the client project's repo,
 //                                                      so everyone who opens that project gets core + this overlay
 //                                                      in Claude Code, Codex, Copilot CLI and VS Code
@@ -52,9 +52,9 @@ out.set('plugin/.codex-plugin/plugin.json', JSON.stringify({
   interface: { displayName: `${project} skills`, shortDescription: desc, developerName: owner, category: 'Developer Tools', capabilities: ['Read'] },
 }, null, 2) + '\n');
 
+// Copilot's own format (no $schema), declaring what the plugin has: overlays carry skills only.
 out.set('plugin/plugin.json', JSON.stringify({
-  $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
-  name: plugin, version, description: desc, author: { name: owner },
+  name: plugin, version, description: desc, author: { name: owner }, skills: './skills/',
 }, null, 2) + '\n');
 
 // The client project kit (kit.mjs, shared with client setup): the files a client project's repo carries so

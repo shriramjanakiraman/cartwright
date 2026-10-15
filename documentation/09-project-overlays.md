@@ -45,6 +45,11 @@ What the template gives the overlay:
 | `release-schedule` + `weekly-release` | the Wednesday release (delete `release-schedule.yml` to release only by hand) |
 | `duplicate-check` + `duplicate-recheck` | the [duplicate check](05-duplicate-check.md), against this overlay, core and the official skills |
 | `client-project/` (generated) | the project kit, for leads who'd rather add it to the client project by hand |
+| `.cartwright/settings.json` + `.gitignore` | starter guardrail settings: with the plugin installed, agents can't push to `main` or `develop`, hand-edit the build output (`plugin/`, `INDEX.md`, both marketplace files, `client-project/`; the message gives `node ../cartwright/scripts/build-overlay.mjs .`), commit secrets, or delete outside the repo. Changing them needs a person and a pull request; `.cartwright/personal.json` is ignored |
+
+An **existing overlay** gets the same guardrails by copying `templates/overlay/.cartwright/` into its root and
+committing it. Overlay repos are never offered Cartwright's project setup. See
+[Project profile and guardrails](16-project-profile-and-guardrails.md).
 
 ## Writing project skills
 

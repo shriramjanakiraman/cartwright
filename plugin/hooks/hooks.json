@@ -5,8 +5,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -c 'for d in \"$CLAUDE_PLUGIN_ROOT\" \"$PLUGIN_ROOT\" \"$CODEX_PLUGIN_ROOT\" \"$COPILOT_PLUGIN_ROOT\"; do [ -n \"$d\" ] && [ -f \"$d/tools/setup.mjs\" ] && exec node \"$d/tools/setup.mjs\" hook; done; f=$(find \"$HOME/.codex/plugins/cache\" \"$HOME/.copilot\" \"$HOME/.claude/plugins\" -path \"*cartwright*/tools/setup.mjs\" 2>/dev/null | tail -n 1); [ -n \"$f\" ] && exec node \"$f\" hook; exit 0'",
+            "command": "sh -c 'command -v node >/dev/null 2>&1 || exit 0; for d in \"$CLAUDE_PLUGIN_ROOT\" \"$PLUGIN_ROOT\" \"$COPILOT_PLUGIN_ROOT\"; do [ -n \"$d\" ] && [ -f \"$d/tools/setup.mjs\" ] && exec node \"$d/tools/setup.mjs\" hook; done; s=\"${CARTWRIGHT_STATE_DIR:-$HOME/.cartwright}/plugin-root\"; [ -f \"$s\" ] && d=$(cat \"$s\") && [ -f \"$d/tools/setup.mjs\" ] && exec node \"$d/tools/setup.mjs\" hook; exit 0'",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|Create|bash|shell|edit|write|multiedit|notebookedit|powershell|PowerShell|local_shell|write_bash|write_powershell|create|str_replace|str_replace_editor|apply_patch|exec_command|write_stdin|shell_command|run_in_terminal|send_to_terminal|create_and_run_task|run_task|run_vscode_command|run_notebook_cell|create_file|replace_string_in_file|multi_replace_string_in_file|insert_edit_into_file|edit_notebook_file|create_directory|edit_files",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'command -v node >/dev/null 2>&1 || exit 0; for d in \"$CLAUDE_PLUGIN_ROOT\" \"$COPILOT_PLUGIN_ROOT\" \"$PLUGIN_ROOT\"; do [ -n \"$d\" ] && [ -f \"$d/tools/guard.mjs\" ] && exec node \"$d/tools/guard.mjs\" pre-tool-use; done; s=\"${CARTWRIGHT_STATE_DIR:-$HOME/.cartwright}/plugin-root\"; [ -f \"$s\" ] && d=$(cat \"$s\") && [ -f \"$d/tools/guard.mjs\" ] && exec node \"$d/tools/guard.mjs\" pre-tool-use; exit 0'",
+            "timeout": 30
           }
         ]
       }

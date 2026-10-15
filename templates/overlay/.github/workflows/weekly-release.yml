@@ -50,9 +50,9 @@ jobs:
             || skip "main has changes develop doesn't (the post-release sync pull request isn't merged yet)."
 
           set +e
-          V=$(node .core/scripts/next-version.mjs --overlay . --ref origin/develop 2> why.txt); CODE=$?
+          V=$(node .core/scripts/next-version.mjs --overlay . --ref origin/develop 2> "$RUNNER_TEMP/why.txt"); CODE=$?
           set -e
-          WHY=$(sed 's/^next-version: //' why.txt)
+          WHY=$(sed 's/^next-version: //' "$RUNNER_TEMP/why.txt")
           case "$CODE" in
             0) echo "action=cut" >> "$GITHUB_OUTPUT"; echo "version=$V" >> "$GITHUB_OUTPUT"
                echo "Releasing $V. $WHY" | tee -a "$GITHUB_STEP_SUMMARY" ;;
@@ -60,7 +60,7 @@ jobs:
                [ "$N" -eq 0 ] && skip "develop has nothing new since the last release."
                attention "develop has $N commit(s) that aren't released, but nothing under Unreleased in CHANGELOG.md. Add the entries (or confirm there's nothing the team receives) and run it again." ;;
             4) attention "$WHY. Pick the version and run, from the core repo: node scripts/cut-release.mjs --overlay <this-repo> <x.y.z>" ;;
-            *) cat why.txt; exit 1 ;;
+            *) cat "$RUNNER_TEMP/why.txt"; exit 1 ;;
           esac
 
       - name: Tell the leads
@@ -95,6 +95,6 @@ jobs:
         env:
           V: ${{ steps.decide.outputs.version }}
         run: |
-          awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > body.md
-          printf '\n---\nCut automatically by weekly-release. Checked before opening: validate --overlay, the secrets scan, build-overlay --check, and the release-gate rules (new version, matching branch name, CHANGELOG section).\n\nPull requests opened by a workflow get no checks of their own, so `overlay-ci`, `branch-name` and `release-gate` may show as failed or missing here. That is expected.\n\nMerging tags v%s, publishes the notes and opens the main → develop sync. The team receives it through the plugin update (Claude Code) or their next pull of main and link (other agents).\n' "$V" >> body.md
-          gh pr create --base main --head "release/$V" --title "Release $V" --body-file body.md
+          awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > "$RUNNER_TEMP/body.md"
+          printf '\n---\nCut automatically by weekly-release. Checked before opening: validate --overlay, the secrets scan, build-overlay --check, and the release-gate rules (new version, matching branch name, CHANGELOG section).\n\nPull requests opened by a workflow get no checks of their own, so `overlay-ci`, `branch-name` and `release-gate` may show as failed or missing here. That is expected.\n\nMerging tags v%s, publishes the notes and opens the main → develop sync. The team receives it through the plugin update (Claude Code) or their next pull of main and link (other agents).\n' "$V" >> "$RUNNER_TEMP/body.md"
+          gh pr create --base main --head "release/$V" --title "Release $V" --body-file "$RUNNER_TEMP/body.md"

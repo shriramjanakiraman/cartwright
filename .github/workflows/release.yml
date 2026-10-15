@@ -19,8 +19,8 @@ jobs:
         run: |
           V=$(node -p "require('./package.json').version")
           if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then echo "v$V already released; nothing to do."; exit 0; fi
-          awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > notes.md
-          gh release create "v$V" --target "$GITHUB_SHA" --title "v$V" --notes-file notes.md
+          awk -v v="$V" '$0 ~ "^## \\["v"\\]"{f=1;next} /^## \[/{f=0} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          gh release create "v$V" --target "$GITHUB_SHA" --title "v$V" --notes-file "$RUNNER_TEMP/notes.md"
       - name: Sync main back into develop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

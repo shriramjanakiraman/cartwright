@@ -3,6 +3,14 @@
 Cartwright is one shared library of **reusable, agent-agnostic skills** for delivery teams. It works with Claude Code,
 Codex, Copilot, Cursor, Windsurf, OpenCode and any other agent that reads skill files.
 
+It works on **any stack**. In each project it studies the code once (read-only) and saves a **profile**: the real
+build, test and lint commands, the Node or Python pin, the package manager and the project's own rules, each with
+the file it came from. Agents start every session with it instead of guessing. Its **guardrails** stop an agent in
+Claude Code, Codex or Copilot before it pushes to a protected branch, commits a secret, hand-edits a generated file,
+deletes something outside the project, or changes the guardrail settings without the person. See
+[Project profile and guardrails](documentation/16-project-profile-and-guardrails.md). Salesforce B2C Commerce
+projects also get every official Salesforce skill and the B2C MCP server.
+
 **New here?** The [documentation](documentation/README.md) has a guide for each feature: installing,
 writing and scrubbing skills, branches, the duplicate check, releases, official skills and project overlays.
 

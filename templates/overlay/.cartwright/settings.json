@@ -1,0 +1,49 @@
+{
+  "$comment": "Cartwright guardrail settings. Change them in a pull request; an agent needs the person's approval to edit this file. See the Cartwright guide 'Project profile and guardrails'.",
+  "cartwright": "settings",
+  "generated": [
+    {
+      "path": "plugin/**",
+      "regenerate": "node ../cartwright/scripts/build-overlay.mjs ."
+    },
+    {
+      "path": "INDEX.md",
+      "regenerate": "node ../cartwright/scripts/build-overlay.mjs ."
+    },
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "regenerate": "node ../cartwright/scripts/build-overlay.mjs ."
+    },
+    {
+      "path": ".agents/plugins/marketplace.json",
+      "regenerate": "node ../cartwright/scripts/build-overlay.mjs ."
+    },
+    {
+      "path": "client-project/**",
+      "regenerate": "node ../cartwright/scripts/build-overlay.mjs ."
+    }
+  ],
+  "guardrails": {
+    "destructive-outside-project": true,
+    "generated-files": true,
+    "protected-branches": true,
+    "secrets": true
+  },
+  "locations": {
+    "allowed": [],
+    "protected": []
+  },
+  "protectedBranches": [
+    "main",
+    "develop"
+  ],
+  "rules": [],
+  "secrets": {
+    "allow": []
+  },
+  "tracks": {
+    "$comment": "Process tracks (quick, standard, full) have no effect yet; they arrive in a later Cartwright release.",
+    "enabled": false
+  },
+  "version": 1
+}

@@ -4,11 +4,42 @@ Read by Codex, Copilot and other agents directly, and by Claude Code through `CL
 apply to every change you make here, whoever asks for it. The full policy is in GOVERNANCE.md; how each
 feature works is in `documentation/`. When you change how a feature works, update its guide there too.
 
+## How we work: an AI team with a human team lead
+
+Work here runs as a small AI development team (`documentation/15-how-we-work.md`). The human owner is the
+**team lead**: they bring requirements, approve at the gates, and have the final say. The role agents are in
+`.claude/agents/`: `ba` (requirements), `architect` (design, decision records, reviews), `developer`
+(implementation) and `tester` (proof and verdict). Any agent can take on a role by reading its file.
+
+**If you're the main session, you're the coordinator.** For a new feature or bug: business analyst first
+(brief, then the team lead approves it), then architect (design; the team lead approves significant ones),
+then developer (branch and pull request), then tester (verdict), then architect review, then the team lead
+decides. Relay every question, approval request and discrepancy to the team lead **word for word**, in plain
+text, and never answer on their behalf. A tiny change (a typo, a one-line fix) can skip straight to the
+developer and tester; say that you're doing so.
+
+**Cartwright uses what it ships.** As the plugin gains its own employees, project profile and guardrails,
+this repo adopts them for its own development too (decision record 0010).
+
+**Ask, don't guess.** Stop and ask the team lead when a requirement is unclear, when work conflicts with a
+decision record (`documentation/decisions/`) or these rules, when there's a risk (breaking change, security,
+client data, cost), or before anything outward-facing or hard to undo. When the team lead asks why something
+was done or disagrees, answer from the records, and say so when there isn't one.
+
 ## Never change `main` or `develop` directly
 
 Every change goes on its own branch and arrives through a pull request. Never push to `main` or
 `develop`, never merge a pull request unless the owner explicitly tells you to, and never invent a branch
-name outside the four types below. The pre-push hook and CI refuse anything else.
+name outside the four types below. The pre-push hook and CI refuse anything else, and the Cartwright plugin's
+guardrails block an agent's push to `main` or `develop` here (`.cartwright/settings.json`). This repo switches the
+released plugin on for Claude Code and Copilot (`.claude/settings.json`, `.github/copilot/settings.json`). Codex needs
+it installed once (`codex plugin marketplace add shriramjanakiraman/cartwright`, then
+`codex plugin add cartwright@cartwright`) and its hooks approved in `/hooks`.
+
+`.cartwright/` holds this repo's own profile and guardrail settings. They're guarded: an agent can't change them
+without the owner, and a change goes through a pull request like any other. Generated output (`plugin/`,
+`INDEX.md`, the marketplace files, `upstream/`) is guarded too: run `npm run build` or `npm run sync-upstream`
+instead of editing it. If a guardrail blocks you, say so and stop; don't try another way.
 
 ## Check the open pull requests first
 
@@ -78,8 +109,8 @@ gh pr create --base develop           # --base main only for release/ and hotfix
 - Run `npm run check` before every commit; the pre-commit hook runs it too.
 - Test at the right depth before raising the pull request: `npm run test:release -- --level quick` for
   feature and bugfix work (`major` if it touches the setup flow, kit, hook, tool runner or packaging). The
-  `release-tester` agent (`.claude/agents/release-tester.md`) runs it and investigates failures; other
-  agents follow the same steps from `documentation/14-end-to-end-test.md`.
+  `tester` agent (`.claude/agents/tester.md`) runs it and investigates failures; other agents follow the
+  same steps from `documentation/14-end-to-end-test.md`.
 - Fill in the pull request template truthfully. Tick only what you actually did.
 - Stop at the open pull request and tell the developer it's ready for review. Don't merge it.
 - If `duplicate-check` comments that a skill may repeat another, don't just resolve it. Tell the developer,
@@ -107,7 +138,7 @@ owner asks ("cut the release", "ship it", "release 0.6.0").
    the version, turns *Unreleased* into `## [x.y.z] - <today>`, rebuilds, runs every check and commits.
    It refuses a version that isn't newer, and an empty *Unreleased*.
 3. **Test it:** `npm run test:release -- --level minor` for a minor or patch release, `--level major` for a
-   major one (or ask the `release-tester` agent). Put the verdict and any open issues in the pull request.
+   major one (or ask the `tester` agent). Put the verdict and any open issues in the pull request.
 4. **Raise it:** `git push -u origin release/<x.y.z>` and `gh pr create --base main --title "Release <x.y.z>"`,
    with the release notes as the body. Stop there; the owner reviews and merges.
 5. **After the owner merges**, a pull request syncing `main` back into `develop` opens automatically.

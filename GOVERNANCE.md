@@ -2,6 +2,9 @@
 
 ## Ownership
 
+The owner is also the **team lead** of the AI development team that builds Cartwright: they bring the
+requirements and approve at every gate (`documentation/15-how-we-work.md`).
+
 | Area | Owner | Approves |
 |---|---|---|
 | Core repo (`skills/`, scripts, standards) | @shriramjanakiraman | Every pull request |
@@ -80,6 +83,7 @@ releases are approved by the core owner or that engagement's project lead.
 | `branch-guard` workflow | Fails and opens an issue if a commit lands on `main` or `develop` without a merged pull request, or from a pull request merged with a duplicate-check comment still open | Active. Detects after the fact; can't prevent. |
 | `duplicate-check` workflow | Compares every skill a pull request adds or changes with the skills it can see (core: core and official; an overlay: itself, core and official; never other overlays), offline. Each likely repeat gets a comment with a suggestion (use, build on, or combine with the other skill) and the pull request gets "Request changes". It fails until every such comment is resolved, then dismisses its review. Anyone may resolve one, after replying with the decision; the reviewer judges. | Active. Until rulesets are available it signals but can't stop a merge; `branch-guard` catches a merge that skips it. With rulesets, the required check and conversation resolution block the merge. |
 | `release-gate` workflow | Checks every pull request into `main` is a proper release from `release/` or `hotfix/` | Active |
+| Agent guardrails (`.cartwright/settings.json`, the plugin's PreToolUse hook) | Stops an AI agent (Claude Code, Codex, Copilot) from pushing to `main` or `develop`, hand-editing generated output (`plugin/`, `INDEX.md`, the marketplace files, `upstream/`), committing secrets, or deleting outside the repo, and from changing `.cartwright/` without the person ([guide](documentation/16-project-profile-and-guardrails.md)). Overlays get the same from their template. | Active where the Cartwright plugin is installed (Codex: once its hooks are approved in `/hooks`; not on Windows). Agents only: people's own commands aren't checked, and command matching can't see inside scripts. |
 
 When the repo moves to a plan that supports rulesets, run `sh scripts/protect-branches.sh <owner/repo>`
 once (and once per overlay with `--overlay`). Required approvals start at 0 so a solo owner can merge;
