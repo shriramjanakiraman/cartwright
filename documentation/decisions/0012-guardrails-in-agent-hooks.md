@@ -1,6 +1,14 @@
 # 12. Hard-block guardrails in the agents' PreToolUse hooks
 
-**Status:** Proposed · **Date:** 2026-10-10 · **Deciders:** team lead, architect
+**Status:** Accepted · **Date:** 2026-10-10, accepted 2026-10-15 · **Deciders:** team lead, architect
+
+Accepted with phase 1 (issue #43, PR #46). It rests on:
+- the Gate 2 decisions G1–G12, including G10 (temporary folders, the cache, creating and appending outside the
+  project), G11 (what counts as switching the guardrails off, kept in full) and G12 (Codex blocks only once each user
+  trusts the hooks; VS Code is a manual check);
+- the team lead's later decisions: the VS Code multi-folder limit is accepted (terminal commands are judged from the
+  first folder unless they `cd`; issue #51), `ask` was verified by hand in Claude Code (2026-10-14), and phase 1 ships
+  in the current release.
 
 ## Context
 Nothing stops an agent from pushing to a protected branch, committing a secret, hand-editing generated files or
@@ -120,7 +128,7 @@ The team lead's decisions shape the rules:
   SessionStart entry, finalised at the end of phase 1.
 - **VS Code:** checked by hand on 1.141. Its session start and blocks work. In a window with several folders, hooks
   see only the first, so terminal commands for another folder need a `cd` to be judged by that folder's settings (the
-  session context says so). This limit is with the team lead.
+  session context says so). The team lead accepted this limit (issue #51).
 - **"Ask" support:** in Claude Code, a guardrail-settings change shows Claude Code's own approval prompt with
   Cartwright's reason and the hand-off command (verified by hand on 2026-10-14, Claude Code 2.1.296; a headless
   `claude -p` session refuses an ask). Only in the default and plan permission modes: `acceptEdits` and

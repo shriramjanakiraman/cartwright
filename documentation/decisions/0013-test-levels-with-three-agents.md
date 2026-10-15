@@ -1,6 +1,10 @@
 # 13. Test levels with grounding and guardrail scenarios in three agents
 
-**Status:** Proposed (supersedes 0009 once accepted) · **Date:** 2026-10-10 · **Deciders:** team lead, architect
+**Status:** Accepted (supersedes 0009) · **Date:** 2026-10-10, accepted 2026-10-15 · **Deciders:** team lead, architect
+
+Accepted with phase 1 (issue #43, PR #46), on the Gate 2 decisions G1–G12, in particular G6 (option C: patch and
+minor releases run the agents) and G12 (VS Code stays a manual check), and the team lead's later decision that phase 1
+ships in the current release.
 
 ## Context
 ADR 0009 set three levels. Under it:

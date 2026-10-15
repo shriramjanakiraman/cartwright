@@ -14,8 +14,8 @@ and the answer should come from here.
 | [0006](0006-offline-duplicate-check.md) | An offline duplicate check holds pull requests | Accepted |
 | [0007](0007-branching-and-weekly-releases.md) | Branching model and weekly releases | Accepted |
 | [0008](0008-rename-to-cartwright.md) | Rename the library to Cartwright | Accepted |
-| [0009](0009-test-framework-levels.md) | A test framework with three levels and real agents | Accepted |
+| [0009](0009-test-framework-levels.md) | A test framework with three levels and real agents | Superseded by 0013 |
 | [0010](0010-ai-development-team.md) | An AI development team with team-lead gates | Accepted |
-| [0011](0011-project-profile-and-settings.md) | A deterministic project profile, team settings and a personal file | Proposed |
-| [0012](0012-guardrails-in-agent-hooks.md) | Hard-block guardrails in the agents' PreToolUse hooks | Proposed |
-| [0013](0013-test-levels-with-three-agents.md) | Test levels with grounding and guardrail scenarios in three agents (would supersede 0009) | Proposed |
+| [0011](0011-project-profile-and-settings.md) | A deterministic project profile, team settings and a personal file | Accepted |
+| [0012](0012-guardrails-in-agent-hooks.md) | Hard-block guardrails in the agents' PreToolUse hooks | Accepted |
+| [0013](0013-test-levels-with-three-agents.md) | Test levels with grounding and guardrail scenarios in three agents (supersedes 0009) | Accepted |

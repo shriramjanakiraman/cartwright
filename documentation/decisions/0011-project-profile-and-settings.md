@@ -1,6 +1,10 @@
 # 11. A deterministic project profile, team settings and a personal file
 
-**Status:** Proposed · **Date:** 2026-10-10 · **Deciders:** team lead, architect
+**Status:** Accepted · **Date:** 2026-10-10, accepted 2026-10-15 · **Deciders:** team lead, architect
+
+Accepted with phase 1 (issue #43, PR #46), on the Gate 2 decisions G1–G12 (the storage choices, the fail-safe for
+broken settings in G3, the person approving every write in G4) and the team lead's later decision that phase 1
+ships in the current release.
 
 ## Context
 Agents guess a project's stack, commands and rules. That guessing is the main reason their output is unreliable

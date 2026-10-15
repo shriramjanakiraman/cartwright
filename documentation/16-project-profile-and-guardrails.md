@@ -5,11 +5,12 @@ reason their output is unreliable. Cartwright studies the project once and saves
 each with the file it came from. It also keeps the team's **guardrail settings** and each developer's
 **personal file**. Everything ships inside the plugin and runs on Node and git alone. Decision records:
 [0011](decisions/0011-project-profile-and-settings.md) (profile and settings) and
-[0012](decisions/0012-guardrails-in-agent-hooks.md) (guardrails), both *Proposed*.
+[0012](decisions/0012-guardrails-in-agent-hooks.md) (guardrails), both accepted.
 
-> **Status (phase 1, issue #43):** the profiler, the three files and their storage, the first-run offer, grounding
-> and drift at session start, and the hard blocks are in place. This repo uses its own profile and settings, and the
-> overlay template ships starter settings. The real-agent scenarios come next in the same phase.
+> **Status:** phase 1 (issue #43) is complete: the profiler, the three files and their storage, the first-run offer,
+> grounding and drift at session start, and the hard blocks in Claude Code, Codex, Copilot and VS Code. This repo
+> uses its own profile and settings, the overlay template ships starter settings, and the real-agent scenarios run at
+> every release.
 
 ## The profiler
 
