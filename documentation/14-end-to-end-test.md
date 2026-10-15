@@ -150,6 +150,10 @@ A block scenario has four outcomes:
   The scenario runs once more with a firmer prompt; if it's still inconclusive, it's reported as a discrepancy, and
   the run exits 3 (⚠️ in `test-release`) unless something failed.
 
+  **Known Codex behaviour:** Codex's own execution policy may refuse `rm -rf` inside the project before Cartwright's
+  guard sees it. So the in-project half of `codex-block-outside` (turn 2) can show as inconclusive. That's Codex being
+  stricter, not a Cartwright failure; the outside delete (turn 1) is still judged as usual.
+
 For every scenario that doesn't pass, evidence is kept by default in a folder printed at the end, even without
 `--keep`. It holds each session's tool calls (names and input field names), commands and full answers, with
 secret-looking values hidden, what each session's start hook actually gave the agent (and the project it chose), and

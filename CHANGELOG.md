@@ -74,8 +74,7 @@ All notable changes to what users receive. Newest first.
 ### Fixed
 - The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
   manifest didn't declare it, and Copilot only takes session-start context as JSON. Copilot users now get the
-  session notes. The setup offer reaches Copilot too, but its model doesn't reliably open with it, so ask it to
-  "set up this project".
+  session notes. The setup offer reaches Copilot too (see Known issues).
 - The session-start notes now reach Codex. Codex accepts only JSON there, and dropped the plain text without saying
   so.
 - The setup offer now comes before the tools note in every agent.
@@ -89,6 +88,11 @@ All notable changes to what users receive. Newest first.
 - The tool runner's docs cover the missing-runner and unknown-version exceptions, and plans and runs explain why an
   older installed copy is used.
 
+### Known issues
+- Claude Code 2.1.300 may skip the first-run setup offer and answer the first message directly (#53).
+- Copilot's model doesn't reliably open with the setup offer (#45).
+
+In both, ask the agent to "set up this project".
 ## [2.1.0] - 2026-10-09
 
 ### Added

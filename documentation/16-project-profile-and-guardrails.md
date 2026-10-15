@@ -512,7 +512,8 @@ These are guardrails, not a complete boundary, as the agent vendors themselves s
   (their `input`) are read as commands typed in the session's folder. The guard can't see where that shell has
   moved to with an earlier `cd`.
 - **Codex** runs plugin hooks only after you approve them in `/hooks`. Until then they silently don't run.
-  Approving once covers updates, because the hook entries never change.
+  Approving once covers updates, because the hook entries never change. Codex's own execution policy is sometimes
+  stricter than Cartwright: it may refuse an `rm -rf` inside the project before the guard sees it.
 - **Speed.** Each guarded tool call starts Node: about 0.1–0.3 s in all. The budgets for what the guard adds on
   top of starting Node are 100 ms without git and 400 ms for a push. The guard test compares 30 paired runs (with
   and without the guard) and fails when the median difference is more than twice the budget (200 ms and 800 ms),
