@@ -1,0 +1,197 @@
+{
+  "cartwright": "profile",
+  "conventions": {
+    "adrs": {
+      "status": "not found"
+    },
+    "prTemplate": {
+      "status": "not found"
+    },
+    "rulesFiles": {
+      "status": "found",
+      "value": [
+        {
+          "path": "AGENTS.md"
+        },
+        {
+          "path": "CLAUDE.md"
+        }
+      ]
+    },
+    "specKit": {
+      "status": "not found"
+    },
+    "tracker": {
+      "status": "not found"
+    }
+  },
+  "facts": {
+    "commands": {
+      "build": {
+        "defined": "pnpm cartridge:generate && react-router build",
+        "how": "defined",
+        "run": "pnpm build",
+        "source": "package.json#scripts.build",
+        "status": "found"
+      },
+      "lint": {
+        "defined": "oxlint --deny-warnings && biome format .",
+        "how": "defined",
+        "run": "pnpm lint",
+        "source": "package.json#scripts.lint",
+        "status": "found"
+      },
+      "test": {
+        "defined": "vitest run",
+        "how": "defined",
+        "run": "pnpm test",
+        "source": "package.json#scripts.test",
+        "status": "found"
+      }
+    },
+    "frameworks": {
+      "status": "found",
+      "value": [
+        {
+          "name": "@biomejs/biome",
+          "source": "package.json#devDependencies",
+          "version": "2.0.0"
+        },
+        {
+          "name": "@salesforce/storefront-next-dev",
+          "source": "package.json#devDependencies",
+          "version": "1.0.0"
+        },
+        {
+          "name": "@salesforce/storefront-next-runtime",
+          "source": "package.json#dependencies",
+          "version": "1.0.0"
+        },
+        {
+          "name": "oxlint",
+          "source": "package.json#devDependencies",
+          "version": "1.0.0"
+        },
+        {
+          "name": "react",
+          "source": "package.json#dependencies",
+          "version": "19.1.0"
+        },
+        {
+          "name": "react-router",
+          "source": "package.json#dependencies",
+          "version": "7.18.2"
+        },
+        {
+          "name": "tailwindcss",
+          "source": "package.json#devDependencies",
+          "version": "4.1.0"
+        },
+        {
+          "name": "typescript",
+          "source": "package.json#devDependencies",
+          "version": "5.8.3"
+        },
+        {
+          "name": "vite",
+          "source": "package.json#devDependencies",
+          "version": "6.3.5"
+        },
+        {
+          "name": "vitest",
+          "source": "package.json#devDependencies",
+          "version": "3.2.4"
+        }
+      ]
+    },
+    "languages": {
+      "status": "found",
+      "value": [
+        {
+          "source": "tsconfig.json",
+          "value": "TypeScript"
+        }
+      ]
+    },
+    "layout": {
+      "source": "cartridges/, src/, e2e/",
+      "status": "found",
+      "value": {
+        "cartridges": [
+          "app_storefrontnext_base"
+        ],
+        "sourceDirs": [
+          "src"
+        ],
+        "testDirs": [
+          "e2e"
+        ]
+      }
+    },
+    "node": {
+      "kind": "pinned",
+      "source": ".nvmrc",
+      "status": "found",
+      "value": "24.4.0"
+    },
+    "otherScripts": {
+      "source": "package.json#scripts",
+      "status": "found",
+      "value": [
+        "cartridge:deploy",
+        "cartridge:generate",
+        "dev",
+        "push",
+        "start",
+        "typecheck"
+      ]
+    },
+    "packageManager": {
+      "source": "pnpm-lock.yaml",
+      "status": "found",
+      "value": "pnpm"
+    },
+    "platform": {
+      "flavour": "storefront-next",
+      "source": "package.json#devDependencies.@salesforce/storefront-next-dev",
+      "status": "found",
+      "value": "Salesforce B2C Commerce"
+    },
+    "protectedBranchCandidates": {
+      "source": "git: refs/remotes/origin/HEAD, refs/remotes/origin/develop",
+      "status": "found",
+      "value": [
+        "develop",
+        "main"
+      ]
+    },
+    "python": {
+      "status": "not found"
+    },
+    "remoteHost": {
+      "source": "git: remote origin",
+      "status": "found",
+      "value": "local"
+    }
+  },
+  "guidance": {
+    "avoidSkills": [
+      "b2c-controllers",
+      "b2c-forms",
+      "b2c-isml"
+    ],
+    "preferSkills": [
+      "sfnext-*"
+    ]
+  },
+  "suggestions": {
+    "generated": [
+      {
+        "path": "cartridges/app_storefrontnext_base/cartridge/experience/**",
+        "regenerate": "pnpm cartridge:generate",
+        "source": "package.json#scripts.cartridge:generate"
+      }
+    ]
+  },
+  "version": 1
+}

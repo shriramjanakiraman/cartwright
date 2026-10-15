@@ -5,10 +5,13 @@ in any client project, they get every shared SFCC skill **and** the project skil
 for that client. Nobody hand-edits settings or adds a second plugin. This guide explains how.
 
 ```
-install the plugin ─▶ open a client project ─▶ session-start hook: "not set up yet"
+install the plugin ─▶ open a project ─▶ session-start hook: "not set up yet"
                                                      │
-                     agent asks once: "Is this for a client? set up / not now / no client"
+          agent asks once: "Cartwright can study this project … and connect it to a client's project
+                            skills if it's for a client. Reply set up, not now, or never here."
                                                      │ set up
+          project-profile skill ─▶ study (read-only) ─▶ profile and guardrail settings, after a yes
+                                                     │ for a client
                      client-setup skill ─▶ "Which client?" ─▶ registry lookup ("AC" = "Acme Corporation")
                           │ found                                   │ not found
                           ▼                                         ▼
@@ -33,18 +36,31 @@ plugins with the machine's own git credentials.
 
 ## 2. The session-start hook
 
-The plugin ships one hook that runs when a session starts, in Claude Code, Codex, Copilot and VS Code. In
-about a quarter of a second, with no network access, it checks the project:
+The plugin ships one hook that runs when a session starts, in Claude Code, Codex, the Copilot CLI and VS Code
+(checked by hand on VS Code 1.141; in a window with several folders it sees the first one). In
+about a quarter of a second, with no network access, it checks the project and asks **one** combined question
+when there's something to set up:
 
-| Situation | What happens |
+| Situation | What the agent asks first |
 |---|---|
 | not a git repo, or the library / a project skills repo itself | nothing |
-| the project already has the kit | nothing |
-| the developer said "no client" for this project | nothing |
+| the developer said "never here" for this project | nothing, ever |
 | they said "not now" | nothing for 7 days, then it asks again |
-| otherwise | the agent asks once: *is this project for a client?* (set up / not now / no client) |
+| no profile, and it isn't known whether it's for a client | *"Cartwright can study this project (read-only) and save a profile so I use its real commands and rules, and connect it to a client's project skills if it's for a client. Reply set up, not now, or never here."* |
+| no profile, but the client is known (the kit is there, the settings say it isn't for a client, or "no client" was answered) | the same without the client part: *"… so I use its real commands and rules. Reply set up, not now, or never here."* |
+| a profile, but no client recorded | *"Is this project for a client? I can connect it to that client's project skills. Reply set up, not now, or never here."* |
+| a profile whose settings say it's for a client (`clientProject: true`), but no kit yet | *"This project is for a client but isn't connected to its project skills yet. Reply set up, not now, or never here."* "set up" goes straight to `client-setup`. |
+| a profile and a known client | nothing |
 
-Choices are remembered per project in `~/.cartwright/projects.json` on the developer's machine.
+- **"set up"** starts the `project-profile` skill (study, confirm, write after a yes), which hands on to this
+  guide's `client-setup` when the project is for a client. The kit and the profile go in the same pull request.
+  In the client-only case, "set up" goes straight to `client-setup`.
+- **"not now"** runs `setup.mjs remember later`; **"never here"** runs `setup.mjs remember never`.
+- **Earlier answers are kept.** A remembered "no client" or "done" counts as the client being known, and a later
+  "not now" or "never here" doesn't erase it: after the 7 days, the client question isn't asked again.
+
+Choices are remembered per project in `~/.cartwright/projects.json` on the developer's machine. The profile and
+grounding are covered in [Project profile and guardrails](16-project-profile-and-guardrails.md).
 
 - **Codex** asks you to trust a plugin's hook once (`/hooks`).
 - The hook runs through `sh`, so on Windows it stays silent; ask the agent to "set up this project's skills"
@@ -125,8 +141,9 @@ automation (CI, duplicate check, weekly release) is GitHub Actions only for now.
 
 | File | Role |
 |---|---|
-| `core/client-setup.md` | the skill the agent follows |
-| `scripts/setup.mjs` | the helper: `hook`, `status`, `lookup`, `access`, `kit`, `install`, `remember` |
+| `core/project-profile.md` | the skill "set up" starts: the profile and guardrail settings |
+| `core/client-setup.md` | the skill the agent follows for the client part |
+| `scripts/setup.mjs` | the helper: `hook`, `status` (including `profile`), `lookup`, `access`, `kit`, `install`, `remember <done\|later\|never\|no-client>` |
 | `scripts/kit.mjs` | builds and merges the project kit (also used by `build-overlay`) |
 | `scripts/registry-core.mjs`, `scripts/registry.mjs` | the encrypted registry and the command to add to it |
 | `registry/overlays.json` | the registry |

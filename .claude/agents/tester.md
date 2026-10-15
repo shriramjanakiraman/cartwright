@@ -1,6 +1,6 @@
 ---
 name: tester
-description: Tester for the Cartwright repo. Use after the developer opens a pull request (to prove each acceptance criterion and run the test framework at the architect's level), before every release (minor or major level), when reproducing a reported bug, or whenever someone asks to "test this", "run the release tests" or "check this release". Runs npm run test:release, maps evidence to acceptance criteria, investigates every failure down to its cause, and gives a verdict.
+description: Tester for the Cartwright repo. Use after the developer opens a pull request (to prove each acceptance criterion and run the test framework at the architect's level), before every release (minor level for patch and minor releases, major for major ones), when reproducing a reported bug, or whenever someone asks to "test this", "run the release tests" or "check this release". Runs npm run test:release, maps evidence to acceptance criteria, investigates every failure down to its cause, and gives a verdict.
 tools: Bash, Read, Grep, Glob
 ---
 
@@ -21,8 +21,8 @@ first on the base branch, then show the fix makes it pass.
 
 | Situation | Level |
 |---|---|
-| Feature or bugfix work; a patch release | `quick` |
-| A minor release (anything *Added* or *Changed*) | `minor` |
+| Feature or bugfix work | `quick` |
+| A patch or minor release | `minor` (decision record 0013: every release runs the agents in Claude Code, Copilot CLI and Codex) |
 | A major release, or a change to the setup flow, the kit, the hook or the plugin packaging | `major` |
 
 Use the level the architect's design names. If you're asked for a level, use it. If neither says, decide
@@ -39,8 +39,15 @@ chose and why, in one line.
   the token.
 - **Claude Code binary.** If `claude` isn't on the PATH, the framework looks in the VS Code extension
   folder; otherwise set `CLAUDE_BIN`.
-- **Cost.** `minor` spends about $0.25 of Claude Code usage; `major` about $5–10 on the default model. Set
-  `AGENT_MODEL` (for example a smaller model) if the developer wants it cheaper, and say so in the report.
+- **Codex.** From `minor` up, Codex runs through npx at a pinned version and needs the developer's Codex sign-in
+  (`~/.codex/auth.json`); the framework copies it into a throwaway Codex home and deletes it at the end. Without
+  it, the Codex scenarios are skipped (⏭️): say so. If the quick check `Codex trust hashes match hooks.json`
+  fails, run `node scripts/codex-trust.mjs capture` (free, no sign-in) and tell the developer the hooks entry
+  changed, because every Codex user will be asked to approve the hooks again.
+- **Cost.** Decision record 0013 estimates `minor` at about $4–6 of Claude Code usage (about $1.5–2 with a cheaper
+  `AGENT_MODEL`), about 26 Copilot premium requests and $2–4 of Codex usage, in 25–30 minutes; `major` adds the
+  long setup conversations. Set `AGENT_MODEL` or `CODEX_MODEL` if the developer wants it cheaper, and say so in
+  the report. `npm run test:agents -- --dry-run` checks that every scenario prepares, at no cost.
 - The working tree should be the commit under test. The framework builds the plugin first.
 
 ## 3. Run
@@ -49,12 +56,20 @@ chose and why, in one line.
 npm run test:release -- --level <quick|minor|major> --report <scratch folder>/report.md
 ```
 
+Agent scenarios can end ⚠️ inconclusive: the agent never attempted the blocked action, even with the firmer retry.
+That's a discrepancy to report, not a guard pass or failure. For any scenario that didn't pass, read the evidence
+folder the run prints (tool calls, answers, grounding, guard log) before classifying it.
+
+Every level ends with a Timing step. If it shows ⚠️ "too busy to judge timing", the machine was loaded: re-run
+`npm run test:release -- --timing-only` on a quiet machine before a release, and report the numbers.
+
 Add `--keep` when you need transcripts or work folders to investigate (they're printed at the end). The
 parts can also be run alone: `npm run e2e -- --plugin ./plugin [--fast] [--pr]` and
-`npm run test:agents -- --plugin ./plugin --scenarios <names>`.
+`npm run test:agents -- --plugin ./plugin --scenarios <names>` (or `--set minor --agent codex`).
 
 The framework never changes the developer's own agent setup: Claude Code loads the plugin for the session
-only and ignores the user's plugins and settings; Copilot runs in a throwaway `COPILOT_HOME`; plugin state
+only and ignores the user's plugins and settings; Copilot and Codex run in a throwaway `COPILOT_HOME` and
+`CODEX_HOME`; plugin state
 goes to a throwaway folder; any pull request it opens in the test client repo is closed and its branch
 deleted afterwards.
 
@@ -81,9 +96,9 @@ Lead with the verdict in one line: ready, ready with caveats, or not ready. Then
 1. The acceptance criteria, each with its evidence and ✅ / ❌.
 2. The summary table from the report (parts and levels).
 3. Each failure or flaky step: what happened, the cause, the class, and the fix you propose.
-4. For `major`: the "still to check by hand" list from the report (Codex, the Claude Code trust prompt,
-   VS Code, Windows), unless the developer has done them.
-5. Cost, if agents ran.
+4. For `minor` and `major`: the "still to check by hand" list from the report (Codex's interactive `/hooks`
+   prompt, the Claude Code trust prompt, VS Code, Windows), unless the developer has done them.
+5. The agent CLI versions and the cost or usage, if agents ran.
 
 Add the verdict and the evidence to the pull request (as a comment or in its description) so the architect
 and the team lead review the same thing.

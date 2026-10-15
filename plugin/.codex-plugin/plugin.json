@@ -1,24 +1,30 @@
 {
   "name": "cartwright",
   "version": "2.1.0",
-  "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+  "description": "Shared, agent-agnostic skills for delivery teams, on any stack. One install gives agents a profile of each project (its real commands and rules), guardrails that block risky actions in Claude Code, Codex and Copilot, our core skills, and every official Salesforce B2C Commerce skill with the B2C MCP server.",
   "author": {
     "name": "Shriram Janakiraman"
   },
   "keywords": [
+    "skills",
+    "agents",
+    "project-profile",
+    "guardrails",
+    "claude-code",
+    "codex",
+    "copilot",
     "salesforce",
     "b2c-commerce",
     "commerce-cloud",
     "sfra",
-    "storefront-next",
-    "skills"
+    "storefront-next"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Cartwright",
-    "shortDescription": "Our B2C Commerce skills plus every official Salesforce skill and the B2C MCP server.",
-    "longDescription": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+    "shortDescription": "A profile and guardrails for any project, our shared skills, and every official Salesforce B2C skill.",
+    "longDescription": "Shared, agent-agnostic skills for delivery teams, on any stack. One install gives agents a profile of each project (its real commands and rules), guardrails that block risky actions in Claude Code, Codex and Copilot, our core skills, and every official Salesforce B2C Commerce skill with the B2C MCP server.",
     "developerName": "Shriram Janakiraman",
     "category": "Developer Tools",
     "capabilities": [
@@ -26,9 +32,9 @@
       "Write"
     ],
     "defaultPrompt": [
-      "Make what we just did into a skill",
-      "Something is broken on the sandbox, check the logs",
-      "I need a shopper token for my storefront"
+      "Set up this project",
+      "Why was that blocked?",
+      "Make what we just did into a skill"
     ]
   }
 }

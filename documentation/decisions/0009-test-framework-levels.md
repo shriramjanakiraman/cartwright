@@ -1,6 +1,6 @@
 # 9. A test framework with three levels and real agents
 
-**Status:** Accepted · **Date:** 2026-10-10 · **Deciders:** team lead, architect
+**Status:** Superseded by [0013](0013-test-levels-with-three-agents.md) · **Date:** 2026-10-10 · **Deciders:** team lead, architect
 
 ## Context
 Checks alone didn't prove what a developer gets; a manual live test found a real bug and an agent that

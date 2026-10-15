@@ -22,6 +22,12 @@ jobs:
         run: node scripts/sync-upstream.mjs --check
       - name: Generated plugin and INDEX are current
         run: node scripts/build.mjs --check
+      - name: Codex trust hashes match the plugin's hooks.json
+        run: node scripts/codex-trust.mjs check --plugin ./plugin
+      - name: Profile test (deterministic, against the committed plugin)
+        run: node scripts/e2e-profile.mjs --plugin ./plugin
+      - name: Guard test (deterministic, against the committed plugin)
+        run: node scripts/e2e-guard.mjs --plugin ./plugin
       - name: Secret scan across history
         uses: gitleaks/gitleaks-action@v2
         env:

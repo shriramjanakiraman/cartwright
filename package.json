@@ -1,7 +1,7 @@
 {
   "name": "cartwright",
   "version": "2.1.0",
-  "description": "Shared, agent-agnostic skills for delivery teams. One install delivers our core skills plus every official Salesforce B2C Commerce skill and the B2C MCP server.",
+  "description": "Shared, agent-agnostic skills for delivery teams, on any stack. One install gives agents a profile of each project (its real commands and rules), guardrails that block risky actions in Claude Code, Codex and Copilot, our core skills, and every official Salesforce B2C Commerce skill with the B2C MCP server.",
   "author": "Shriram Janakiraman",
   "private": true,
   "type": "module",
@@ -27,6 +27,8 @@
     "registry": "node scripts/registry.mjs",
     "setup": "node scripts/setup.mjs",
     "e2e": "node scripts/e2e.mjs",
+    "e2e:profile": "node scripts/e2e-profile.mjs",
+    "e2e:guard": "node scripts/e2e-guard.mjs",
     "test:release": "node scripts/test-release.mjs",
     "test:agents": "node scripts/agent-e2e.mjs"
   }

@@ -13,6 +13,11 @@ of them first. The plugin runs them on demand, at the versions the team has test
 
 Nothing else: no global `npm install`, no `pip install`, no `uv tool install`.
 
+In a project with a Cartwright profile, the `tools-without-install` skill takes the project's facts from the
+profile rather than opening its files: the Node or Python pin, whether it's a B2C Commerce project (where the B2C
+CLI matters), and whether spec-kit is set up (which needs uv). See
+[Project profile and guardrails](16-project-profile-and-guardrails.md).
+
 ## How it works
 
 ```

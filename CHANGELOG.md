@@ -5,30 +5,94 @@ All notable changes to what users receive. Newest first.
 ## [Unreleased]
 
 ### Added
-- An AI development team for working on Cartwright, with the owner as team lead: `ba` (requirements),
-  `architect` (design, decision records, reviews), `developer` and `tester` agents in `.claude/agents/`, the
-  process in `documentation/15-how-we-work.md` (gates for the brief and significant designs, ask instead of
-  guessing, engineering principles), a requirement brief template, a GitHub issue template, and decision
-  records for the significant choices made so far (`documentation/decisions/`).
+- A project profile, for projects of any stack. The plugin's `tools/profile.mjs` studies a project read-only and
+  records what it finds, each fact with the file it came from, or "not found" rather than a guess:
+  - the platform (Salesforce B2C Commerce, SFRA or Storefront Next), languages and the Node or Python pin;
+  - the package manager, and the build, test and lint commands;
+  - the layout and conventions (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules`, spec-kit, decision records, pull request
+    template, tracker), and protected-branch candidates.
+
+  It never opens credential files or records a secret value, and the same project always gives the same bytes. The
+  profile, the team's guardrail settings and each developer's personal file (which can only add or tighten) live in
+  `.cartwright/`, in a marked section of `AGENTS.md`, or on this machine only. Stack detection is one module per
+  stack (Node/TypeScript, Python, SFCC). Guide: `documentation/16-project-profile-and-guardrails.md`; decision
+  records 0011–0013.
+- A `project-profile` skill (0.1.2) for setup, refresh and settings changes. The person approves the exact write
+  command, and the profile and a client kit go in one pull request.
+- Session-start grounding. In a profiled project, each session starts with the project's facts and their sources,
+  for the folder it names, and with the rule that the project's own rules files win. It also lists the guardrails in
+  force. It says when the profile is out of date, when the guardrail settings are broken, and when the guardrails
+  can't run in this agent.
+- Hard-block guardrails in Claude Code, Codex, GitHub Copilot and VS Code's agent mode, from a new PreToolUse hook:
+  - in every project: committing secrets, and deleting or overwriting things outside the project;
+  - once a project has guardrail settings: pushing to protected branches, hand-editing generated files, and the
+    project's own rules;
+  - always: changing the guardrail settings without the person, including through a script the agent writes and
+    runs.
+
+  Each block says why and what to do instead, and there's no bypass. A file edit is judged by the project the file
+  is in, and a command by the folder it runs in. `tools/guard.mjs explain "<command>"` shows what would be blocked
+  and why. Not on Windows.
+- In Claude Code, a guardrail-settings change shows Claude Code's own approval prompt with Cartwright's reason. In
+  the other agents, and in Claude Code's `acceptEdits` and `bypassPermissions` modes, it's blocked with the command
+  for the person to run.
+- Starter guardrail settings in the overlay template (`templates/overlay/.cartwright/`): agents can't push to `main`
+  or `develop`, or hand-edit the overlay's build output. Existing overlays can copy the folder in.
+- Deterministic profile and guard tests at every test level and in CI (`npm run e2e:profile`, `npm run e2e:guard`),
+  covering every block in each agent's payload shape.
+- An AI development team for working on Cartwright, with the owner as team lead:
+  - `ba` (requirements), `architect` (design, decision records, reviews), `developer` and `tester` agents in
+    `.claude/agents/`;
+  - the process in `documentation/15-how-we-work.md` (gates for the brief and significant designs, asking instead
+    of guessing, engineering principles);
+  - a requirement brief template, a GitHub issue template, and decision records for the significant choices made
+    so far (`documentation/decisions/`).
 
 ### Changed
-- The AI development team process (decision record 0010) is accepted, and Cartwright adopts its own shipped
-  employees, profile and guardrails for its own development as each phase ships.
-- The `release-tester` agent is now `tester` and also proves each acceptance criterion of a change.
-- Official sources updated: b2c-developer-tooling 1.12.0 → 1.12.1; b2c-cli 2.5.1 → 2.6.0; storefront-next-template 1d553d1 → 6149218; spec-kit v1.1.2 → v1.1.3; graphify 0.9.82 → 0.9.89.
+- The first session in a project asks one combined line: study the project and save a profile, and connect a
+  client's project skills if it's for a client ("set up", "not now" or "never here"). It replaces the separate
+  client question. Earlier "not now", "no client" and "done" answers are kept, and "never here" stops asking in that
+  project.
+- Codex asks once, in `/hooks`, to approve Cartwright's hooks: the new guard and the updated session start. Both
+  hook entries are fixed from this release on, so later updates don't ask again.
+- `client-setup` (0.2.0) and `tools-without-install` (0.2.2) take what they need from the project's profile instead
+  of asking or opening the project's files.
+- The AI development team process (decision record 0010) is accepted. Cartwright adopts its own shipped employees,
+  profile and guardrails for its own development as each phase ships. This repo switches the released plugin on for
+  Claude Code and Copilot, so its own profile and guardrails apply to agents working here.
+- The `release-tester` agent is now `tester`, and it also proves each acceptance criterion of a change.
+- Test levels (decision record 0013, superseding 0009):
+  - patch and minor releases run the `minor` level, which drives Claude Code, Copilot CLI and Codex at the same time
+    through the grounding and guardrail scenarios;
+  - `major` adds the long setup conversations, including the first run;
+  - Codex runs through npx in a throwaway home, with its hooks' trust pre-seeded from hashes Codex itself reports
+    (`scripts/codex-trust.mjs`); `quick` and CI check those hashes still match the hooks;
+  - every level ends with one timing step, run alone, that reports a busy machine instead of failing.
+- Official sources updated: b2c-developer-tooling 1.12.0 → 1.12.1; b2c-cli 2.5.1 → 2.6.0; storefront-next-template
+  1d553d1 → 6149218; spec-kit v1.1.2 → v1.1.3; graphify 0.9.82 → 0.9.89.
 
 ### Fixed
-- The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of
-  the checkout, which the release step requires to be clean. A new check in `npm run check` catches the pattern.
-- Kit setup rejects malformed agent settings or Codex marketplace JSON before writing any kit files, naming the file to fix or remove.
-- Kit setup preserves disabled Codex plugins and reports how to enable them in `.codex/config.toml`.
-- `link` leaves foreign symlinks and existing files alone when creating or refreshing skills, consistently with pruning.
-- Tool-runner docs cover missing-runner and unknown-version exceptions; plans and runs explain why an older installed copy is used.
 - The plugin's session-start hook now runs in GitHub Copilot CLI. It never did, because the plugin's Copilot
   manifest didn't declare it, and Copilot only takes session-start context as JSON. Copilot users now get the
-  missing-tools note; the setup offer reaches Copilot too, but its model doesn't reliably ask it, so ask for
-  "set up this project's skills". The setup offer now comes before the tools note in every agent.
+  session notes. The setup offer reaches Copilot too (see Known issues).
+- The session-start notes now reach Codex. Codex accepts only JSON there, and dropped the plain text without saying
+  so.
+- The setup offer now comes before the tools note in every agent.
+- The weekly release no longer fails on its own temporary files: they go to the runner's temp folder instead of the
+  checkout, which the release step requires to be clean. A new check in `npm run check` catches the pattern.
+- Kit setup rejects malformed agent settings or Codex marketplace JSON before writing any kit files, and names the
+  file to fix or remove.
+- Kit setup keeps disabled Codex plugins disabled, and reports how to enable them in `.codex/config.toml`.
+- `link` leaves foreign symlinks and existing files alone when creating or refreshing skills, consistently with
+  pruning.
+- The tool runner's docs cover the missing-runner and unknown-version exceptions, and plans and runs explain why an
+  older installed copy is used.
 
+### Known issues
+- Claude Code 2.1.300 may skip the first-run setup offer and answer the first message directly (#53).
+- Copilot's model doesn't reliably open with the setup offer (#45).
+
+In both, ask the agent to "set up this project".
 ## [2.1.0] - 2026-10-09
 
 ### Added

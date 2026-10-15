@@ -17,11 +17,10 @@
 //                          (closed and the branch deleted afterwards unless --keep)
 //   --keep                 keep the work folder (and the pull request) for inspection
 // Needs git credentials that can read the core, overlay and client repos (and push, with --pr).
-import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, existsSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assert, harness, json, sh, which } from './e2e-lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -33,30 +32,15 @@ const ALIAS = opt('--alias', FX.alias);
 const UNKNOWN = opt('--unknown', FX.unknown);
 const REGISTRY = args.includes('--no-fixture-registry') ? null : opt('--registry', join(ROOT, FX.registry));
 const FAST = args.includes('--fast');
-// Real path for the work folder (macOS's tmpdir is behind a symlink); symlinked starts are tested on purpose below.
-const WORK = mkdtempSync(join(realpathSync(tmpdir()), 'cartwright-e2e-'));
-const HOME = join(WORK, 'home');
-mkdirSync(HOME);
-
-// A bare PATH: just the runtimes a developer must have. uv is a separate PATH for the steps that need it.
-const which = (c) => { const r = spawnSync('/usr/bin/which', [c], { encoding: 'utf8' }); return r.status === 0 ? r.stdout.trim() : null; };
-const binDir = (name, cmds) => { const d = join(WORK, name); mkdirSync(d); for (const c of cmds) if (which(c)) symlinkSync(which(c), join(d, c)); return d; };
-const BARE = `${binDir('bin-bare', ['node', 'npx', 'npm', 'git', 'gh'])}:/usr/bin:/bin`;
+// A throwaway work folder and home, and a bare PATH: just the runtimes a developer must have (e2e-lib.mjs).
+// uv is a separate PATH for the steps that need it.
+const { WORK, HOME, BARE, binDir, step, report } = harness('cartwright-e2e-');
 const WITH_UV = `${binDir('bin-uv', ['uv', 'uvx'])}:${BARE}`;
 // The throwaway home has no git or gh sign-in, so with GH_TOKEN set, git gets it straight from the
 // environment (the same way CI would); otherwise the machine's own git credentials apply.
 const gitAuth = process.env.GH_TOKEN ? { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '',
   GIT_CONFIG_KEY_1: 'credential.helper', GIT_CONFIG_VALUE_1: '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' } : {};
 const env = (path, extra = {}) => ({ ...process.env, ...gitAuth, HOME, PATH: path, NO_COLOR: '1', ...extra });
-const sh = (cmd, a, o = {}) => spawnSync(cmd, a, { encoding: 'utf8', timeout: 600000, ...o });
-
-const results = [];
-function step(name, fn) {
-  try { const detail = fn(); results.push({ name, ok: true, detail: detail || '' }); }
-  catch (e) { results.push({ name, ok: false, detail: String(e.message || e).split('\n').slice(0, 3).join(' ') }); }
-}
-const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
-const json = (r) => { assert(r.status === 0, `exit ${r.status}: ${(r.stderr || r.stdout || '').trim().slice(0, 300)}`); return JSON.parse(r.stdout); };
 
 // --- the plugin under test ----------------------------------------------------------------------------
 let PLUGIN, coreDir;
@@ -102,12 +86,16 @@ step('every agent manifest names the same plugin and version', () => {
   return `${c.name} ${c.version} (Claude Code, Codex, Copilot)`;
 });
 
-step('the Copilot manifest declares the hooks and skills (else Copilot runs no session-start hook)', () => {
+step('the Copilot manifest declares the hooks and skills, and the hooks file has the session-start and guard hooks', () => {
   const a = JSON.parse(readFileSync(join(PLUGIN, 'plugin.json'), 'utf8'));
   assert(!a.$schema, 'plugin.json is in Agent Plugins 1.0 form ($schema): Copilot loads no hooks from it');
   assert(a.hooks && existsSync(join(PLUGIN, a.hooks)), `hooks ${a.hooks ? `"${a.hooks}" not found` : 'not declared'}`);
-  assert(JSON.parse(readFileSync(join(PLUGIN, a.hooks), 'utf8')).hooks?.SessionStart, `${a.hooks} has no SessionStart hook`);
+  const hooks = JSON.parse(readFileSync(join(PLUGIN, a.hooks), 'utf8')).hooks || {};
+  assert(hooks.SessionStart, `${a.hooks} has no SessionStart hook`);
+  const pre = hooks.PreToolUse?.[0];
+  assert(pre && /\bBash\b.*\bEdit\b.*\bapply_patch\b/.test(pre.matcher) && /tools\/guard\.mjs" pre-tool-use/.test(pre.hooks?.[0]?.command || ''), `${a.hooks} has no PreToolUse guard hook`);
   assert(a.skills && existsSync(join(PLUGIN, a.skills, 'client-setup', 'SKILL.md')), `skills ${a.skills ? `"${a.skills}" isn't the skills folder` : 'not declared'}`);
+  assert(existsSync(join(PLUGIN, a.skills, 'project-profile', 'SKILL.md')), 'the project-profile skill the setup offer points to isn\'t shipped');
   assert(!a.mcpServers || existsSync(join(PLUGIN, a.mcpServers)), `mcpServers "${a.mcpServers}" not found`);
   return `hooks ${a.hooks}, skills ${a.skills}${a.mcpServers ? `, MCP ${a.mcpServers}` : ''}`;
 });
@@ -119,7 +107,7 @@ const empty = join(WORK, 'empty'); mkdirSync(empty);
 step('session start outside a project: names the missing tools, no setup offer', () => {
   const out = hook(empty);
   assert(/Not installed on this machine: b2c, specify, graphify/.test(out), `got: ${out.slice(0, 200) || '(nothing)'}`);
-  assert(!/isn't set up/.test(out), 'offered client setup outside a git repo');
+  assert(!/isn't set up|Reply set up/.test(out), 'offered setup outside a git repo');
   return 'tools note shown';
 });
 
@@ -163,11 +151,14 @@ step(`clone the client project (${CLIENT})`, () => {
   return 'cloned';
 });
 
-step('session start in the client project: offers client setup once', () => {
+// The offer's wording changed on purpose in phase 1 (E44): one combined line for the profile and client skills.
+const COMBINED = /Cartwright can study this project \(read-only\).*connect it to a client's project skills.*Reply set up, not now, or never here/;
+const PROFILE_ONLY = /Cartwright can study this project \(read-only\) and save a profile so I use its real commands and rules\. Reply set up, not now, or never here/;
+step('session start in the client project: offers the combined setup once', () => {
   const out = hook(clientDir);
-  assert(/isn't set up for client project skills/.test(out), `no setup offer; got: ${out.slice(0, 200) || '(nothing)'}`);
-  assert(/set up, not now, or no client/.test(out), 'answers missing from the offer');
-  return 'offer shown';
+  assert(COMBINED.test(out), `no combined offer; got: ${out.slice(0, 200) || '(nothing)'}`);
+  assert(/follow the project-profile skill/.test(out) && /remember never/.test(out), 'the replies are missing from the offer');
+  return 'combined offer shown';
 });
 
 step(`lookup "${UNKNOWN}" finds nothing`, () => {
@@ -204,11 +195,11 @@ step('the kit is added, recognised, and adding it again changes nothing', () => 
   return a.changed.join(', ');
 });
 
-step('session start after the kit: no setup offer', () => {
+step('session start after the kit: only the profile offer (the client is known)', () => {
   assert(found, 'skipped: no client found');
   const out = hook(clientDir);
-  assert(!/isn't set up/.test(out), 'still offering setup');
-  return out.trim() ? 'only the tools note' : 'silent';
+  assert(PROFILE_ONLY.test(out) && !/client's project skills/.test(out), `expected the profile-only offer; got: ${out.slice(0, 200)}`);
+  return 'profile-only offer';
 });
 
 // Every plugin source the kit points at must actually resolve to the right plugin.
@@ -254,13 +245,16 @@ step('Codex marketplace: each git-subdir source holds a Codex plugin of that nam
   return m.plugins.map((p) => `${p.name}@${m.name}`).join(', ');
 });
 
-step('"no client" is remembered: the next session doesn\'t ask', () => {
+step('"no client" is remembered: the client question isn\'t asked again; "never here" stops the offer', () => {
   const other = join(WORK, 'other-project'); mkdirSync(other);
   sh('git', ['init', '-q'], { cwd: other, env: env(BARE) });
-  assert(/isn't set up/.test(hook(other)), 'expected an offer before answering');
+  assert(COMBINED.test(hook(other)), 'expected the combined offer before answering');
   json(node(SETUP(), ['remember', 'no-client'], BARE, { cwd: other }));
-  assert(!/isn't set up/.test(hook(other)), 'asked again after "no client"');
-  return 'asked once, then quiet';
+  const after = hook(other);
+  assert(PROFILE_ONLY.test(after) && !/client's project skills/.test(after), 'asked about a client again after "no client"');
+  json(node(SETUP(), ['remember', 'never'], BARE, { cwd: other }));
+  assert(!/Reply set up/.test(hook(other)), 'offered again after "never here"');
+  return 'combined, then profile-only, then nothing';
 });
 
 let prUrl, prBranch;
@@ -284,10 +278,4 @@ if (args.includes('--pr')) {
 if (prUrl && !args.includes('--keep')) {
   sh('gh', ['pr', 'close', prUrl, '--delete-branch', '--comment', 'Closed by scripts/e2e.mjs.'], { env: { ...process.env } });
 }
-console.log(`## Cartwright end-to-end test\n`);
-console.log('| | Step | Result |\n|---|---|---|');
-for (const r of results) console.log(`| ${r.ok ? '✅' : '❌'} | ${r.name} | ${r.detail.replace(/\|/g, '\\|')} |`);
-const failed = results.filter((r) => !r.ok).length;
-console.log(`\n${results.length - failed}/${results.length} passed${args.includes('--keep') ? `; work folder kept: ${WORK}` : ''}`);
-if (!args.includes('--keep')) rmSync(WORK, { recursive: true, force: true });
-process.exit(failed ? 1 : 0);
+process.exit(await report('Cartwright end-to-end test', { keep: args.includes('--keep') }));

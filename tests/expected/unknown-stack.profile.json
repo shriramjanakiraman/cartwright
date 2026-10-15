@@ -1,0 +1,78 @@
+{
+  "cartwright": "profile",
+  "conventions": {
+    "adrs": {
+      "status": "not found"
+    },
+    "prTemplate": {
+      "status": "not found"
+    },
+    "rulesFiles": {
+      "status": "not found"
+    },
+    "specKit": {
+      "status": "not found"
+    },
+    "tracker": {
+      "status": "not found"
+    }
+  },
+  "facts": {
+    "commands": {
+      "build": {
+        "status": "not found"
+      },
+      "lint": {
+        "status": "not found"
+      },
+      "test": {
+        "status": "not found"
+      }
+    },
+    "frameworks": {
+      "status": "not found"
+    },
+    "languages": {
+      "status": "not found"
+    },
+    "layout": {
+      "status": "not found"
+    },
+    "node": {
+      "status": "not found"
+    },
+    "otherScripts": {
+      "status": "not found"
+    },
+    "packageManager": {
+      "status": "not found"
+    },
+    "platform": {
+      "status": "not found"
+    },
+    "protectedBranchCandidates": {
+      "source": "git: refs/remotes/origin/HEAD, refs/remotes/origin/develop",
+      "status": "found",
+      "value": [
+        "develop",
+        "main"
+      ]
+    },
+    "python": {
+      "status": "not found"
+    },
+    "remoteHost": {
+      "source": "git: remote origin",
+      "status": "found",
+      "value": "local"
+    }
+  },
+  "guidance": {
+    "avoidSkills": [],
+    "preferSkills": []
+  },
+  "suggestions": {
+    "generated": []
+  },
+  "version": 1
+}

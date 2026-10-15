@@ -12,6 +12,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { ROOT, walkTextFiles, fail } from './lib.mjs';
+import { SECRET_RULES } from './secret-rules.mjs';
 
 const args = process.argv.slice(2);
 const denylists = [];
@@ -24,15 +25,6 @@ for (let i = 0; i < args.length; i++) {
 }
 const defaultDeny = resolve(ROOT, '.scrub/denylist.local.txt'); // optional, git-ignored
 if (existsSync(defaultDeny)) denylists.push(defaultDeny);
-
-const SECRET_RULES = [
-  ['private key', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
-  ['GitHub token', /\bgh[pousr]_[A-Za-z0-9]{30,}\b/],
-  ['AWS access key', /\bAKIA[0-9A-Z]{16}\b/],
-  ['Slack token', /\bxox[abpr]-[A-Za-z0-9-]{10,}\b/],
-  ['JWT', /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/],
-  ['hard-coded secret', /\b(api[_-]?key|client[_-]?secret|secret|password|passwd|token)\b["']?\s*[:=]\s*["'][^"'<>{}$\s]{8,}["']/i],
-];
 
 const LEAK_RULES = [
   ['B2C instance host', /\b[a-z0-9-]+\.(dx\.)?commercecloud\.salesforce\.com\b/i],

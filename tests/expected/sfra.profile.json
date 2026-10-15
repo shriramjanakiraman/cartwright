@@ -1,0 +1,150 @@
+{
+  "cartwright": "profile",
+  "conventions": {
+    "adrs": {
+      "status": "not found"
+    },
+    "prTemplate": {
+      "path": ".github/pull_request_template.md",
+      "status": "found"
+    },
+    "rulesFiles": {
+      "status": "found",
+      "value": [
+        {
+          "path": "AGENTS.md"
+        }
+      ]
+    },
+    "specKit": {
+      "status": "not found"
+    },
+    "tracker": {
+      "status": "not found"
+    }
+  },
+  "facts": {
+    "commands": {
+      "build": {
+        "defined": "npm run compile:js && npm run compile:scss",
+        "how": "defined",
+        "run": "npm run build",
+        "source": "package.json#scripts.build",
+        "status": "found"
+      },
+      "lint": {
+        "status": "not found"
+      },
+      "test": {
+        "defined": "sgmf-scripts --test test/unit/**/*.js",
+        "how": "defined",
+        "run": "npm test",
+        "source": "package.json#scripts.test",
+        "status": "found"
+      }
+    },
+    "frameworks": {
+      "status": "found",
+      "value": [
+        {
+          "name": "sgmf-scripts",
+          "source": "package.json#devDependencies",
+          "version": "^2.4.2"
+        }
+      ]
+    },
+    "languages": {
+      "status": "found",
+      "value": [
+        {
+          "source": "package.json",
+          "value": "JavaScript"
+        },
+        {
+          "source": "cartridges/app_sample/cartridge/templates",
+          "value": "ISML"
+        }
+      ]
+    },
+    "layout": {
+      "source": "cartridges/, test/",
+      "status": "found",
+      "value": {
+        "cartridges": [
+          "app_sample",
+          "int_sample_payments"
+        ],
+        "testDirs": [
+          "test"
+        ]
+      }
+    },
+    "node": {
+      "kind": "pinned",
+      "source": ".nvmrc",
+      "status": "found",
+      "value": "18.19.0"
+    },
+    "otherScripts": {
+      "source": "package.json#scripts",
+      "status": "found",
+      "value": [
+        "compile:js",
+        "compile:scss",
+        "upload"
+      ]
+    },
+    "packageManager": {
+      "source": "package-lock.json",
+      "status": "found",
+      "value": "npm"
+    },
+    "platform": {
+      "flavour": "sfra",
+      "source": "package.json#paths.base",
+      "status": "found",
+      "value": "Salesforce B2C Commerce"
+    },
+    "protectedBranchCandidates": {
+      "source": "git: refs/remotes/origin/HEAD, refs/remotes/origin/develop",
+      "status": "found",
+      "value": [
+        "develop",
+        "main"
+      ]
+    },
+    "python": {
+      "status": "not found"
+    },
+    "remoteHost": {
+      "source": "git: remote origin",
+      "status": "found",
+      "value": "local"
+    }
+  },
+  "guidance": {
+    "avoidSkills": [
+      "sfnext-*"
+    ],
+    "preferSkills": [
+      "b2c-controllers",
+      "b2c-forms",
+      "b2c-isml"
+    ]
+  },
+  "suggestions": {
+    "generated": [
+      {
+        "path": "cartridges/*/cartridge/static/default/css/**",
+        "regenerate": "npm run compile:scss",
+        "source": "package.json#scripts.compile:scss"
+      },
+      {
+        "path": "cartridges/*/cartridge/static/default/js/**",
+        "regenerate": "npm run compile:js",
+        "source": "package.json#scripts.compile:js"
+      }
+    ]
+  },
+  "version": 1
+}
