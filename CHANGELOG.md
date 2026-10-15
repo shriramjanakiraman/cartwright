@@ -4,6 +4,8 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-15
+
 ### Added
 - A project profile, for projects of any stack. The plugin's `tools/profile.mjs` studies a project read-only and
   records what it finds, each fact with the file it came from, or "not found" rather than a guess:
