@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "checkedAt": "2026-10-15",
+  "checkedAt": "2026-10-17",
   "sources": {
     "b2c-developer-tooling": {
       "type": "github-release",
@@ -105,7 +105,7 @@
           "sfnext-theming"
         ]
       },
-      "version": "1.12.1",
+      "version": "1.12.2",
       "mirror": {
         "license": "Apache-2.0",
         "excludeSets": [
@@ -145,7 +145,7 @@
       "type": "github-release",
       "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
       "tagPrefix": "@salesforce/b2c-cli@",
-      "version": "2.7.1",
+      "version": "2.8.0",
       "install": "npm install -g @salesforce/b2c-cli  (or run it without installing: node <plugin>/tools/run.mjs b2c …)",
       "usedBy": [
         "tools-without-install"
@@ -185,7 +185,7 @@
       "type": "github-branch",
       "repo": "SalesforceCommerceCloud/storefront-next-template",
       "ref": "main",
-      "sha": "8babfe5c239339a0f11d797af073b0f2b4f95633",
+      "sha": "945578afad0a64203dce6bc332e8111c46ed6688",
       "install": "Ships inside projects created from the template",
       "skillPaths": [
         {
@@ -204,7 +204,7 @@
     "spec-kit": {
       "type": "github-release",
       "repo": "github/spec-kit",
-      "version": "v1.2.0",
+      "version": "v1.2.1",
       "install": "uv tool install specify-cli  (then: specify init --here --integration <agent>)",
       "usedBy": [
         "speckit-install",
@@ -226,7 +226,7 @@
     "graphify": {
       "type": "pypi",
       "package": "graphifyy",
-      "version": "0.9.91",
+      "version": "0.9.92",
       "install": "uv tool install graphifyy  (installs the graphify CLI and its agent skill)",
       "usedBy": [
         "repo-orientation",
