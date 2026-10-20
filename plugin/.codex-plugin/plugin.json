@@ -1,6 +1,6 @@
 {
   "name": "cartwright",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Shared, agent-agnostic skills for delivery teams, on any stack. One install gives agents a profile of each project (its real commands and rules), guardrails that block risky actions in Claude Code, Codex and Copilot, our core skills, and every official Salesforce B2C Commerce skill with the B2C MCP server.",
   "author": {
     "name": "Shriram Janakiraman"
