@@ -6,6 +6,7 @@ All notable changes to what users receive. Newest first.
 
 ### Changed
 - Official sources updated: b2c-developer-tooling 1.12.1 → 1.12.2; b2c-cli 2.7.1 → 2.8.0; storefront-next-template 8babfe5 → 945578a; spec-kit v1.2.0 → v1.2.1; graphify 0.9.91 → 0.9.92.
+- Official sources updated: b2c-developer-tooling 1.12.2 → 1.12.5; b2c-cli 2.8.0 → 2.8.4; storefront-next-template 945578a → f3bb4f7; spec-kit v1.2.1 → v1.2.3; graphify 0.9.92 → 0.9.95.
 
 ## [2.3.0] - 2026-10-15
 
