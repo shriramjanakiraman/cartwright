@@ -4,8 +4,14 @@ All notable changes to what users receive. Newest first.
 
 ## [Unreleased]
 
+### Added
+- Official skills from b2c-developer-tooling (b2c-cli): `b2c-replication`, `b2c-storefronts`.
+- Official skills from b2c-developer-tooling (b2c-ops): `b2c-integration-triage`, `b2c-performance-triage`.
+- Official skills from b2c-dx-mcp (b2c-dx-mcp): `b2c-mcp-claude-artifacts`.
+
 ### Changed
 - Official sources updated: b2c-developer-tooling 1.12.1 → 1.12.2; b2c-cli 2.7.1 → 2.8.0; storefront-next-template 8babfe5 → 945578a; spec-kit v1.2.0 → v1.2.1; graphify 0.9.91 → 0.9.92.
+- Official sources updated: b2c-developer-tooling 1.12.2 → 1.13.0; b2c-dx-mcp 3.4.1 → 3.9.0; b2c-cli 2.8.0 → 2.10.2; storefront-next-template 945578a → 8cd1342; spec-kit v1.2.1 → v1.2.5; graphify 0.9.92 → 0.9.99.
 
 ## [2.3.0] - 2026-10-15
 
