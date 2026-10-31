@@ -1,7 +1,7 @@
 {
-  "b2c-developer-tooling": "1.12.2",
-  "b2c-dx-mcp": "3.4.1",
-  "b2c-cli": "2.8.0",
-  "spec-kit": "v1.2.1",
-  "graphify": "0.9.92"
+  "b2c-developer-tooling": "1.13.0",
+  "b2c-dx-mcp": "3.9.0",
+  "b2c-cli": "2.10.2",
+  "spec-kit": "v1.2.5",
+  "graphify": "0.9.99"
 }

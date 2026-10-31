@@ -3,7 +3,7 @@
   "sources": {
     "b2c-developer-tooling": {
       "repo": "SalesforceCommerceCloud/b2c-developer-tooling",
-      "ref": "b2c-agent-plugins@1.12.2",
+      "ref": "b2c-agent-plugins@1.13.0",
       "license": "Apache-2.0",
       "skills": {
         "b2c": [
@@ -44,19 +44,23 @@
           "b2c-logs",
           "b2c-metrics",
           "b2c-mrt",
+          "b2c-replication",
           "b2c-sandbox",
           "b2c-scapi-custom",
           "b2c-scapi-schemas",
           "b2c-site-import-export",
           "b2c-sites",
           "b2c-slas",
+          "b2c-storefronts",
           "b2c-webdav"
         ],
         "b2c-ops": [
           "b2c-checkout-triage",
           "b2c-edge-traffic-triage",
+          "b2c-integration-triage",
           "b2c-job-health",
           "b2c-order-failure-triage",
+          "b2c-performance-triage",
           "b2c-production-triage"
         ],
         "b2c-python-sdk": [
