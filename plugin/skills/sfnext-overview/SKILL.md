@@ -39,6 +39,7 @@ description: >-
 | Meta tags, JSON-LD, canonical URLs, seoRoutes | `storefront-next:sfnext-seo` |
 | Shopper Context, order management, guest order lookup, email cartridge, shipped extensions | `storefront-next:sfnext-commerce-features` |
 | Lint, typecheck, pre-merge checks | `storefront-next:sfnext-quality-gates` |
+| Audit the deployed storefront before launch (performance, SEO, security, best practices) | `storefront-next:sfnext-site-audit` |
 | Accessibility checks and fixes | `storefront-next:sfnext-accessibility` |
 
 Figma-to-Page-Designer work lives in the separate `figma-to-sfnext-pagedesigner` plugin.
@@ -78,7 +79,7 @@ Use `b2c` (`npx @salesforce/b2c-cli` if not installed) for platform work around 
 
 ## MCP tools (b2c-dx-mcp, STOREFRONTNEXT toolset)
 
-`mrt_bundle_push`, `mrt_logs_watch`, `scapi_search`, `scapi_execute`, `scapi_snippet_save`, `scapi_schemas_list`, `scapi_custom_apis_get_status`, plus the docs tools `docs_search`, `docs_read`, `docs_list`, `docs_schema_search`, `docs_schema_read`, `docs_schema_list`. Availability depends on how the MCP server was started; list tools in your client.
+`mrt_logs_watch`, `scapi_search`, `scapi_execute`, `scapi_snippet_save`, `scapi_schemas_list`, `scapi_custom_apis_get_status`, plus the docs tools `docs_search`, `docs_read`, `docs_list`, `docs_schema_search`, `docs_schema_read`, `docs_schema_list`, `validate_xml_schema`. Availability depends on how the MCP server was started; list tools in your client.
 
 ## Docs search fallback
 

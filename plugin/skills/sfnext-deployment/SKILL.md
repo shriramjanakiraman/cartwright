@@ -50,7 +50,7 @@ pnpm push -- -m "Release 42" -e staging --wait       # deploy to an env and wait
 
 Put `MRT_PROJECT` and `MRT_TARGET` in `.env` for local pushes. Store `MRT_API_KEY` in your shell or CI secret store, not in committed files. Flags and other commands: `storefront-next:sfnext-project-setup` `references/SFNEXT-CLI.md`. Inspect without deploying: `pnpm sfnext create-bundle -d . -o .bundle`.
 
-Bundle history, rolling back to an earlier bundle, and environment management are generic MRT tasks: `b2c mrt bundle history|list|deploy`, see `b2c-cli:b2c-mrt`. Live logs: MCP `mrt_logs_watch` / `mrt_logs_watch_poll`, or `b2c mrt tail-logs`. MCP `mrt_bundle_push` can also push a bundle.
+Bundle history, rolling back to an earlier bundle, and environment management are generic MRT tasks: `b2c mrt bundle history|list|deploy`, see `b2c-cli:b2c-mrt`. Live logs: MCP `mrt_logs_watch` / `mrt_logs_watch_poll`, or `b2c mrt tail-logs`.
 
 ## Environment variables on MRT
 
@@ -94,6 +94,7 @@ The project ships `.github/workflows/deploy.yml`: on push to the `latest` branch
 7. `url.seoRoutes` has an entry per active site if enabled (protected: needs a rebuild).
 8. Security headers/CSP and Turnstile reviewed (`storefront-next:sfnext-security`); robots and sitemap handled (`storefront-next:sfnext-seo`).
 9. Smoke test after deploy: home, PLP, PDP, cart, login, checkout, and a Page Designer page.
+10. Run a site audit of the deployed home, PLP and PDP (`storefront-next:sfnext-site-audit`) and fix what it finds.
 
 ## Upgrading a project
 
@@ -119,6 +120,7 @@ Your project records `storefrontNext.templateRelease`, `templateVersion`, and `m
 - `storefront-next:sfnext-page-designer` - Decorators and cartridge metadata
 - `storefront-next:sfnext-performance` - Bundle size and Lighthouse
 - `storefront-next:sfnext-quality-gates` - Pre-push lint/type/test gates
+- `storefront-next:sfnext-site-audit` - Pre-launch audit of the deployed storefront
 - `b2c-cli:b2c-mrt` - MRT projects, environments, bundles, env vars, redirects, logs
 - `b2c-cli:b2c-code` - Code version and cartridge deploy with the b2c CLI
 
